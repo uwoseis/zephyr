@@ -3,6 +3,38 @@ import SimPEG
 from SimPEG import Utils
 import scipy.sparse as sp
 
+# NOT CONVINCED THIS WORKS
+def eliminateFreeSurface (diagonals, freesurf):
+    keys = diagonals.keys()
+
+    if freesurf[0]:
+        for key in keys:
+            if key is 'BE':
+                diagonals[key][-1,:] = -1.
+            else:
+                diagonals[key][-1,:] = 0.
+
+    if freesurf[1]:
+        for key in keys:
+            if key is 'BE':
+                diagonals[key][:,-1] = -1.
+            else:
+                diagonals[key][:,-1] = 0.
+
+    if freesurf[2]:
+        for key in keys:
+            if key is 'BE':
+                diagonals[key][0,:] = -1.
+            else:
+                diagonals[key][0,:] = 0.
+
+    if freesurf[3]:
+        for key in keys:
+            if key is 'BE':
+                diagonals[key][:,0] = -1.
+            else:
+                diagonals[key][:,0] = 0.
+
 def initHelmholtzNinePointCE (sc):
 
     # Set up SimPEG mesh
@@ -121,6 +153,10 @@ def initHelmholtzNinePointCE (sc):
         'FF':   dcoef*kPE + acoef*f1,
         'CF':   ecoef*kPP + bcoef*c2,
     }
+
+    # NOT CONVINCED THIS WORKS
+    if 'freeSurf' in sc:
+        eliminateFreeSurface(diagonals, sc['freeSurf'])
 
     diagonals = np.array([diagonals[key].ravel() for key in keys])
     offsets = [offsets[key] for key in keys]
