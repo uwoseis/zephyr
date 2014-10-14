@@ -4,7 +4,7 @@ from SimPEG import Utils
 import scipy.sparse as sp
 
 # NOT CONVINCED THIS WORKS
-def eliminateFreeSurface (diagonals, freesurf):
+def setupFreeSurface (diagonals, freesurf):
     keys = diagonals.keys()
 
     if freesurf[0]:
@@ -73,9 +73,10 @@ def initHelmholtzNinePointCE (sc):
     # Visual key for finite-difference terms
     # (per Pratt and Worthington, 1990)
     #
-    # AD DD CD
-    # AA BE CC
-    # AF FF CF
+    #   This         Original
+    # AF FF CF  vs.  AD DD CD
+    # AA BE CC  vs.  AA BE CC
+    # AD DD CD  vs.  AF FF CF
 
     # Set of keys to index the dictionaries
     keys = ['AD', 'DD', 'CD', 'AA', 'BE', 'CC', 'AF', 'FF', 'CF']
@@ -94,31 +95,33 @@ def initHelmholtzNinePointCE (sc):
     }
 
     # Horizontal, vertical and diagonal geometry terms
-    dxx = sc['dx']**2
-    dzz = sc['dz']**2
-    dxz = sc['dx']*sc['dz']*2
+    dx  = sc['dx']
+    dz  = sc['dz']
+    dxx = dx**2
+    dzz = dz**2
+    dxz = 2*dx*dz
 
     # Buoyancies
-    bMM = 1. / rho[0:-2,0:-2] # top    left
-    bME = 1. / rho[0:-2,1:-1] # top    centre
-    bMP = 1. / rho[0:-2,2:  ] # top    centre
+    bMM = 1. / rho[0:-2,0:-2] # bottom left
+    bME = 1. / rho[0:-2,1:-1] # bottom centre
+    bMP = 1. / rho[0:-2,2:  ] # bottom centre
     bEM = 1. / rho[1:-1,0:-2] # middle left
     bEE = 1. / rho[1:-1,1:-1] # middle centre
     bEP = 1. / rho[1:-1,2:  ] # middle right
-    bPM = 1. / rho[2:  ,0:-2] # bottom left
-    bPE = 1. / rho[2:  ,1:-1] # bottom centre
-    bPP = 1. / rho[2:  ,2:  ] # bottom right
+    bPM = 1. / rho[2:  ,0:-2] # top    left
+    bPE = 1. / rho[2:  ,1:-1] # top    centre
+    bPP = 1. / rho[2:  ,2:  ] # top    right
 
     # k^2
-    kMM = K[0:-2,0:-2] # top    left
-    kME = K[0:-2,1:-1] # top    centre
-    kMP = K[0:-2,2:  ] # top    centre
+    kMM = K[0:-2,0:-2] # bottom left
+    kME = K[0:-2,1:-1] # bottom centre
+    kMP = K[0:-2,2:  ] # bottom centre
     kEM = K[1:-1,0:-2] # middle left
     kEE = K[1:-1,1:-1] # middle centre
     kEP = K[1:-1,2:  ] # middle right
-    kPM = K[2:  ,0:-2] # bottom left
-    kPE = K[2:  ,1:-1] # bottom centre
-    kPP = K[2:  ,2:  ] # bottom right
+    kPM = K[2:  ,0:-2] # top    left
+    kPE = K[2:  ,1:-1] # top    centre
+    kPP = K[2:  ,2:  ] # top    right
 
     # Reciprocal of the mass in each diagonal on the cell grid
     a1  = (bEE + bEM) / (2 * dxx)
@@ -156,7 +159,7 @@ def initHelmholtzNinePointCE (sc):
 
     # NOT CONVINCED THIS WORKS
     if 'freeSurf' in sc:
-        eliminateFreeSurface(diagonals, sc['freeSurf'])
+        setupFreeSurface(diagonals, sc['freeSurf'])
 
     diagonals = np.array([diagonals[key].ravel() for key in keys])
     offsets = [offsets[key] for key in keys]
