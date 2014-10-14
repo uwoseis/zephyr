@@ -3,37 +3,41 @@ import SimPEG
 from SimPEG import Utils
 import scipy.sparse as sp
 
+DEFAULTBOUNDS = [False, False, False, False]
+
 # NOT CONVINCED THIS WORKS
-def setupFreeSurface (diagonals, freesurf):
+def setupBoundary (diagonals, freeSurf):
+
     keys = diagonals.keys()
+    pickDiag = lambda x: -1. if freeSurf[x] else 1.
 
-    if freesurf[0]:
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][-1,:] = -1.
-            else:
-                diagonals[key][-1,:] = 0.
+    # Left
+    for key in keys:
+        if key is 'BE':
+            diagonals[key][:,0] = pickDiag(3)
+        else:
+            diagonals[key][:,0] = 0.
 
-    if freesurf[1]:
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][:,-1] = -1.
-            else:
-                diagonals[key][:,-1] = 0.
+    # Right
+    for key in keys:
+        if key is 'BE':
+            diagonals[key][:,-1] = pickDiag(1)
+        else:
+            diagonals[key][:,-1] = 0.
 
-    if freesurf[2]:
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][0,:] = -1.
-            else:
-                diagonals[key][0,:] = 0.
+    # Bottom
+    for key in keys:
+        if key is 'BE':
+            diagonals[key][0,:] = pickDiag(2)
+        else:
+            diagonals[key][0,:] = 0.
 
-    if freesurf[3]:
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][:,0] = -1.
-            else:
-                diagonals[key][:,0] = 0.
+    # Top
+    for key in keys:
+        if key is 'BE':
+            diagonals[key][-1,:] = pickDiag(0)
+        else:
+            diagonals[key][-1,:] = 0.
 
 def initHelmholtzNinePointCE (sc):
 
@@ -159,7 +163,9 @@ def initHelmholtzNinePointCE (sc):
 
     # NOT CONVINCED THIS WORKS
     if 'freeSurf' in sc:
-        setupFreeSurface(diagonals, sc['freeSurf'])
+        setupBoundary(diagonals, sc['freeSurf'])
+    else:
+        setupBoundary(diagonals, DEFAULTBOUNDS)
 
     diagonals = np.array([diagonals[key].ravel() for key in keys])
     offsets = [offsets[key] for key in keys]
