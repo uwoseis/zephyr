@@ -127,15 +127,27 @@ def initHelmholtzNinePointCE (sc):
     kPE = K[2:  ,1:-1] # top    centre
     kPP = K[2:  ,2:  ] # top    right
 
+    # Initialize outside edges
+    a2  = bEE.copy() / dxz
+    d1  = bEE.copy() / dzz
+    d2  = bEE.copy() / dxz
+    a1  = bEE.copy() / dxx
+    # ... middle
+    c1  = bEE.copy() / dxx
+    f2  = bEE.copy() / dxz
+    f1  = bEE.copy() / dzz
+    c2  = bEE.copy() / dxz
+
     # Reciprocal of the mass in each diagonal on the cell grid
-    a1  = (bEE + bEM) / (2 * dxx)
-    c1  = (bEE + bEP) / (2 * dxx)
-    d1  = (bEE + bME) / (2 * dzz)
-    f1  = (bEE + bPE) / (2 * dzz)
-    a2  = (bEE + bMM) / (2 * dxz)
-    c2  = (bEE + bPP) / (2 * dxz)
-    d2  = (bEE + bMP) / (2 * dxz)
-    f2  = (bEE + bPM) / (2 * dxz)
+    a2[1:  ,1:  ]  = (bEE[1:  ,1:  ] + bMM[1:  ,1:  ]) / (2 * dxz)
+    d1[1:  , :  ]  = (bEE[1:  , :  ] + bME[1:  , :  ]) / (2 * dzz)
+    d2[1:  , :-1]  = (bEE[1:  , :-1] + bMP[1:  , :-1]) / (2 * dxz)
+    a1[ :  ,1:  ]  = (bEE[ :  ,1:  ] + bEM[ :  ,1:  ]) / (2 * dxx)
+    # ... middle
+    c1[ :  , :-1]  = (bEE[ :  , :-1] + bEP[ :  , :-1]) / (2 * dxx)
+    f2[ :-1,1:  ]  = (bEE[ :-1,1:  ] + bPM[ :-1,1:  ]) / (2 * dxz)
+    f1[ :-1, :  ]  = (bEE[ :-1, :  ] + bPE[ :-1, :  ]) / (2 * dzz)
+    c2[ :-1, :-1]  = (bEE[ :-1, :-1] + bPP[ :-1, :-1]) / (2 * dxz)
 
     # 9-point fd star
     acoef = 0.5461
