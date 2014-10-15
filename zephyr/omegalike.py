@@ -72,7 +72,9 @@ def initHelmholtzNinePointCE (sc):
     omega = 2 * np.pi * sc['freq']
     c = np.pad(c, pad_width=1, mode='edge')
     rho = np.pad(rho, pad_width=1, mode='edge')
-    K = omega**2 / c**2
+
+    # Model parameter M
+    M = omega**2 / (c**2 * rho)
 
     # Visual key for finite-difference terms
     # (per Pratt and Worthington, 1990)
@@ -116,38 +118,38 @@ def initHelmholtzNinePointCE (sc):
     bPE = 1. / rho[2:  ,1:-1] # top    centre
     bPP = 1. / rho[2:  ,2:  ] # top    right
 
-    # k^2
-    kMM = K[0:-2,0:-2] # bottom left
-    kME = K[0:-2,1:-1] # bottom centre
-    kMP = K[0:-2,2:  ] # bottom centre
-    kEM = K[1:-1,0:-2] # middle left
-    kEE = K[1:-1,1:-1] # middle centre
-    kEP = K[1:-1,2:  ] # middle right
-    kPM = K[2:  ,0:-2] # top    left
-    kPE = K[2:  ,1:-1] # top    centre
-    kPP = K[2:  ,2:  ] # top    right
+    # M = omega^2/(c^2 . rho)
+    mMM = M[0:-2,0:-2] # bottom left
+    mME = M[0:-2,1:-1] # bottom centre
+    mMP = M[0:-2,2:  ] # bottom centre
+    mEM = M[1:-1,0:-2] # middle left
+    mEE = M[1:-1,1:-1] # middle centre
+    mEP = M[1:-1,2:  ] # middle right
+    mPM = M[2:  ,0:-2] # top    left
+    mPE = M[2:  ,1:-1] # top    centre
+    mPP = M[2:  ,2:  ] # top    right
 
     # Initialize outside edges
-    a2  = bEE.copy() / dxz
-    d1  = bEE.copy() / dzz
-    d2  = bEE.copy() / dxz
-    a1  = bEE.copy() / dxx
+    cMM = bEE.copy() / dxz # a2
+    cME = bEE.copy() / dzz # d1
+    cMP = bEE.copy() / dxz # d2
+    cEM = bEE.copy() / dxx # a1
     # ... middle
-    c1  = bEE.copy() / dxx
-    f2  = bEE.copy() / dxz
-    f1  = bEE.copy() / dzz
-    c2  = bEE.copy() / dxz
+    cEP = bEE.copy() / dxx # c1
+    cPM = bEE.copy() / dxz # f2
+    cPE = bEE.copy() / dzz # f1
+    cPP = bEE.copy() / dxz # c2
 
     # Reciprocal of the mass in each diagonal on the cell grid
-    a2[1:  ,1:  ]  = (bEE[1:  ,1:  ] + bMM[1:  ,1:  ]) / (2 * dxz)
-    d1[1:  , :  ]  = (bEE[1:  , :  ] + bME[1:  , :  ]) / (2 * dzz)
-    d2[1:  , :-1]  = (bEE[1:  , :-1] + bMP[1:  , :-1]) / (2 * dxz)
-    a1[ :  ,1:  ]  = (bEE[ :  ,1:  ] + bEM[ :  ,1:  ]) / (2 * dxx)
+    cMM[1:  ,1:  ]  = (bEE[1:  ,1:  ] + bMM[1:  ,1:  ]) / (2 * dxz) # a2
+    cME[1:  , :  ]  = (bEE[1:  , :  ] + bME[1:  , :  ]) / (2 * dzz) # d1
+    cMP[1:  , :-1]  = (bEE[1:  , :-1] + bMP[1:  , :-1]) / (2 * dxz) # d2
+    cEM[ :  ,1:  ]  = (bEE[ :  ,1:  ] + bEM[ :  ,1:  ]) / (2 * dxx) # a1
     # ... middle
-    c1[ :  , :-1]  = (bEE[ :  , :-1] + bEP[ :  , :-1]) / (2 * dxx)
-    f2[ :-1,1:  ]  = (bEE[ :-1,1:  ] + bPM[ :-1,1:  ]) / (2 * dxz)
-    f1[ :-1, :  ]  = (bEE[ :-1, :  ] + bPE[ :-1, :  ]) / (2 * dzz)
-    c2[ :-1, :-1]  = (bEE[ :-1, :-1] + bPP[ :-1, :-1]) / (2 * dxz)
+    cEP[ :  , :-1]  = (bEE[ :  , :-1] + bEP[ :  , :-1]) / (2 * dxx) # c1
+    cPM[ :-1,1:  ]  = (bEE[ :-1,1:  ] + bPM[ :-1,1:  ]) / (2 * dxz) # f2
+    cPE[ :-1, :  ]  = (bEE[ :-1, :  ] + bPE[ :-1, :  ]) / (2 * dzz) # f1
+    cPP[ :-1, :-1]  = (bEE[ :-1, :-1] + bPP[ :-1, :-1]) / (2 * dxz) # c2
 
     # 9-point fd star
     acoef = 0.5461
@@ -162,15 +164,15 @@ def initHelmholtzNinePointCE (sc):
     # ecoef = 0.0
 
     diagonals = {
-        'AD':   ecoef*kMM + bcoef*a2,
-        'DD':   dcoef*kME + acoef*d1,
-        'CD':   ecoef*kMP + bcoef*d2,
-        'AA':   dcoef*kEM + acoef*a1,
-        'BE':   ccoef*kEE - acoef*(a1+c1+d1+f1) - bcoef*(a2+c2+d2+f2),
-        'CC':   dcoef*kEP + acoef*c1,
-        'AF':   ecoef*kPM + bcoef*f2,
-        'FF':   dcoef*kPE + acoef*f1,
-        'CF':   ecoef*kPP + bcoef*c2,
+        'AD':   ecoef*mMM + bcoef*cMM,
+        'DD':   dcoef*mME + acoef*cME,
+        'CD':   ecoef*mMP + bcoef*cMP,
+        'AA':   dcoef*mEM + acoef*cEM,
+        'BE':   ccoef*mEE - acoef*(cEM+cEP+cME+cPE) - bcoef*(cMM+cPP+cMP+cPM),
+        'CC':   dcoef*mEP + acoef*cEP,
+        'AF':   ecoef*mPM + bcoef*cPM,
+        'FF':   dcoef*mPE + acoef*cPE,
+        'CF':   ecoef*mPP + bcoef*cPP,
     }
 
     # NOT CONVINCED THIS WORKS
