@@ -74,7 +74,7 @@ def initHelmholtzNinePointCE (sc):
     rho = np.pad(rho, pad_width=1, mode='edge')
 
     # Model parameter M
-    M = omega**2 / (c**2 * rho)
+    K = omega**2 / (c**2 * rho)
 
     # Visual key for finite-difference terms
     # (per Pratt and Worthington, 1990)
@@ -118,16 +118,16 @@ def initHelmholtzNinePointCE (sc):
     bPE = 1. / rho[2:  ,1:-1] # top    centre
     bPP = 1. / rho[2:  ,2:  ] # top    right
 
-    # M = omega^2/(c^2 . rho)
-    mMM = M[0:-2,0:-2] # bottom left
-    mME = M[0:-2,1:-1] # bottom centre
-    mMP = M[0:-2,2:  ] # bottom centre
-    mEM = M[1:-1,0:-2] # middle left
-    mEE = M[1:-1,1:-1] # middle centre
-    mEP = M[1:-1,2:  ] # middle right
-    mPM = M[2:  ,0:-2] # top    left
-    mPE = M[2:  ,1:-1] # top    centre
-    mPP = M[2:  ,2:  ] # top    right
+    # K = omega^2/(c^2 . rho)
+    kMM = K[0:-2,0:-2] # bottom left
+    kME = K[0:-2,1:-1] # bottom centre
+    kMP = K[0:-2,2:  ] # bottom centre
+    kEM = K[1:-1,0:-2] # middle left
+    kEE = K[1:-1,1:-1] # middle centre
+    kEP = K[1:-1,2:  ] # middle right
+    kPM = K[2:  ,0:-2] # top    left
+    kPE = K[2:  ,1:-1] # top    centre
+    kPP = K[2:  ,2:  ] # top    right
 
     # Initialize outside edges
     cMM = bEE.copy() / dxz # a2
@@ -164,15 +164,15 @@ def initHelmholtzNinePointCE (sc):
     # ecoef = 0.0
 
     diagonals = {
-        'AD':   ecoef*mMM + bcoef*cMM,
-        'DD':   dcoef*mME + acoef*cME,
-        'CD':   ecoef*mMP + bcoef*cMP,
-        'AA':   dcoef*mEM + acoef*cEM,
-        'BE':   ccoef*mEE - acoef*(cEM+cEP+cME+cPE) - bcoef*(cMM+cPP+cMP+cPM),
-        'CC':   dcoef*mEP + acoef*cEP,
-        'AF':   ecoef*mPM + bcoef*cPM,
-        'FF':   dcoef*mPE + acoef*cPE,
-        'CF':   ecoef*mPP + bcoef*cPP,
+        'AD':   ecoef*kMM + bcoef*cMM,
+        'DD':   dcoef*kME + acoef*cME,
+        'CD':   ecoef*kMP + bcoef*cMP,
+        'AA':   dcoef*kEM + acoef*cEM,
+        'BE':   ccoef*kEE - acoef*(cEM+cEP+cME+cPE) - bcoef*(cMM+cPP+cMP+cPM),
+        'CC':   dcoef*kEP + acoef*cEP,
+        'AF':   ecoef*kPM + bcoef*cPM,
+        'FF':   dcoef*kPE + acoef*cPE,
+        'CF':   ecoef*kPP + bcoef*cPP,
     }
 
     # NOT CONVINCED THIS WORKS
