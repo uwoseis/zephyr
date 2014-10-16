@@ -85,6 +85,60 @@ def initHelmholtzNinePoint (sc):
     dxz = dx*dz
     dd  = np.sqrt(dxz)
 
+    # PML decay terms
+    # NB: Arrays are padded later, but 'c' in these lines
+    #     comes from the original (un-padded) version
+
+    if 'nPML' in sc:
+        nPML    = sc['nPML']
+    else:
+        nPML    = DEFAULT_PML_SIZE
+
+    pmldx   = dx*(nPML - 1)
+    pmldz   = dz*(nPML - 1)
+    pmlr    = 1e-3
+    pmlfx   = 3.0 * np.log(1/pmlr)/(2*pmldx**3)
+    pmlfz   = 3.0 * np.log(1/pmlr)/(2*pmldz**3)
+
+    dpmlx   = np.zeros(dims, dtype=np.complex128)
+    dpmlz   = np.zeros(dims, dtype=np.complex128)
+    isnx    = np.zeros(dims, dtype=np.float64)
+    isnz    = np.zeros(dims, dtype=np.float64)
+
+    # Only enable PML if the free surface isn't set
+
+    freeSurf = sc['freeSurf']
+
+    if freeSurf[0]:    
+        isnz[-nPML:,:] = -1 # Top
+
+    if freeSurf[1]:
+        isnx[:,-nPML:] = -1 # Right Side
+
+    if freeSurf[2]:
+        isnz[:nPML,:] = 1 # Bottom
+
+    if freeSurf[3]:
+        isnx[:,:nPML] = 1 # Left side
+
+    dpmlx[:,:nPML] = (np.arange(nPML, 0, -1)*dx).reshape((1,nPML))
+    dpmlx[:,-nPML:] = (np.arange(1, nPML+1, 1)*dx).reshape((1,nPML))
+    dnx     = pmlfx*c*dpmlx**2
+    ddnx    = 2*pmlfx*c*dpmlx
+    denx    = dnx + 1j*omega
+    r1x     = 1j*omega / denx
+    r1xsq   = r1x**2
+    r2x     = isnx*r1xsq*ddnx/denx
+
+    dpmlz[:nPML,:] = (np.arange(nPML, 0, -1)*dz).reshape((nPML,1))
+    dpmlz[-nPML:,:] = (np.arange(1, nPML+1, 1)*dz).reshape((nPML,1))
+    dnz     = pmlfz*c*dpmlz**2
+    ddnz    = 2*pmlfz*c*dpmlz
+    denz    = dnz + 1j*omega
+    r1z     = 1j*omega / denz
+    r1zsq   = r1z**2
+    r2z     = isnz*r1zsq*ddnz/denz
+
     # Visual key for finite-difference terms
     # (per Pratt and Worthington, 1990)
     #
@@ -174,15 +228,29 @@ def initHelmholtzNinePoint (sc):
     #     in OMEGA. This is because the labelling herein is always ?ZX.
 
     diagonals = {
-        'AD':   ecoef*kMM + bcoef*bMM / (2*dxz),
-        'DD':   dcoef*kME + acoef*bME / dzz,
-        'CD':   ecoef*kMP + bcoef*bMP / (2*dxz),
-        'AA':   dcoef*kEM + acoef*bEM / dxx,
-        'BE':   ccoef*kEE - acoef*(bEM/dxx+bEP/dxx+bME/dzz+bPE/dzz) - bcoef*(bMM+bPP+bMP+bPM)/(2*dxz),
-        'CC':   dcoef*kEP + acoef*bEP / dxx,
-        'AF':   ecoef*kPM + bcoef*bPM / (2*dxz),
-        'FF':   dcoef*kPE + acoef*bPE / dzz,
-        'CF':   ecoef*kPP + bcoef*bPP / (2*dxz),
+        'AD':   ecoef*kMM
+                + bcoef*bMM*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
+        'DD':   dcoef*kME
+                + acoef*bME*(r1zsq/dz - r2z/2)/dz
+                + bcoef*(r1zsq-r1xsq)*(bMP+bMM)/(4*dxz),
+        'CD':   ecoef*kMP
+                + bcoef*bMP*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
+        'AA':   dcoef*kEM
+                + acoef*bEM*(r1xsq/dx - r2x/2)/dx
+                + bcoef*(r1xsq-r1zsq)*(bPM+bMM)/(4*dxz),
+        'BE':   ccoef*kEE
+                + acoef*(r2x*(bEM-bEP)/(2*dx) + r2z*(bME-bPE)/(2*dz) - r1xsq*(bEM+bEP)/dxx - r1zsq*(bME+bPE)/dzz)
+                + bcoef*((r2x+r2z)*(bMM-bPP) + (r2z-r2x)*(bMP-bPM))/(4*dd) - (r1xsq+r1zsq)*(bMM+bPP+bPM+bMP)/(4*dxz),
+        'CC':   dcoef*kEP
+                + acoef*bEP*(r1xsq/dx + r2x/2)/dx
+                + bcoef*(r1xsq-r1zsq)*(bMP+bPP)/(4*dxz),
+        'AF':   ecoef*kPM
+                + bcoef*bPM*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
+        'FF':   dcoef*kPE
+                + acoef*bPE*(r1zsq/dz - r2z/2)/dz
+                + bcoef*(r1zsq-r1xsq)*(bPM+bPP)/(4*dxz),
+        'CF':   ecoef*kPP
+                + bcoef*bPP*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
     }
 
     # NOT CONVINCED THIS WORKS
