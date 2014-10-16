@@ -185,6 +185,5 @@ def initHelmholtzNinePointCE (sc):
     offsets = [offsets[key] for key in keys]
 
     A = sp.spdiags(diagonals, offsets, mesh.nN, mesh.nN, format='csr')
-    Ainv = SimPEG.SolverLU(A)
 
-    return mesh, A, Ainv
+    return mesh, A
