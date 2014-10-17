@@ -6,3 +6,4 @@ Brendan Smithyman | October, 2014
 
 - [Basic tests](http://nbviewer.ipython.org/github/bsmithyman/zephyr/blob/master/Helmholtz.ipynb)
 - [More interesting tests](http://nbviewer.ipython.org/github/bsmithyman/zephyr/blob/master/Helmholtz-MoreInteresting.ipynb)
+- [Non-trivial model](http://nbviewer.ipython.org/github/bsmithyman/zephyr/blob/master/Helmholtz-Nechako.ipynb)
