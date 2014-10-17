@@ -240,7 +240,7 @@ def initHelmholtzNinePoint (sc):
                 + bcoef*(r1xsq-r1zsq)*(bPM+bMM)/(4*dxz),
         'BE':   ccoef*kEE
                 + acoef*(r2x*(bEM-bEP)/(2*dx) + r2z*(bME-bPE)/(2*dz) - r1xsq*(bEM+bEP)/dxx - r1zsq*(bME+bPE)/dzz)
-                + bcoef*((r2x+r2z)*(bMM-bPP) + (r2z-r2x)*(bMP-bPM))/(4*dd) - (r1xsq+r1zsq)*(bMM+bPP+bPM+bMP)/(4*dxz),
+                + bcoef*(((r2x+r2z)*(bMM-bPP) + (r2z-r2x)*(bMP-bPM))/(4*dd) - (r1xsq+r1zsq)*(bMM+bPP+bPM+bMP)/(4*dxz)),
         'CC':   dcoef*kEP
                 + acoef*bEP*(r1xsq/dx + r2x/2)/dx
                 + bcoef*(r1xsq-r1zsq)*(bMP+bPP)/(4*dxz),
