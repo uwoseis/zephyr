@@ -49,10 +49,12 @@ def initHelmholtzNinePoint (sc):
     '''
 
     # Set up SimPEG mesh
-    hx = np.ones(sc['nx']) * sc['dx']
-    hz = np.ones(sc['nz']) * sc['dz']
+    nx = sc['nx']
+    nz = sc['nz']
+    hx = np.ones(nx) * sc['dx']
+    hz = np.ones(nz) * sc['dz']
     mesh = SimPEG.Mesh.TensorMesh([hx, hz], '00')
-    dims = mesh.vnN
+    dims = (nz+1, nx+1)
     mAve = mesh.aveN2CC
 
     # Generate a complex velocity vector if Q is not infinite
@@ -158,15 +160,15 @@ def initHelmholtzNinePoint (sc):
 
     # Diagonal offsets for the sparse matrix formation
     offsets = {
-        'AD':   (-1) * dims[0] + (-1), 
-        'DD':   (-1) * dims[0] + ( 0),
-        'CD':   (-1) * dims[0] + (+1),
-        'AA':   ( 0) * dims[0] + (-1),
-        'BE':   ( 0) * dims[0] + ( 0),
-        'CC':   ( 0) * dims[0] + (+1),
-        'AF':   (+1) * dims[0] + (-1),
-        'FF':   (+1) * dims[0] + ( 0),
-        'CF':   (+1) * dims[0] + (+1),
+        'AD':   (-1) * dims[1] + (-1), 
+        'DD':   (-1) * dims[1] + ( 0),
+        'CD':   (-1) * dims[1] + (+1),
+        'AA':   ( 0) * dims[1] + (-1),
+        'BE':   ( 0) * dims[1] + ( 0),
+        'CC':   ( 0) * dims[1] + (+1),
+        'AF':   (+1) * dims[1] + (-1),
+        'FF':   (+1) * dims[1] + ( 0),
+        'CF':   (+1) * dims[1] + (+1),
     }
 
 
