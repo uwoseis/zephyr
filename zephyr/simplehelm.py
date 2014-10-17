@@ -21,6 +21,4 @@ def initHelmholtzSimPEG (sc):
     k2 = Utils.sdiag(mAve.T * (omega**2 / c**2))
     A = L + k2
 
-    Ainv = SimPEG.SolverLU(A)
-    
-    return mesh, A, Ainv
+    return mesh, A
