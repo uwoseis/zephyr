@@ -6,7 +6,6 @@ import scipy.sparse as sp
 DEFAULT_FREESURF_BOUNDS = [False, False, False, False]
 DEFAULT_PML_SIZE = 10
 
-# NOT CONVINCED THIS WORKS
 def setupBoundary (diagonals, freeSurf):
 
     keys = diagonals.keys()
@@ -41,6 +40,13 @@ def setupBoundary (diagonals, freeSurf):
             diagonals[key][-1,:] = 0.
 
 def initHelmholtzNinePoint (sc):
+    '''
+    An attempt to reproduce the finite-difference stencil and the
+    general behaviour of OMEGA by Pratt et al. The stencil is a 9-point
+    second-order version based on work by a number of people in the mid-90s
+    including Ivan Stekl. The boundary conditions are based on the PML
+    implementation by Steve Roecker in fdfdpml.f.
+    '''
 
     # Set up SimPEG mesh
     hx = np.ones(sc['nx']) * sc['dx']
@@ -223,7 +229,6 @@ def initHelmholtzNinePoint (sc):
     # bcoef = 0.0
     # ecoef = 0.0
 
-
     # NB: bPM and bMP here are switched relative to S. Roecker's version
     #     in OMEGA. This is because the labelling herein is always ?ZX.
 
@@ -253,7 +258,6 @@ def initHelmholtzNinePoint (sc):
                 + bcoef*bPP*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
     }
 
-    # NOT CONVINCED THIS WORKS
     if 'freeSurf' in sc:
         setupBoundary(diagonals, sc['freeSurf'])
     else:
