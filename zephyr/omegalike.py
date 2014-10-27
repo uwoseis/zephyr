@@ -80,8 +80,14 @@ def initHelmholtzNinePoint (sc):
     cPad    = np.pad(c, pad_width=1, mode='edge')
     rhoPad  = np.pad(rho, pad_width=1, mode='edge')
 
+    # Wavenumber for 2.5D case
+    if 'ky' in sc:
+        aky = 4*np.pi*sc['ky'] # (2*pi) * 2, with the second representing +'ve and -'ve kys
+    else:
+        aky = 0.
+
     # Model parameter M
-    K = omega**2 / (cPad**2 * rhoPad)
+    K = ((omega**2 / cPad**2) - aky**2) / rhoPad
 
     # Horizontal, vertical and diagonal geometry terms
     dx  = sc['dx']
