@@ -52,7 +52,7 @@ def initHelmholtzNinePoint (sc):
     hx = [(sc['dx'], sc['nx'])]
     hz = [(sc['dz'], sc['nz'])]
     mesh = SimPEG.Mesh.TensorMesh([hx, hz], '00') 
-    dims = (sc['nz']+1, sc['nx']+1)
+    dims = (mesh.nNy, mesh.nNx)
     mAve = mesh.aveN2CC
 
     # Generate a complex velocity vector if Q is not infinite
