@@ -6,6 +6,9 @@ import numpy as np
 import scipy as sp
 from SimPEG import Survey, Problem, Utils, Models, np, sp, Solver as SimpegSolver
 
+DEFAULT_FREESURF_BOUNDS = [False, False, False, False]
+DEFAULT_PML_SIZE = 10
+
 class FieldsSeisFDFD(Problem.Fields):
     """Fancy field storage for a FDFD seismic survey."""
     knownFields = {'u': 'N'}
@@ -88,6 +91,26 @@ class SeisFDFDProblem(Problem.BaseProblem):
         else:
             self._Q = -1j * self.cR / (2*value)
 
+    # Modelling properties
+
+    @property
+    def nPML(self):
+        if getattr(self, '_nPML', None) is None:
+            self._nPML = DEFAULT_PML_SIZE
+        return self._nPML
+    @nPML.setter
+    def nPML(self, value):
+        self._nPML = value
+
+    @property
+    def freeSurf(self):
+        if getattr(self, '_freeSurf', None) is None:
+            self._freeSurf = DEFAULT_FREESURF_BOUNDS
+        return self._freeSurf
+    @freeSurf.setter
+    def freeSurf(self, value):
+        self._freeSurf = value
+    
     # Fields
 
     def fields(self, m):
@@ -160,7 +183,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
         """
 
         # Set up SimPEG mesh
-        dims = self.mesh.nC(self.mesh.nNz, self.mesh.nNz)
+        dims = (self.mesh.nNy, self.mesh.nNz)
         mAve = self.mesh.aveN2CC
 
         c = (mAve.T * self.c.ravel()).reshape(dims)
@@ -179,8 +202,8 @@ class SeisFDFDProblem(Problem.BaseProblem):
         K = ((omega**2 / cPad**2) - aky**2) / rhoPad
 
         # Horizontal, vertical and diagonal geometry terms
-        dx  = sc['dx']
-        dz  = sc['dz']
+        dx  = self.mesh.hx[0]
+        dz  = self.mesh.hy[0]
         dxx = dx**2
         dzz = dz**2
         dxz = dx*dz
@@ -190,10 +213,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
         # NB: Arrays are padded later, but 'c' in these lines
         #     comes from the original (un-padded) version
 
-        if 'nPML' in sc:
-            nPML    = sc['nPML']
-        else:
-            nPML    = DEFAULT_PML_SIZE
+        nPML    = self.nPML
 
         pmldx   = dx*(nPML - 1)
         pmldz   = dz*(nPML - 1)
@@ -208,7 +228,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
         # Only enable PML if the free surface isn't set
 
-        freeSurf = sc['freeSurf']
+        freeSurf = self.freeSurf
 
         if freeSurf[0]:    
             isnz[-nPML:,:] = -1 # Top
@@ -263,7 +283,6 @@ class SeisFDFDProblem(Problem.BaseProblem):
             'FF':   (+1) * dims[1] + ( 0),
             'CF':   (+1) * dims[1] + (+1),
         }
-
 
         # Buoyancies
         bMM = 1. / rhoPad[0:-2,0:-2] # bottom left
@@ -353,14 +372,11 @@ class SeisFDFDProblem(Problem.BaseProblem):
                     + bcoef*bPP*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
         }
 
-        if 'freeSurf' in sc:
-            self._setupBoundary(diagonals, sc['freeSurf'])
-        else:
-            self._setupBoundary(diagonals, DEFAULT_FREESURF_BOUNDS)
+        self._setupBoundary(diagonals, freeSurf)
 
         diagonals = np.array([diagonals[key].ravel() for key in keys])
         offsets = [offsets[key] for key in keys]
 
-        A = sp.spdiags(diagonals, offsets, mesh.nN, mesh.nN, format='csr')
+        A = sp.spdiags(diagonals, offsets, self.mesh.nN, self.mesh.nN, format='csr')
 
         return A
