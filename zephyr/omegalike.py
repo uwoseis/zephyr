@@ -81,7 +81,7 @@ def initHelmholtzNinePoint (sc):
     rhoPad  = np.pad(rho, pad_width=1, mode='edge')
 
     # Wavenumber for 2.5D case
-    aky = 2*np.pi*sc['ky']
+    aky = 2*np.pi*sc.get('ky', 0)
 
     # Model parameter M
     K = ((omega**2 / cPad**2) - aky**2) / rhoPad
