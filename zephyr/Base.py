@@ -20,10 +20,9 @@ class SeisFDFDSurvey(Survey.BaseSurvey):
     def projectFields(self, u):
         return u
 
-
-
 #class SeisFDFDData(Survey.Data):
 #    pass
+
 
 class SeisFDFDProblem(Problem.BaseProblem):
     """
@@ -40,6 +39,24 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
     def __init__(self, mesh, systemConfig, **kwargs):
         Problem.BaseProblem.__init__(self, mesh, **kwargs)
+
+        initMap = {
+        #   Argument        Rename to Property
+            'c':            'cR',
+            'Q':            None,
+            'rho':          None,
+            'nPML':         None,
+            'freeSurf':     None,
+            'freqs':        None,
+            'kys':          None,
+        }
+
+        for key in initMap.keys():
+            if key in systemConfig:
+                if initMap[key] is None:
+                    setattr(self, key, systemConfig[key])
+                else:
+                    setattr(self, initMap[key], systemConfig[key])
 
     # Model properties
 
@@ -78,12 +95,10 @@ class SeisFDFDProblem(Problem.BaseProblem):
     
     @property
     def cI(self):
-        if getattr(self, '_cI', None) is None:
-            if self.Q is np.inf:
-                self._cI = 0
-            else:
-                self._cI = -1j * self.cR / (2*self.Q)
-        return self._cI
+        if self.Q is np.inf:
+            return 0
+        else:
+            return -1j * self.cR / (2*self.Q)
     @cI.setter
     def cI(self, value):
         if (value == 0).all():
@@ -110,7 +125,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
     @freeSurf.setter
     def freeSurf(self, value):
         self._freeSurf = value
-    
+
     # Fields
 
     def fields(self, m):
