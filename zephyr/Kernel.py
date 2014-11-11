@@ -92,13 +92,13 @@ class SeisFDFDKernel(object):
         if self.Q is numpy.inf:
             return 0
         else:
-            return -1j * self.cR / (2*self.Q)
+            return 1j * self.cR / (2*self.Q)
     @cI.setter
     def cI(self, value):
         if (value == 0).all():
             self._Q = numpy.inf
         else:
-            self._Q = -1j * self.cR / (2*value)
+            self._Q = 1j * self.cR / (2*value)
 
     # Modelling properties
 
