@@ -61,6 +61,7 @@ class SeisFDFDKernel(object):
     def c(self, value):
         self._cR = value.real
         self._cI = value.imag
+        self._invalidateMatrix()
 
     @property
     def rho(self):
@@ -70,6 +71,7 @@ class SeisFDFDKernel(object):
     @rho.setter
     def rho(self, value):
         self._rho = value
+        self._invalidateMatrix()
 
     @property
     def Q(self):
@@ -79,6 +81,7 @@ class SeisFDFDKernel(object):
     @Q.setter
     def Q(self, value):
         self._Q = value
+        self._invalidateMatrix()
 
     @property
     def cR(self):
@@ -86,6 +89,7 @@ class SeisFDFDKernel(object):
     @cR.setter
     def cR(self, value):
         self._cR = value
+        self._invalidateMatrix()
     
     @property
     def cI(self):
@@ -99,6 +103,7 @@ class SeisFDFDKernel(object):
             self._Q = numpy.inf
         else:
             self._Q = 1j * self.cR / (2*value)
+        self._invalidateMatrix()
 
     # Modelling properties
 
@@ -110,6 +115,7 @@ class SeisFDFDKernel(object):
     @nPML.setter
     def nPML(self, value):
         self._nPML = value
+        self._invalidateMatrix()
 
     @property
     def freeSurf(self):
@@ -119,6 +125,7 @@ class SeisFDFDKernel(object):
     @freeSurf.setter
     def freeSurf(self, value):
         self._freeSurf = value
+        self._invalidateMatrix()
 
     @property
     def ky(self):
@@ -128,6 +135,7 @@ class SeisFDFDKernel(object):
     @ky.setter
     def ky(self, value):
         self._ky = value
+        self._invalidateMatrix()
 
     # Clever matrix setup properties
 
@@ -151,6 +159,10 @@ class SeisFDFDKernel(object):
         if getattr(self, '_Ainv', None) is None:
             self._Ainv = self.Solver(self.A)
         return self._Ainv
+
+    def _invalidateMatrix(self):
+        del(self._A)
+        del(self._Ainv)
 
     # ------------------------------------------------------------------------
     # Matrix setup
