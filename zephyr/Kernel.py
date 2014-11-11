@@ -161,8 +161,10 @@ class SeisFDFDKernel(object):
         return self._Ainv
 
     def _invalidateMatrix(self):
-        del(self._A)
-        del(self._Ainv)
+        if getattr(self, '_A', None) is not None:
+            del(self._A)
+        if getattr(self, '_Ainv', None) is not None:
+            del(self._Ainv)
 
     # ------------------------------------------------------------------------
     # Matrix setup
