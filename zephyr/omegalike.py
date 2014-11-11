@@ -59,7 +59,7 @@ def initHelmholtzNinePoint (sc):
     if sc['Q'] is np.inf:
         c = sc['c']
     else:
-        c = sc['c'] + (-1j * sc['c'] / (2*sc['Q']))
+        c = sc['c'] + (1j * sc['c'] / (2*sc['Q']))
 
     c = (mAve.T * c.ravel()).reshape(dims)
 
