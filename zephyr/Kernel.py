@@ -12,6 +12,47 @@ DEFAULT_FREESURF_BOUNDS = [False, False, False, False]
 DEFAULT_PML_SIZE = 10
 DEFAULT_SOLVER = scipy.sparse.linalg.splu
 
+class Rec(object):
+
+    def __init__(self, parent, mode, rec):
+
+        self._parent = parent
+        self._nsrc = parent.nsrc
+        self._mode = mode
+        self._rec = rec
+
+    def _getrec(self, i):
+        if self._mode == 'fixed':
+            return self._rec
+        elif self._mode == 'relative':
+            return self._rec[i]
+        else:
+            return None
+
+    def __getitem__(self, index):
+
+        if isinstance(index, slice):
+            return [self._getrec(i) for i in xrange(*index.indices(self._nsrc))]
+        else:
+            return self._getrec(index)
+
+class SeisLocator25D(object):
+
+    def __init__(self, geometry):
+
+        self.src = geometry['src']
+        self.nsrc = len(self.src)
+        self.rec = Rec(self, geometry['mode'], geometry['rec'])
+
+    def __call__(self, isrc, ky):
+
+        sloc = self.src[isrc].reshape((1,3))
+        rlocs = self.rec[isrc]
+        dy = abs(sloc[:,1] - rlocs[:,1])
+        shifts = numpy.cos(2*numpy.pi*ky*dy)
+
+        return sloc[:,::2], rlocs[:,::2], shifts
+
 # ------------------------------------------------------------------------
 # Parallel system setup
 
@@ -26,7 +67,12 @@ class SeisFDFDKernel(object):
     Solver = lambda: None
 
 
-    def __init__(self, systemConfig, **kwargs):
+    def __init__(self, systemConfig, locator=None, **kwargs):
+
+        if locator is not None:
+            self._locator = locator
+        else:
+            self._locator = SeisLocator25D(systemConfig['geom'])
 
         hx = [(systemConfig['dx'], systemConfig['nx'])]
         hz = [(systemConfig['dz'], systemConfig['nz'])]
@@ -414,23 +460,23 @@ class SeisFDFDKernel(object):
             else:
                 diagonals[key][-1,:] = 0.
 
-    def _getSource(self, sLoc):
-        q = numpy.zeros(self.mesh.nN)
-        qI = SimPEG.Utils.closestPoints(self.mesh, sLoc, gridLoc='N')
-        q[qI] = 1
-
-        return q
-
     # ------------------------------------------------------------------------
     # Externally-callable functions
     
-    def forward(self, sLoc):
+    def forward(self, isrc):
 
-        q = self._getSource(sLoc)
-        u = self.Ainv * q
-        if self.kyweight and self.ky != 0:
-            u = 2*u
-        return u
+        sloc, rlocs, shifts = self._locator(isrc, self.ky)
+
+        qs = numpy.zeros(self.mesh.nN)
+        qsI = SimPEG.Utils.closestPoints(self.mesh, sloc, gridLoc='N')
+        qs[qsI] = 1
+
+        u = self.Ainv * qs
+
+        qrI = SimPEG.Utils.closestPoints(self.mesh, rlocs, gridLoc='N')
+        d = numpy.array([shifts[i]*u[qrI[i]] for i in xrange(len(rlocs))])
+
+        return u, d
 
     def backprop(self, sourceids):
         pass
@@ -441,9 +487,11 @@ class SeisFDFDKernel(object):
 @interactive
 def setupSystem(systemConfig):
     global localSystem
+    global localLocator
 
     subSystemConfig = baseSystemConfig.copy()
     subSystemConfig.update(systemConfig)
+    localLocator = SeisLocator25D(subSystemConfig['geom'])
     tag = '%f-%f'%(systemConfig['freq'], systemConfig['ky'])
-    localSystem[tag] = SeisFDFDKernel(subSystemConfig)
+    localSystem[tag] = SeisFDFDKernel(subSystemConfig, locator=localLocator)
     return tag
