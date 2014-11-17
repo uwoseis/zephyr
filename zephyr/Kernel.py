@@ -6,7 +6,7 @@ import numpy
 import scipy
 import scipy.sparse
 import SimPEG
-from IPython.parallel import require, interactive
+from IPython.parallel import require, interactive, Reference
 
 DEFAULT_FREESURF_BOUNDS = [False, False, False, False]
 DEFAULT_PML_SIZE = 10
@@ -483,15 +483,3 @@ class SeisFDFDKernel(object):
 
     def misfit(self, sourceids):
         pass
-
-@interactive
-def setupSystem(systemConfig):
-    global localSystem
-    global localLocator
-
-    subSystemConfig = baseSystemConfig.copy()
-    subSystemConfig.update(systemConfig)
-    localLocator = SeisLocator25D(subSystemConfig['geom'])
-    tag = '%f-%f'%(systemConfig['freq'], systemConfig['ky'])
-    localSystem[tag] = SeisFDFDKernel(subSystemConfig, locator=localLocator)
-    return tag
