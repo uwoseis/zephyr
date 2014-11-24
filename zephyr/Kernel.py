@@ -203,7 +203,7 @@ class SeisFDFDKernel(object):
     @property
     def Ainv(self):
         if getattr(self, '_Ainv', None) is None:
-            self._Ainv = self.Solver(self.A)
+            self._mfact()
         return self._Ainv
 
     def _invalidateMatrix(self):
@@ -215,7 +215,10 @@ class SeisFDFDKernel(object):
     # ------------------------------------------------------------------------
     # Matrix setup
 
-    def _initHelmholtzNinePoint (self):
+    def _mfact(self):
+        self._Ainv = self.Solver(self.A)
+
+    def _initHelmholtzNinePoint(self):
         """
         An attempt to reproduce the finite-difference stencil and the
         general behaviour of OMEGA by Pratt et al. The stencil is a 9-point
