@@ -14,7 +14,7 @@ with dview.sync_imports():
     import SimPEG
 
 @dview.remote
-@depend(mkl)
+@require('mkl')
 def threadAdjust(nThreads=1):
     mkl.set_num_threads(nThreads)
 
