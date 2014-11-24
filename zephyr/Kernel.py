@@ -493,11 +493,10 @@ class SeisFDFDKernel(object):
 
         sloc, rlocs, shifts = self._locator(isrc, self.ky)
 
-        qs = numpy.zeros(self.mesh.nN)
         #qs = self._srcTerm(sloc)
+        qs = numpy.zeros(self.mesh.nN, dtype=numpy.complex128)
         qsI = SimPEG.Utils.closestPoints(self.mesh, sloc, gridLoc='N')
         qs[qsI] = 1
-
         u = self.Ainv * qs
 
         #qrs = self._srcTerm(rlocs)
