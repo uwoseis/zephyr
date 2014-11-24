@@ -72,7 +72,7 @@ def setupSystem(systemConfigUpdates):
     return tags
 
 @interactive
-def getForward(systemConfig, subConfigSettings):
+def getHandles(systemConfig, subConfigSettings):
 
     subConfigs = gen25DSubConfigs(**subConfigSettings)
     nsp = len(subConfigs)
@@ -86,10 +86,15 @@ def getForward(systemConfig, subConfigSettings):
     dview['forwardFromTag'] = lambda tag, isrc: localSystem[tag].forward(isrc)
     forwardFromTag = Reference('forwardFromTag')
 
+    # Create a function to get a subproblem gradient function
+    dview['gradientFromTag'] = lambda tag, isrc, dresid: localSystem[tag].gradient(isrc, dresid)
+    gradientFromTag = Reference('gradientFromTag')
+
     # Set up the subproblem objects with each new configuration
     tags = setupSystem(subConfigs)#dview.map_sync(setupSystem, subConfigs)
 
     # Forward model in 2.5D (in parallel) for an arbitrary source location
-    forward25D = lambda isrc: reduce(np.add, dview.map(forwardFromTag, tags, [isrc]*nsp))
+    forward = lambda isrc: reduce(np.add, dview.map(forwardFromTag, tags, [isrc]*nsp))
+    gradient = lambda isrc, dresid: reduce(np.add, dview.map(gradientFromTag, tags, [isrc]*nsp, [dresid]*nsp))
 
-    return forward25D
+    return {'forward': forward, 'gradient': gradient}

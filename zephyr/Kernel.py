@@ -49,9 +49,9 @@ class SeisLocator25D(object):
         sloc = self.src[isrc].reshape((1,3))
         rlocs = self.rec[isrc]
         dy = abs(sloc[:,1] - rlocs[:,1])
-        shifts = numpy.cos(2*numpy.pi*ky*dy)
+        coeffs = numpy.cos(2*numpy.pi*ky*dy)
 
-        return sloc[:,::2], rlocs[:,::2], shifts
+        return sloc[:,::2], rlocs[:,::2], coeffs
 
 # ------------------------------------------------------------------------
 # Parallel system setup
@@ -491,7 +491,7 @@ class SeisFDFDKernel(object):
     # What about @caching decorators?
     def forward(self, isrc):
 
-        sloc, rlocs, shifts = self._locator(isrc, self.ky)
+        sloc, rlocs, coeffs = self._locator(isrc, self.ky)
 
         #qs = self._srcTerm(sloc)
         qs = numpy.zeros(self.mesh.nN, dtype=numpy.complex128)
@@ -501,12 +501,28 @@ class SeisFDFDKernel(object):
 
         #qrs = self._srcTerm(rlocs)
         qrI = SimPEG.Utils.closestPoints(self.mesh, rlocs, gridLoc='N')
-        d = numpy.array([shifts[i]*u[qrI[i]] for i in xrange(len(rlocs))])
+        d = numpy.array([coeffs[i]*u[qrI[i]] for i in xrange(len(rlocs))])
 
         return u, d
 
-    def backprop(self, sourceids):
-        pass
+    def backprop(self, isrc, dresid):
+        
+        sloc, rlocs, coeffs = self._locator(isrc, self.ky)
+
+        qr = numpy.zeros(self.mesh.nN)
+        qrI = SimPEG.Utils.closestPoints(self.mesh, rlocs, gridLoc='N')
+        qr[qrI] = coeffs * numpy.conj(dresid)
+
+        u = self.Ainv * qr
+
+        return u
+
+    def gradient(self, isrc, dresid):
+
+        uF, d = self.forward(isrc)
+        uB = self.backprop(isrc, dresid)
+
+        return uF * uB
 
     def misfit(self, sourceids):
         pass
