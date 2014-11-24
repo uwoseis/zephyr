@@ -463,19 +463,44 @@ class SeisFDFDKernel(object):
             else:
                 diagonals[key][-1,:] = 0.
 
+    # Quasi-functional attempt -----------------------------------------------
+    #
+    def _srcVec(self, sLocs, term):
+
+        qI = SimPEG.Utils.closestPoints(self.mesh, sLocs, gridLoc='N')
+        q = numpy.zeros(self.mesh.nN, dtype=numpy.complex128)
+        q[qI] = term
+        return q
+
+    def _srcTerm(self, sLocs, individual=True, terms=1):
+
+        if individual and len(sLocs) > 1:
+            result = []
+            for i in xrange(len(sLocs)):
+                result.append(self._srcVec(sLocs, terms[i] if hasattr(terms, '__contains__') else terms))
+        else:
+            result = self._srcVec(sLocs, terms)
+
+        return result 
+    #
+    # Quasi-functional attempt -----------------------------------------------
+
     # ------------------------------------------------------------------------
     # Externally-callable functions
     
+    # What about @caching decorators?
     def forward(self, isrc):
 
         sloc, rlocs, shifts = self._locator(isrc, self.ky)
 
         qs = numpy.zeros(self.mesh.nN)
+        #qs = self._srcTerm(sloc)
         qsI = SimPEG.Utils.closestPoints(self.mesh, sloc, gridLoc='N')
         qs[qsI] = 1
 
         u = self.Ainv * qs
 
+        #qrs = self._srcTerm(rlocs)
         qrI = SimPEG.Utils.closestPoints(self.mesh, rlocs, gridLoc='N')
         d = numpy.array([shifts[i]*u[qrI[i]] for i in xrange(len(rlocs))])
 
