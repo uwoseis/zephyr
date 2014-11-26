@@ -55,6 +55,7 @@ def setupCache(systemConfig):
 @dview.parallel(block=True)
 @interactive
 def setupSystem(systemConfigUpdates):
+    import os
     import zephyr.Kernel as Kernel
 
     global localSystem
@@ -63,10 +64,16 @@ def setupSystem(systemConfigUpdates):
     tags = []
 
     for scu in systemConfigUpdates:
+        tag = '%f-%f'%(scu['freq'], scu['ky'])
+
         subSystemConfig = baseSystemConfig.copy()
         subSystemConfig.update(scu)
+
+        # Set up method output caching
+        if 'cacheDir' in baseSystemConfig:
+            subSystemConfig['cacheDir'] = os.path.join(baseSystemConfig['cacheDir'], 'cache', tag)
+
         localLocator = Kernel.SeisLocator25D(subSystemConfig['geom'])
-        tag = '%f-%f'%(scu['freq'], scu['ky'])
         localSystem[tag] = Kernel.SeisFDFDKernel(subSystemConfig, locator=localLocator)
         tags.append(tag)
     return tags
@@ -90,11 +97,17 @@ def getHandles(systemConfig, subConfigSettings):
     dview['gradientFromTag'] = lambda tag, isrc, dresid: localSystem[tag].gradient(isrc, dresid)
     gradientFromTag = Reference('gradientFromTag')
 
+    dview['clearFromTag'] = lambda tag: localSystem[tag].clear()
+    clearFromTag = Reference('clearFromTag')
+
     # Set up the subproblem objects with each new configuration
     tags = setupSystem(subConfigs)#dview.map_sync(setupSystem, subConfigs)
 
     # Forward model in 2.5D (in parallel) for an arbitrary source location
-    forward = lambda isrc: reduce(np.add, dview.map(forwardFromTag, tags, [isrc]*nsp))
-    gradient = lambda isrc, dresid: reduce(np.add, dview.map(gradientFromTag, tags, [isrc]*nsp, [dresid]*nsp))
+    handles = {
+        'forward':  lambda isrc: reduce(np.add, dview.map(forwardFromTag, tags, [isrc]*nsp)),
+        'gradient': lambda isrc, dresid: reduce(np.add, dview.map(gradientFromTag, tags, [isrc]*nsp, [dresid]*nsp)),
+        'clear':    lambda: dview.map_sync(clearFromTag, tags),
+    }
 
-    return {'forward': forward, 'gradient': gradient}
+    return handles

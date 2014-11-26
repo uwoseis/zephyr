@@ -6,6 +6,7 @@ import numpy
 import scipy
 import scipy.sparse
 import SimPEG
+import shutil, os, errno
 from IPython.parallel import require, interactive, Reference
 
 DEFAULT_FREESURF_BOUNDS = [False, False, False, False]
@@ -74,6 +75,31 @@ class SeisFDFDKernel(object):
         else:
             self._locator = SeisLocator25D(systemConfig['geom'])
 
+        if systemConfig.get('cache', False):
+            try:
+                from tempfile import mkdtemp
+                from joblib import Memory
+            except ImportError:
+                pass
+            else:
+                if 'cacheDir' in systemConfig:
+                    cacheDir = systemConfig['cacheDir']
+                    try:
+                        os.makedirs(cacheDir)
+                    except OSError as e:
+                        if e.errno == errno.EEXIST and os.path.isdir(cacheDir):
+                            pass
+                        else:
+                            raise
+                else:
+                    cacheDir = mkdtemp()
+
+                self._mem = Memory(cachedir=cacheDir, verbose=0)
+
+                # Cache outputs of these methods
+                self.forward = self._mem.cache(self.forward)
+                self.backprop = self._mem.cache(self.backprop)
+
         hx = [(systemConfig['dx'], systemConfig['nx'])]
         hz = [(systemConfig['dz'], systemConfig['nz'])]
         self.mesh = SimPEG.Mesh.TensorMesh([hx, hz], '00')
@@ -97,6 +123,15 @@ class SeisFDFDKernel(object):
                     setattr(self, key, systemConfig[key])
                 else:
                     setattr(self, initMap[key], systemConfig[key])
+
+    def __del__(self):
+        if hasattr(self, '_mem'):
+            self._mem.clear()
+            cacheDir = self._mem.cachedir
+            del self._mem
+            shutil.rmtree(cacheDir)
+
+        super(SeisFDFDKernel, self).__del__()
 
     # Model properties
 
@@ -211,6 +246,8 @@ class SeisFDFDKernel(object):
             del(self._A)
         if getattr(self, '_Ainv', None) is not None:
             del(self._Ainv)
+        if getattr(self, '_mem', None) is not None:
+            self._mem.clear()
 
     # ------------------------------------------------------------------------
     # Matrix setup
@@ -487,6 +524,9 @@ class SeisFDFDKernel(object):
 
     # ------------------------------------------------------------------------
     # Externally-callable functions
+
+    def clear(self):
+        self._invalidateMatrix()
     
     # What about @caching decorators?
     def forward(self, isrc):
