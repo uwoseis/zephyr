@@ -41,14 +41,19 @@ class SeisLocator25D(object):
 
     def __init__(self, geometry):
 
-        self.src = geometry['src']
+        if len(geometry['src'].shape) < 2:
+            self.src = geometry['src'].reshape((1,3))
+        else:
+            self.src = geometry['src']
         self.nsrc = len(self.src)
         self.rec = Rec(self, geometry['mode'], geometry['rec'])
 
     def __call__(self, isrc, ky):
 
-        sloc = self.src[isrc].reshape((1,3))
+        sloc = self.src[isrc,:].reshape((1,3))
         rlocs = self.rec[isrc]
+        if len(rlocs.shape) < 2:
+            rlocs.shape = (1,3)
         dy = abs(sloc[:,1] - rlocs[:,1])
         coeffs = numpy.cos(2*numpy.pi*ky*dy)
 
@@ -529,7 +534,7 @@ class SeisFDFDKernel(object):
         self._invalidateMatrix()
     
     # What about @caching decorators?
-    def forward(self, isrc):
+    def forward(self, isrc, dOnly = True):
 
         sloc, rlocs, coeffs = self._locator(isrc, self.ky)
 
@@ -543,7 +548,10 @@ class SeisFDFDKernel(object):
         qrI = SimPEG.Utils.closestPoints(self.mesh, rlocs, gridLoc='N')
         d = numpy.array([coeffs[i]*u[qrI[i]] for i in xrange(len(rlocs))])
 
-        return u, d
+        if dOnly:
+            return d
+        else:
+            return u, d
 
     def backprop(self, isrc, dresid):
         
@@ -559,7 +567,7 @@ class SeisFDFDKernel(object):
 
     def gradient(self, isrc, dresid):
 
-        uF, d = self.forward(isrc)
+        uF, d = self.forward(isrc, False)
         uB = self.backprop(isrc, dresid)
 
         return uF * uB

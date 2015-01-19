@@ -1,4 +1,5 @@
 # Parallel cluster setup
+from __future__ import print_function
 from IPython.parallel import Client, parallel, Reference, require, depend, interactive
 pclient = Client()
 dview = pclient[:]
@@ -90,11 +91,11 @@ def getHandles(systemConfig, subConfigSettings):
     dview['baseSystemConfig'] = systemConfig
 
     # Create a function to get a subproblem forward modelling function
-    dview['forwardFromTag'] = lambda tag, isrc: localSystem[tag].forward(isrc)
+    dview['forwardFromTag'] = lambda tag, isrc, dOnly=True: localSystem[tag].forward(isrc, dOnly)
     forwardFromTag = Reference('forwardFromTag')
 
     # Create a function to get a subproblem gradient function
-    dview['gradientFromTag'] = lambda tag, isrc, dresid: localSystem[tag].gradient(isrc, dresid)
+    dview['gradientFromTag'] = lambda tag, isrc, dresid=1.: localSystem[tag].gradient(isrc, dresid)
     gradientFromTag = Reference('gradientFromTag')
 
     dview['clearFromTag'] = lambda tag: localSystem[tag].clear()
@@ -104,10 +105,13 @@ def getHandles(systemConfig, subConfigSettings):
     tags = setupSystem(subConfigs)#dview.map_sync(setupSystem, subConfigs)
 
     # Forward model in 2.5D (in parallel) for an arbitrary source location
+    # TODO: Write code to handle multiple data residuals for nom>1
     handles = {
-        'forward':  lambda isrc: reduce(np.add, dview.map(forwardFromTag, tags, [isrc]*nsp)),
-        'gradient': lambda isrc, dresid: reduce(np.add, dview.map(gradientFromTag, tags, [isrc]*nsp, [dresid]*nsp)),
-        'clear':    lambda: dview.map_sync(clearFromTag, tags),
+        'forward':  lambda isrc, dOnly=True: reduce(np.add, dview.map(forwardFromTag, tags, [isrc]*nsp, [dOnly]*nsp)),
+        'forwardSep': lambda isrc, dOnly=True: dview.map_sync(forwardFromTag, tags, [isrc]*nsp, [dOnly]*nsp),
+        'gradient': lambda isrc, dresid=1.0: reduce(np.add, dview.map(gradientFromTag, tags, [isrc]*nsp, [dresid]*nsp)), # problems here for multiple freqs.
+        'gradSep':  lambda isrc, dresid=1.0: dview.map_sync(gradientFromTag, tags, [isrc]*nsp, [dresid]*nsp), # problems here for multiple freqs.
+        'clear':    lambda: print('Cleared stored matrix terms for %d systems.'%len(dview.map_sync(clearFromTag, tags))),
     }
 
     return handles
