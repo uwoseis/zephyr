@@ -1,4 +1,4 @@
-from simplehelm import *
-from omegalike import *
 import Kernel
+import Frontend
+import Problem
 

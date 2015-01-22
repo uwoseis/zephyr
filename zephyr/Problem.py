@@ -4,14 +4,13 @@ from IPython.parallel import Client, parallel, Reference, require, depend, inter
 from SimPEG import Survey, Problem, Mesh, np, sp, Solver as SimpegSolver
 from Kernel import *
 
+@interactive
 def setupSystem(scu):
     import os
     import zephyr.Kernel as Kernel
 
     global localSystem
     global localLocator
-
-    tags = []
 
     tag = (scu['freq'], scu['ky'])
 
@@ -27,7 +26,25 @@ def setupSystem(scu):
 
     return tag
 
+@interactive
+def hasSystem(tag):
+    global localSystem
+    return tag in localSystem
+
+@interactive
+def hasSystemRank(tag, wid):
+    global localSystem
+    global rank
+    return (tag in localSystem) and (rank == wid)
+
 class commonReducer(dict):
+
+    def __init__(self, *args, **kwargs):
+        dict.__init__(self, *args, **kwargs)
+        self.addcounter = 0
+        self.iaddcounter = 0
+        self.interactcounter = 0
+        self.callcounter = 0
 
     def __add__(self, other):
         result = commonReducer(self)
@@ -37,6 +54,9 @@ class commonReducer(dict):
             else:
                 result[key] = other[key]
 
+        self.addcounter += 1
+        self.interactcounter += 1
+
         return result
 
     def __iadd__(self, other):
@@ -45,6 +65,9 @@ class commonReducer(dict):
                 self[key] += other[key]
             else:
                 self[key] = other[key]
+
+        self.iaddcounter += 1
+        self.interactcounter += 1
 
         return self
 
@@ -57,6 +80,9 @@ class commonReducer(dict):
             self[key] += result
         else:
             self[key] = result
+
+        self.callcounter += 1
+        self.interactcounter += 1
 
 
 class SeisFDFDProblem(Problem.BaseProblem):
@@ -122,7 +148,10 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
         self._rebuildSystem()
 
-    def _getHandles(self, dview, systemConfig, subConfigSettings):
+    def _getHandles(self, systemConfig, subConfigSettings):
+
+        pclient = self.par['pclient']
+        dview = self.par['dview']
 
         subConfigs = self._gen25DSubConfigs(**subConfigSettings)
         nsp = len(subConfigs)
@@ -135,11 +164,6 @@ class SeisFDFDProblem(Problem.BaseProblem):
         #localSystem = Reference('localSystem')
         #resultTracker = Reference('resultTracker')
 
-        # Create a function to save forward modelling results to the tracker
-        dview.execute("forwardFromTagAccumulate = lambda tag, isrc: resultTracker('%r %03d'%(tag[0], isrc), localSystem[tag].forward(isrc, True))")
-        #dview['forwardFromTagAccumulate'] = lambda tag, isrc: resultTracker('%r %r'%(tag[0], isrc), localSystem[tag].forward(isrc, True))
-        forwardFromTagAccumulate = Reference('forwardFromTagAccumulate')
-
         # Create a function to get a subproblem forward modelling function
         dview['forwardFromTag'] = lambda tag, isrc, dOnly=True: localSystem[tag].forward(isrc, dOnly)
         forwardFromTag = Reference('forwardFromTag')
@@ -148,11 +172,10 @@ class SeisFDFDProblem(Problem.BaseProblem):
         dview['gradientFromTag'] = lambda tag, isrc, dresid=1.: localSystem[tag].gradient(isrc, dresid)
         gradientFromTag = Reference('gradientFromTag')
 
-        dview['clearFromTag'] = lambda tag: localSystem[tag].clear()
-        clearFromTag = Reference('clearFromTag')
-
         # Set up the subproblem objects with each new configuration
-        tags = dview.map_sync(interactive(setupSystem), subConfigs)
+        for wid in pclient.ids:
+            pclient[wid]['rank'] = wid
+        tags = dview.map_sync(setupSystem, subConfigs)
 
         # Forward model in 2.5D (in parallel) for an arbitrary source location
         # TODO: Write code to handle multiple data residuals for nom>1
@@ -161,7 +184,6 @@ class SeisFDFDProblem(Problem.BaseProblem):
             'forwardSep': lambda isrc, dOnly=True: dview.map_sync(forwardFromTag, tags, [isrc]*nsp, [dOnly]*nsp),
             'gradient': lambda isrc, dresid=1.0: reduce(np.add, dview.map(gradientFromTag, tags, [isrc]*nsp, [dresid]*nsp)),
             'gradSep':  lambda isrc, dresid=1.0: dview.map_sync(gradientFromTag, tags, [isrc]*nsp, [dresid]*nsp),
-            'forwardAccumulate': lambda isrc: dview.map(forwardFromTagAccumulate, tags, [isrc]*nsp),
     #from __future__ import print_function
     #        'clear':    lambda: print('Cleared stored matrix terms for %d systems.'%len(dview.map_sync(clearFromTag, tags))),
         }
@@ -170,10 +192,10 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
     def _gen25DSubConfigs(self, freqs, nky, cmin):
         result = []
-        weightfac = 1/(2*nky - 1) # alternatively, 1/dky
+        weightfac = 1/(2*nky - 1) if nky > 1 else 1# alternatively, 1/dky
         for freq in freqs:
             k_c = freq / cmin
-            dky = k_c / (nky - 1)
+            dky = k_c / (nky - 1) if nky > 1 else 0.
             for ky in np.linspace(0, k_c, nky):
                 result.append({
                     'freq':     freq,
@@ -183,6 +205,94 @@ class SeisFDFDProblem(Problem.BaseProblem):
         return result
 
     # Fields
+    def forwardAccumulate(self, isrcs=None):
+
+        dview = self.par['dview']
+        lview = self.par['lview']
+
+        # Create a function to save forward modelling results to the tracker
+        dview.execute("setupFromTag = lambda tag: None")
+        #dview['setupFromTag'] = lambda tag: None
+        setupFromTag = Reference('setupFromTag')
+
+        dview.execute("forwardFromTagAccumulate = lambda tag, isrc: resultTracker((tag[0], isrc), localSystem[tag].forward(isrc, True))")
+        forwardFromTagAccumulate = Reference('forwardFromTagAccumulate')
+
+        dview.execute("clearFromTag = lambda tag: localSystem[tag].clear()")
+        #dview['clearFromTag'] = lambda tag: localSystem[tag].clear()
+        clearFromTag = Reference('clearFromTag')
+
+        # Parse sources
+        nsrc = len(self.systemConfig['geom']['src'])
+        if isrcs is None:
+            isrcslist = range(nsrc)
+
+        elif isinstance(isrcs, slice):
+            isrcslist = range(isrcs.start or 0, isrcs.stop or nsrc, isrcs.step or 1)
+
+        else:
+            try:
+                _ = isrcs[0]
+                isrcslist = isrcs
+            except TypeError:
+                isrcslist = [isrcs]
+
+        systemsOnWorkers = dview['localSystem.keys()']
+        ids = dview['rank']
+        tags = set()
+        for ltags in systemsOnWorkers:
+            tags = tags.union(set(ltags))
+
+        startJobs = {wid: [] for wid in xrange(len(ids))}
+        systemJobs = {}
+        endJobs = {wid: [] for wid in xrange(len(ids))}
+
+        for tag in tags:
+
+            startJobsLocal = []
+
+            for i in xrange(len(ids)):
+
+                systems = systemsOnWorkers[i]
+                rank = ids[i]
+
+                try:
+                    jobdeps = {'after': endJobs[i][-1]}
+                except IndexError:
+                    jobdeps = {}
+
+                if tag in systems:
+                    with lview.temp_flags(block=False, **jobdeps):
+                        job = lview.apply(depend(hasSystemRank, tag, rank)(setupFromTag), tag)
+                        startJobsLocal.append(job)
+                        startJobs[i].append(job)
+
+            systemJobs[tag] = []
+
+            with lview.temp_flags(block=False, after=startJobsLocal):
+                for isrc in isrcslist:
+                    job = lview.apply(depend(hasSystem, tag)(forwardFromTagAccumulate), tag, isrc)
+                    systemJobs[tag].append(job)
+
+            for i in xrange(len(ids)):
+                
+                systems = systemsOnWorkers[i]
+                rank = ids[i]
+
+                if tag in systems:
+                    with lview.temp_flags(block=False, after=systemJobs[tag]):
+                        job = lview.apply(depend(hasSystemRank, tag, rank)(clearFromTag), tag)
+                        endJobs[i].append(job)
+
+        jobs = {
+            'startJobs':    startJobs,
+            'systemJobs':   systemJobs,
+            'endJobs':      endJobs,
+        }
+
+        # finaljob dependent on endJobs
+
+        return jobs
 
     def _rebuildSystem(self, c = None):
         if c is not None:
@@ -197,7 +307,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
         self.par['nproblems'] = nsp
 
         #self.curModel = self.systemConfig['c'].ravel()
-        self._handles = self._getHandles(self.par['dview'], self.systemConfig, self._subConfigSettings)
+        self._handles = self._getHandles(self.systemConfig, self._subConfigSettings)
 
     def fields(self, c):
 
