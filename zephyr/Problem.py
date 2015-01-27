@@ -12,7 +12,7 @@ def setupSystem(scu):
     global localSystem
     global localLocator
 
-    tag = (scu['freq'], scu['ky'])
+    tag = (scu['ifreq'], scu['iky'])
 
     subSystemConfig = baseSystemConfig.copy()
     subSystemConfig.update(scu)
@@ -213,14 +213,16 @@ class SeisFDFDProblem(Problem.BaseProblem):
     def _gen25DSubConfigs(self, freqs, nky, cmin):
         result = []
         weightfac = 1/(2*nky - 1) if nky > 1 else 1# alternatively, 1/dky
-        for freq in freqs:
+        for ifreq, freq in enumerate(freqs):
             k_c = freq / cmin
             dky = k_c / (nky - 1) if nky > 1 else 0.
-            for ky in np.linspace(0, k_c, nky):
+            for iky, ky in enumerate(np.linspace(0, k_c, nky)):
                 result.append({
                     'freq':     freq,
                     'ky':       ky,
                     'kyweight': 2*weightfac if ky != 0 else weightfac,
+                    'ifreq':    ifreq,
+                    'iky':      iky,
                 })
         return result
 
