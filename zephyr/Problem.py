@@ -27,6 +27,23 @@ def setupSystem(scu):
     return tag
 
 @interactive
+def forwardFromTagAccumulate(tag, isrc):
+    from IPython.parallel.error import UnmetDependency
+    if not tag in localSystem:
+        raise UnmetDependency
+
+    resultTracker((tag[0], isrc), localSystem[tag].forward(isrc, True))
+
+@interactive
+def forwardFromTagAccumulateAll(tag, isrcs):
+    from IPython.parallel.error import UnmetDependency
+    if not tag in localSystem:
+        raise UnmetDependency
+
+    for isrc in isrcs:
+        forwardFromTagAccumulate(tag, isrc)
+
+@interactive
 def hasSystem(tag):
     global localSystem
     return tag in localSystem
@@ -172,6 +189,9 @@ class SeisFDFDProblem(Problem.BaseProblem):
         dview['gradientFromTag'] = lambda tag, isrc, dresid=1.: localSystem[tag].gradient(isrc, dresid)
         gradientFromTag = Reference('gradientFromTag')
 
+        dview['forwardFromTagAccumulate'] = forwardFromTagAccumulate
+        dview['forwardFromTagAccumulateAll'] = forwardFromTagAccumulateAll
+
         # Set up the subproblem objects with each new configuration
         for wid in pclient.ids:
             pclient[wid]['rank'] = wid
@@ -215,8 +235,9 @@ class SeisFDFDProblem(Problem.BaseProblem):
         #dview['setupFromTag'] = lambda tag: None
         setupFromTag = Reference('setupFromTag')
 
-        dview.execute("forwardFromTagAccumulate = lambda tag, isrc: resultTracker((tag[0], isrc), localSystem[tag].forward(isrc, True))")
         forwardFromTagAccumulate = Reference('forwardFromTagAccumulate')
+
+        forwardFromTagAccumulateAll = Reference('forwardFromTagAccumulateAll')
 
         dview.execute("clearFromTag = lambda tag: localSystem[tag].clear()")
         #dview['clearFromTag'] = lambda tag: localSystem[tag].clear()
@@ -270,9 +291,12 @@ class SeisFDFDProblem(Problem.BaseProblem):
             systemJobs[tag] = []
 
             with lview.temp_flags(block=False, after=startJobsLocal):
-                for isrc in isrcslist:
-                    job = lview.apply(depend(hasSystem, tag)(forwardFromTagAccumulate), tag, isrc)
-                    systemJobs[tag].append(job)
+		
+                # for isrc in isrcslist:
+                #     job = lview.apply(depend(hasSystem, tag)(forwardFromTagAccumulate), tag, isrc)
+                #     systemJobs[tag].append(job)
+                job = lview.apply(forwardFromTagAccumulateAll, tag, isrcslist)
+                systemJobs[tag].append(job)
 
             for i in xrange(len(ids)):
                 
