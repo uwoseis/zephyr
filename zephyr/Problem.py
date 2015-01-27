@@ -3,6 +3,7 @@ import scipy as sp
 from IPython.parallel import Client, parallel, Reference, require, depend, interactive
 from SimPEG import Survey, Problem, Mesh, np, sp, Solver as SimpegSolver
 from Kernel import *
+import networkx
 
 @interactive
 def setupSystem(scu):
@@ -19,7 +20,7 @@ def setupSystem(scu):
 
     # Set up method output caching
     if 'cacheDir' in baseSystemConfig:
-        subSystemConfig['cacheDir'] = os.path.join(baseSystemConfig['cacheDir'], 'cache', '%f-%f'%tag)
+        subSystemConfig['cacheDir'] = os.path.join(baseSystemConfig['cacheDir'], 'cache', '%d-%d'%tag)
 
     localLocator = Kernel.SeisLocator25D(subSystemConfig['geom'])
     localSystem[tag] = Kernel.SeisFDFDKernel(subSystemConfig, locator=localLocator)
@@ -245,6 +246,11 @@ class SeisFDFDProblem(Problem.BaseProblem):
         #dview['clearFromTag'] = lambda tag: localSystem[tag].clear()
         clearFromTag = Reference('clearFromTag')
 
+        G = networkx.DiGraph()
+
+        mainNode = 'Beginning'
+        G.add_node(mainNode)
+
         # Parse sources
         nsrc = len(self.systemConfig['geom']['src'])
         if isrcs is None:
@@ -269,11 +275,17 @@ class SeisFDFDProblem(Problem.BaseProblem):
         startJobs = {wid: [] for wid in xrange(len(ids))}
         systemJobs = {}
         endJobs = {wid: [] for wid in xrange(len(ids))}
+        tailNodes = []
 
         for tag in tags:
 
             startJobsLocal = []
+            endJobsLocal = []
 
+            tagNode = 'Head: %d, %d'%tag
+            G.add_edge(mainNode, tagNode)
+
+            relIDs = []
             for i in xrange(len(ids)):
 
                 systems = systemsOnWorkers[i]
@@ -285,12 +297,21 @@ class SeisFDFDProblem(Problem.BaseProblem):
                     jobdeps = {}
 
                 if tag in systems:
+                    relIDs.append(i)
                     with lview.temp_flags(block=False, **jobdeps):
                         job = lview.apply(depend(hasSystemRank, tag, rank)(setupFromTag), tag)
                         startJobsLocal.append(job)
                         startJobs[i].append(job)
+                        label = 'Setup: %d, %d, %d'%(tag[0],tag[1],i)
+                        G.add_edge(tagNode, label)
+
+            tagNode = 'Init: %d, %d'%tag
+            for i in relIDs:
+                label = 'Setup: %d, %d, %d'%(tag[0],tag[1],i)
+                G.add_edge(label, tagNode)
 
             systemJobs[tag] = []
+            systemNodes = []
 
             with lview.temp_flags(block=False, after=startJobsLocal):
 		
@@ -299,16 +320,38 @@ class SeisFDFDProblem(Problem.BaseProblem):
                 #     systemJobs[tag].append(job)
                 job = lview.apply(forwardFromTagAccumulateAll, tag, isrcslist)
                 systemJobs[tag].append(job)
+                label = 'Compute: %d, %d'%tag#,isrc)
+                systemNodes.append(label)
+                G.add_edge(tagNode, label)
 
+            tagNode = 'Wrap: %d, %d'%tag
+            for label in systemNodes:
+                G.add_edge(label, tagNode)
+
+            relIDs = []
             for i in xrange(len(ids)):
                 
                 systems = systemsOnWorkers[i]
                 rank = ids[i]
 
                 if tag in systems:
+                    relIDs.append(i)
                     with lview.temp_flags(block=False, after=systemJobs[tag]):
                         job = lview.apply(depend(hasSystemRank, tag, rank)(clearFromTag), tag)
+                        endJobsLocal.append(job)
                         endJobs[i].append(job)
+                        label = 'Wrap: %d, %d, %d'%(tag[0],tag[1],i)
+                        G.add_edge(tagNode, label)
+
+            tagNode = 'Tail: %d, %d'%tag
+            for i in relIDs:
+                label = 'Wrap: %d, %d, %d'%(tag[0],tag[1],i)
+                G.add_edge(label, tagNode)
+            tailNodes.append(tagNode)
+
+        endNode = 'End'
+        for node in tailNodes:
+            G.add_edge(node, endNode)
 
         jobs = {
             'startJobs':    startJobs,
@@ -318,7 +361,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
         # finaljob dependent on endJobs
 
-        return jobs
+        return jobs, G
 
     def _rebuildSystem(self, c = None):
         if c is not None:
