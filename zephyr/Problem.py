@@ -206,10 +206,8 @@ class SeisFDFDProblem(Problem.BaseProblem):
         dview.wait()
 
         # Set up the subproblem objects with each new configuration
-        for eid in pclient.ids:
-            engine = pclient[eid]
-            engine['rank'] = eid
-            engine.wait()
+        dview.scatter('rank', pclient.ids, flatten=True)
+        dview.wait()
 
         if 'parFac' in systemConfig:
             parFac = systemConfig['parFac']
