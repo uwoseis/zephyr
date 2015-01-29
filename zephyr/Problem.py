@@ -112,6 +112,35 @@ def getChunks(problems, chunks=1):
     nproblems = len(problems)
     return (problems[i*nproblems // chunks: (i+1)*nproblems // chunks] for i in range(chunks))
 
+def cdSame(profile=None):
+    import os
+    from IPython.parallel import Client
+
+    if profile:
+        rc = Client(profile=profile)
+    else:
+        rc = Client()
+    dview = rc[:]
+
+
+    home = os.getenv('HOME')
+    cwd = os.getcwd()
+
+    def cdrel(relpath):
+        import os
+        home = os.getenv('HOME')
+        fullpath = os.path.join(home, relpath)
+        try:
+            os.chdir(fullpath)
+        except OSError:
+            return False
+        else:
+            return True
+
+    if cwd.find(home) == 0:
+        relpath = cwd[len(home)+1:]
+        return all(rc[:].apply_sync(cdrel, relpath))
+
 class SeisFDFDProblem(Problem.BaseProblem):
     """
     Base problem class for FDFD (Frequency Domain Finite Difference)
@@ -149,7 +178,14 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
         self._subConfigSettings = subConfigSettings
 
-        pclient = Client()
+        if 'profile' in self.systemConfig:
+            pupdate = {'profile': self.systemConfig['profile']}
+        else:
+            pupdate = {}
+        if not cdSame(**pupdate):
+            print('Could not change all workers to the same directory as the client!')
+
+        pclient = Client(**pupdate)
 
         self.par = {
             'pclient':      pclient,
