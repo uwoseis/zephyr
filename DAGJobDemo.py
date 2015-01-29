@@ -25,7 +25,7 @@ dims        = (nx,nz)       # tuple
 nPML        = 32
 rho         = np.fliplr(np.ones(dims) * density)
 nfreq       = len(freqs)    # number of frequencies
-nky         = 8             # number of y-directional plane-wave components
+nky         = 48            # number of y-directional plane-wave components
 nsp         = nfreq * nky   # total number of 2D subproblems
 
 velocity    = 2500          # m/s
@@ -52,8 +52,8 @@ geom        = {
 cache       = False
 cacheDir    = '.'
 
-parFac = 2
-chunksPerWorker = 2
+parFac = 1
+chunksPerWorker = 1
 
 # Base configuration for all subproblems
 systemConfig = {
@@ -110,7 +110,9 @@ def colourCodeNodes(graph):
     }
 
     colours = []
+    sizes = []
     stillGoing = 0
+    baseSize = 50
     
     for node in graph.nodes():
 
@@ -118,21 +120,28 @@ def colourCodeNodes(graph):
 
         if colour is None:
             status = assessStatus(graph, node)
+            if status < 0:
+                sizes.append(baseSize)
+            else:
+                sizes.append(baseSize*3)
             if status == 0:
                 stillGoing += 1
             colour = mapColours(status)
+        else:
+            sizes.append(baseSize*5)
 
         colours.append(colour)
     
-    return colours, stillGoing
+    return colours, sizes, stillGoing
 
 def trackprogress(G, interval=1.0):
 
     fig = plt.figure()
 
     def update():
-        colours, stillGoing = colourCodeNodes(G)
-        networkx.draw_graphviz(G, node_color=colours)
+	fig.clf()
+        colours, sizes, stillGoing = colourCodeNodes(G)
+        networkx.draw_graphviz(G, node_color=colours, node_size=sizes)
         return stillGoing
 
     while True:
@@ -149,4 +158,4 @@ def trackprogress(G, interval=1.0):
     update()
     plt.show()
 
-trackprogress(G)
+trackprogress(G, 3.0)
