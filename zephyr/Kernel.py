@@ -136,7 +136,6 @@ class SeisFDFDKernel(object):
             del self._mem
             shutil.rmtree(cacheDir)
 
-        super(SeisFDFDKernel, self).__del__()
 
     # Model properties
 
