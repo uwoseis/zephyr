@@ -11,7 +11,76 @@ from IPython.parallel import require, interactive, Reference
 
 DEFAULT_FREESURF_BOUNDS = [False, False, False, False]
 DEFAULT_PML_SIZE = 10
+DEFAULT_IREG = 4
 DEFAULT_SOLVER = scipy.sparse.linalg.splu
+
+HC_KAISER = {
+    1:  1.24,
+    2:  2.94,
+    3:  4.53,
+    4:  6.31,
+    5:  7.91,
+    6:  9.42,
+    7:  10.95,
+    8:  12.53,
+    9:  14.09,
+    10: 14.18,
+}
+
+def KaiserWindowedSinc(ireg, offset):
+    '''
+    Finds 2D source terms to approximate a band-limited point source, based on
+
+    Hicks, Graham J. (2002) Arbitrary source and receiver positioning in finite-difference
+        schemes using Kaiser windowed sinc functions. Geophysics (67) 1, 156-166.
+
+    KaiserWindowedSince(ireg, offset) --> 2D ndarray of size (2*ireg+1, 2*ireg+1)
+    Input offset is the 2D offsets in fractional gridpoints between the source location and
+    the nearest node on the modelling grid.
+    '''
+     
+    from scipy.special import i0 as bessi0
+    import warnings
+
+    ireg = int(ireg)
+    try:
+        b = HC_KAISER.get(ireg)
+    except KeyError:
+        print('Kaiser windowed sinc function not implemented for half-width of %d!'%(ireg,))
+        raise
+
+    freg = 2*ireg+1
+
+    xOffset, zOffset = offset
+
+    # Grid from 0 to freg-1
+    Zi, Xi = numpy.mgrid[:freg,:freg] 
+
+    # Distances from source point
+    dZi = (zOffset + ireg - Zi)
+    dXi = (xOffset + ireg - Xi)
+
+    # Taper terms for decay function
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        tZi = numpy.nan_to_num(numpy.sqrt(1 - (dZi / ireg)**2))
+        tXi = numpy.nan_to_num(numpy.sqrt(1 - (dXi / ireg)**2))
+        tZi[tZi == numpy.inf] = 0
+        tXi[tXi == numpy.inf] = 0
+
+    # Actual tapers for Kaiser window
+    taperZ = bessi0(b*tZi) / bessi0(b)
+    taperX = bessi0(b*tXi) / bessi0(b)
+
+    # Windowed sinc responses in Z and X
+    responseZ = numpy.sinc(dZi) * taperZ
+    responseX = numpy.sinc(dXi) * taperX
+
+    # Combined 2D source response
+    result = responseX * responseZ
+
+    return result
+
 
 class Rec(object):
 
@@ -125,6 +194,9 @@ class SeisFDFDKernel(object):
             'ky':           None,
             'kyweight':     None,
             'Solver':       None,
+            'ireg':         None,
+            'dx':           None,
+            'dz':           None,
         }
 
         for key in initMap.keys():
@@ -226,6 +298,16 @@ class SeisFDFDKernel(object):
     def ky(self, value):
         self._ky = value
         self._invalidateMatrix()
+
+    @property
+    def ireg(self):
+        if getattr(self, '_ireg', None) is None:
+            self._ireg = DEFAULT_IREG
+        return self._ireg
+    @ireg.setter
+    def ireg(self, value):
+        self._ireg = value
+    
 
     # Clever matrix setup properties
 
@@ -511,11 +593,45 @@ class SeisFDFDKernel(object):
 
     # Quasi-functional attempt -----------------------------------------------
     #
-    def _srcVec(self, sLocs, term):
+    def _srcVec(self, sLocs, terms):
 
-        qI = SimPEG.Utils.closestPoints(self.mesh, sLocs, gridLoc='N')
-        q = numpy.zeros(self.mesh.nN, dtype=numpy.complex128)
-        q[qI] = term
+        q = numpy.zeros((self.mesh.nNy, self.mesh.nNx), dtype=numpy.complex128)
+        srcScale = -self.dx*self.dz
+
+        if self.ireg == 0:
+            # Closest source point
+            q = q.ravel()
+
+            for i in xrange(len(sLocs)):
+                qI = SimPEG.Utils.closestPoints(self.mesh, sLocs[i], gridLoc='N')
+                q[qI] += terms[i]/srcScale
+
+        else:
+            # Kaiser windowed sinc function
+
+            freg = 2*self.ireg+1
+            q = numpy.pad(q, self.ireg, mode='constant')
+
+            for i in xrange(len(sLocs)):
+                qI = SimPEG.Utils.closestPoints(self.mesh, sLocs[i], gridLoc='N')
+                Zi, Xi = (qI / self.mesh.nNx, numpy.mod(qI, self.mesh.nNx))
+                offset = (sLocs[i][0] - Xi * self.dx, sLocs[i][1] - Zi * self.dz)
+                sourceRegion = KaiserWindowedSinc(self.ireg, offset)
+                q[Zi:Zi+freg,Xi:Xi+freg] += terms[i] * sourceRegion / srcScale
+
+            # Mirror and flip sign on terms that cross the free-surface boundary
+            if self.freeSurf[0]:
+                q[self.ireg:2*self.ireg,:]      -= numpy.flipud(q[:self.ireg,:])    # Top
+            if self.freeSurf[1]:
+                q[:,-2*self.ireg:-self.ireg]    -= numpy.fliplr(q[:,-self.ireg:])   # Right
+            if self.freeSurf[2]:
+                q[-2*self.ireg:-self.ireg,:]    -= numpy.flipud(q[-self.ireg:,:])   # Bottom
+            if self.freeSurf[3]:
+                q[:,self.ireg:2*self.ireg]      -= numpy.fliplr(q[:,:self.ireg])    # Left
+
+            # Cut off edges
+            q = q[self.ireg:-self.ireg,self.ireg:-self.ireg].ravel()
+
         return q
 
     def _srcTerm(self, sLocs, individual=True, terms=1):
@@ -523,9 +639,9 @@ class SeisFDFDKernel(object):
         if individual and len(sLocs) > 1:
             result = []
             for i in xrange(len(sLocs)):
-                result.append(self._srcVec(sLocs, terms[i] if hasattr(terms, '__contains__') else terms))
+                result.append(self._srcVec([sLocs[i] if hasattr(sLocs, '__contains__') else sLocs], [terms[i]] if hasattr(terms, '__contains__') else [terms]))
         else:
-            result = self._srcVec(sLocs, terms)
+            result = self._srcVec(sLocs if hasattr(sLocs, '__contains__') else [sLocs], terms if hasattr(terms, '__contains__') else [terms])
 
         return result 
     #
@@ -538,43 +654,34 @@ class SeisFDFDKernel(object):
         self._invalidateMatrix()
     
     # What about @caching decorators?
-    def forward(self, isrc, dOnly = True):
+    def forward(self, isrc, dOnly = True, sterm=1.):
 
         sloc, rlocs, coeffs = self._locator(isrc, self.ky)
 
-        #qs = self._srcTerm(sloc)
-        qs = numpy.zeros(self.mesh.nN, dtype=numpy.complex128)
-        qsI = SimPEG.Utils.closestPoints(self.mesh, sloc, gridLoc='N')
-        qs[qsI] = 1
-        u = self.Ainv * qs
+        q = self._srcTerm(sloc, individual=True, terms=sterm)
+        u = self.Ainv * q
 
-        #qrs = self._srcTerm(rlocs)
-        qrI = SimPEG.Utils.closestPoints(self.mesh, rlocs, gridLoc='N')
-        d = numpy.array([coeffs[i]*u[qrI[i]] for i in xrange(len(rlocs))])
+        d = numpy.array([numpy.dot(u,qr) for qr in self._srcTerm(rlocs, individual=True, terms=coeffs)])
 
         if dOnly:
             return d
         else:
             return u, d
 
-    def backprop(self, isrc, dresid):
+    def backprop(self, isrc, dresid=1.):
         
         sloc, rlocs, coeffs = self._locator(isrc, self.ky)
 
-        qr = numpy.zeros(self.mesh.nN)
-        qrI = SimPEG.Utils.closestPoints(self.mesh, rlocs, gridLoc='N')
-        qr[qrI] = coeffs * numpy.conj(dresid)
+        qr = self._srcTerm(rlocs, individual=False, terms=dresid*coeffs)
 
         u = self.Ainv * qr
 
         return u
 
-    def gradient(self, isrc, dresid):
+    def gradient(self, isrc, sterm, dresid):
 
-        uF, d = self.forward(isrc, False)
+        uF, d = self.forward(isrc, False, sterm)
         uB = self.backprop(isrc, dresid)
 
         return uF * uB
 
-    def misfit(self, sourceids):
-        pass
