@@ -28,13 +28,35 @@ def setupSystem(scu):
     if 'cacheDir' in baseSystemConfig:
         subSystemConfig['cacheDir'] = os.path.join(baseSystemConfig['cacheDir'], 'cache', '%d-%d'%tag)
 
-    localLocator = Kernel.SeisLocator25D(subSystemConfig['geom'])
     localSystem[tag] = Kernel.SeisFDFDKernel(subSystemConfig, locator=localLocator)
 
     return tag
 
+# def blockOnTag(fn):
+#     from IPython.parallel.error import UnmetDependency
+#     def checkForSystem(*args, **kwargs):
+#         if not args[0] in localSystem:
+#             raise UnmetDependency
+
+#         return fn(*args, **kwargs)
+
+#     return checkForSystem
+
+
 @interactive
+def setupCommon():
+    global baseSystemConfig
+
+    localLocator = Kernel.SeisLocator25D(subSystemConfig['geom'])
+
+@interactive
+def clearFromTag(tag):
+    return localSystem[tag].clear()
+
+@interactive
+# @blockOnTag
 def forwardFromTagAccumulate(tag, isrc):
+
     from IPython.parallel.error import UnmetDependency
     if not tag in localSystem:
         raise UnmetDependency
@@ -42,13 +64,28 @@ def forwardFromTagAccumulate(tag, isrc):
     resultTracker((tag[0], isrc), localSystem[tag].forward(isrc, True))
 
 @interactive
+# @blockOnTag
 def forwardFromTagAccumulateAll(tag, isrcs):
+
     from IPython.parallel.error import UnmetDependency
     if not tag in localSystem:
         raise UnmetDependency
 
     for isrc in isrcs:
         forwardFromTagAccumulate(tag, isrc)
+
+# @interactive
+# @blockOnTag
+# def backpropFromTagAccumulate(tag, isrc):
+
+
+
+# @interactive
+# @blockOnTag
+# def backpropFromTagAccumulateAll(tag, isrcs):
+
+#     for isrc in isrcs:
+#         backpropFromTagAccumulate(tag, isrc) 
 
 @interactive
 def hasSystem(tag):
@@ -112,20 +149,15 @@ def getChunks(problems, chunks=1):
     nproblems = len(problems)
     return (problems[i*nproblems // chunks: (i+1)*nproblems // chunks] for i in range(chunks))
 
-def cdSame(profile=None):
+def cdSame(rc):
     import os
-    from IPython.parallel import Client
 
-    if profile:
-        rc = Client(profile=profile)
-    else:
-        rc = Client()
     dview = rc[:]
-
 
     home = os.getenv('HOME')
     cwd = os.getcwd()
 
+    @interactive
     def cdrel(relpath):
         import os
         home = os.getenv('HOME')
@@ -168,6 +200,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
         Problem.BaseProblem.__init__(self, mesh, **kwargs)
 
+
         splitkeys = ['freqs', 'nky']
 
         subConfigSettings = {}
@@ -182,10 +215,12 @@ class SeisFDFDProblem(Problem.BaseProblem):
             pupdate = {'profile': self.systemConfig['profile']}
         else:
             pupdate = {}
-        if not cdSame(**pupdate):
-            print('Could not change all workers to the same directory as the client!')
 
         pclient = Client(**pupdate)
+
+
+        if not cdSame(pclient):
+            print('Could not change all workers to the same directory as the client!')
 
         self.par = {
             'pclient':      pclient,
@@ -211,6 +246,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
         self._rebuildSystem()
 
+
     def _getHandles(self, systemConfig, subConfigSettings):
 
         pclient = self.par['pclient']
@@ -221,12 +257,11 @@ class SeisFDFDProblem(Problem.BaseProblem):
         nsp = len(subConfigs)
 
         # Set up dictionary for subproblem objects and push base configuration for the system
-        #setupCache(systemConfig)
         dview['localSystem'] = {}
         dview['baseSystemConfig'] = systemConfig
         dview['resultTracker'] = commonReducer()
-        #localSystem = Reference('localSystem')
-        #resultTracker = Reference('resultTracker')
+        dview.execute("localLocator = Kernel.SeisLocator25D(baseSystemConfig['geom'])")
+
 
         # Create a function to get a subproblem forward modelling function
         dview['forwardFromTag'] = lambda tag, isrc, dOnly=True: localSystem[tag].forward(isrc, dOnly)
@@ -238,6 +273,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
         dview['forwardFromTagAccumulate'] = forwardFromTagAccumulate
         dview['forwardFromTagAccumulateAll'] = forwardFromTagAccumulateAll
+        dview['clearFromTag'] = clearFromTag
 
         dview.wait()
 
@@ -285,24 +321,16 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
     # Fields
     def forwardAccumulate(self, isrcs=None):
+        G = self.systemSolve(Reference('forwardFromTagAccumulateAll'), isrcs)
+
+        return G
+
+    def systemSolve(self, fnRef, isrcs=None, clearRef=Reference('clearFromTag')):
 
         dview = self.par['dview']
         lview = self.par['lview']
 
         chunksPerWorker = self.systemConfig.get('chunksPerWorker', 1)
-
-        # Create a function to save forward modelling results to the tracker
-        dview.execute("setupFromTag = lambda tag: None")
-        #dview['setupFromTag'] = lambda tag: None
-        #setupFromTag = Reference('setupFromTag')
-
-        #forwardFromTagAccumulate = Reference('forwardFromTagAccumulate')
-
-        #forwardFromTagAccumulateAll = Reference('forwardFromTagAccumulateAll')
-
-        dview.execute("clearFromTag = lambda tag: localSystem[tag].clear()")
-        #dview['clearFromTag'] = lambda tag: localSystem[tag].clear()
-        #clearFromTag = Reference('clearFromTag')
 
         G = networkx.DiGraph()
 
@@ -330,16 +358,10 @@ class SeisFDFDProblem(Problem.BaseProblem):
         for ltags in systemsOnWorkers:
             tags = tags.union(set(ltags))
 
-        startJobs = {wid: [] for wid in xrange(len(ids))}
-        systemJobs = {}
-        endJobs = {wid: [] for wid in xrange(len(ids))}
-        endNodes = {wid: [] for wid in xrange(len(ids))}
+        endNodes = {}
         tailNodes = []
 
         for tag in tags:
-
-            startJobsLocal = []
-            endJobsLocal = []
 
             tagNode = 'Head: %d, %d'%tag
             G.add_edge(mainNode, tagNode)
@@ -350,67 +372,52 @@ class SeisFDFDProblem(Problem.BaseProblem):
                 systems = systemsOnWorkers[i]
                 rank = ids[i]
 
-                try:
-                    jobdeps = {'after': endJobs[i][-1]}
-                except IndexError:
-                    jobdeps = {}
-
                 if tag in systems:
                     relIDs.append(i)
-                    with lview.temp_flags(block=False, **jobdeps):
-                        job = lview.apply(depend(hasSystemRank, tag, rank)(Reference('setupFromTag')), tag)
-                        startJobsLocal.append(job)
-                        startJobs[i].append(job)
-                        label = 'Setup: %d, %d, %d'%(tag[0],tag[1],i)
-                        G.add_node(label, job=job)
-                        G.add_edge(tagNode, label)
-                        if 'after' in jobdeps:
-                            G.add_edge(endNodes[i][-1], label)
 
-            tagNode = 'Init: %d, %d'%tag
-            for i in relIDs:
-                label = 'Setup: %d, %d, %d'%(tag[0],tag[1],i)
-                G.add_edge(label, tagNode)
-
-            systemJobs[tag] = []
+            systemJobs = []
+            endNodes[tag] = []
             systemNodes = []
 
-            with lview.temp_flags(block=False, after=startJobsLocal):
+            with lview.temp_flags(block=False):
                 iworks = 0
                 for work in getChunks(isrcslist, int(round(chunksPerWorker*len(relIDs)))):
                     if work:
-                        job = lview.apply(Reference('forwardFromTagAccumulateAll'), tag, work)
-                        systemJobs[tag].append(job)
+                        job = lview.apply(fnRef, tag, work)
+                        systemJobs.append(job)
                         label = 'Compute: %d, %d, %d'%(tag[0], tag[1], iworks)
                         systemNodes.append(label)
                         G.add_node(label, job=job)
                         G.add_edge(tagNode, label)
                         iworks += 1
 
-            tagNode = 'Wrap: %d, %d'%tag
-            for label in systemNodes:
-                G.add_edge(label, tagNode)
+            if self.systemConfig.get('ensembleClear', False): # True for ensemble ending, False for individual ending
+                tagNode = 'Wrap: %d, %d'%tag
+                for label in systemNodes:
+                    G.add_edge(label, tagNode)
 
-            relIDs = []
-            for i in xrange(len(ids)):
-                
-                systems = systemsOnWorkers[i]
-                rank = ids[i]
+                for i in relIDs:
 
-                if tag in systems:
-                    relIDs.append(i)
-                    with lview.temp_flags(block=False, after=systemJobs[tag]):
-                        job = lview.apply(depend(hasSystemRank, tag, rank)(Reference('clearFromTag')), tag)
-                        endJobsLocal.append(job)
-                        endJobs[i].append(job)
+                    rank = ids[i]
+
+                    with lview.temp_flags(block=False, after=systemJobs):
+                        job = lview.apply(depend(hasSystemRank, tag, rank)(clearRef), tag)
+                        label = 'Wrap: %d, %d, %d'%(tag[0],tag[1], i)
+                        G.add_node(label, job=job)
+                        endNodes[tag].append(label)
+                        G.add_edge(tagNode, label)
+            else:
+
+                for i, sjob in enumerate(systemJobs):
+                    with lview.temp_flags(block=False, follow=sjob):
+                        job = lview.apply(clearRef, tag)
                         label = 'Wrap: %d, %d, %d'%(tag[0],tag[1],i)
                         G.add_node(label, job=job)
-                        endNodes[i].append(label)
-                        G.add_edge(tagNode, label)
+                        endNodes[tag].append(label)
+                        G.add_edge(systemNodes[i], label)
 
             tagNode = 'Tail: %d, %d'%tag
-            for i in relIDs:
-                label = 'Wrap: %d, %d, %d'%(tag[0],tag[1],i)
+            for label in endNodes[tag]:
                 G.add_edge(label, tagNode)
             tailNodes.append(tagNode)
 
@@ -418,15 +425,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
         for node in tailNodes:
             G.add_edge(node, endNode)
 
-        jobs = {
-            'startJobs':    startJobs,
-            'systemJobs':   systemJobs,
-            'endJobs':      endJobs,
-        }
-
-        # finaljob dependent on endJobs
-
-        return jobs, G
+        return G
 
     def _rebuildSystem(self, c = None):
         if c is not None:
