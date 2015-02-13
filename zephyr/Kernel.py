@@ -15,18 +15,19 @@ DEFAULT_SOLVER = scipy.sparse.linalg.splu
 
 class Rec(object):
 
-    def __init__(self, parent, mode, rec):
+    def __init__(self, parent, geometry, origin):
 
         self._parent = parent
         self._nsrc = parent.nsrc
-        self._mode = mode
-        self._rec = rec
+        self._mode = geometry['mode']
+        self._rec = geometry['rec']
+        self._origin = origin
 
     def _getrec(self, i):
         if self._mode == 'fixed':
-            return self._rec
+            return self._rec - self._origin
         elif self._mode == 'relative':
-            return self._rec[i]
+            return self._rec[i] - self._origin
         else:
             return None
 
@@ -41,16 +42,20 @@ class SeisLocator25D(object):
 
     def __init__(self, geometry):
 
+        x0 = geometry.get('x0', 0.)
+        z0 = geometry.get('z0', 0.)
+        self._origin = numpy.array([x0, 0., z0]).reshape((1,3))
+
         if len(geometry['src'].shape) < 2:
             self.src = geometry['src'].reshape((1,3))
         else:
             self.src = geometry['src']
         self.nsrc = len(self.src)
-        self.rec = Rec(self, geometry['mode'], geometry['rec'])
+        self.rec = Rec(self, geometry, self._origin)
 
     def __call__(self, isrc, ky):
 
-        sloc = self.src[isrc,:].reshape((1,3))
+        sloc = self.src[isrc,:].reshape((1,3)) - self._origin
         rlocs = self.rec[isrc]
         if len(rlocs.shape) < 2:
             rlocs.shape = (1,3)
