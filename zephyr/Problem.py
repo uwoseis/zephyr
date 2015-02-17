@@ -418,7 +418,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
             except TypeError:
                 isrcslist = [isrcs]
 
-        systemsOnWorkers = self._remote['localSystem.keys()'] # Faster if MPI is available
+        systemsOnWorkers = dview['localSystem.keys()']
         ids = dview['rank']
         tags = set()
         for ltags in systemsOnWorkers:
