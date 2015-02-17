@@ -107,6 +107,16 @@ class Rec(object):
         else:
             return self._getrec(index)
 
+    @property
+    def nrec(self):
+        if getattr(self, '_nrec', None) is None:
+            if self._mode == 'fixed':
+                self._nrec = len(self._rec)
+            else:
+                self._nrec = max((len(item) for item in self._rec))
+
+        return self._nrec
+
 class SeisLocator25D(object):
 
     def __init__(self, geometry):
@@ -119,7 +129,6 @@ class SeisLocator25D(object):
             self.src = geometry['src'].reshape((1,3))
         else:
             self.src = geometry['src']
-        self.nsrc = len(self.src)
         self.rec = Rec(self, geometry, self._origin)
 
     def __call__(self, isrc, ky):
@@ -132,6 +141,14 @@ class SeisLocator25D(object):
         coeffs = numpy.cos(2*numpy.pi*ky*dy)
 
         return sloc[:,::2], rlocs[:,::2], coeffs
+
+    @property
+    def nsrc(self):
+        return len(self.src)
+
+    @property
+    def nrec(self):
+        return self.rec.nrec
 
 # ------------------------------------------------------------------------
 # Parallel system setup
