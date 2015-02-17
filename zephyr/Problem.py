@@ -64,7 +64,11 @@ def forwardFromTagAccumulate(tag, isrc):
     if not tag in localSystem:
         raise UnmetDependency
 
-    resultTracker((tag[0], isrc), localSystem[tag].forward(isrc, True))
+    key = tag[0]
+    if not key in dataResultTracker:
+        dims = (localLocator.nsrc, localLocator.nrec)
+        dataResultTracker[key] = np.zeros(dims, dtype=np.complex128)
+    dataResultTracker[key][isrc] += localSystem[tag].forward(isrc, True)
 
 @interactive
 # @blockOnTag
@@ -272,6 +276,18 @@ class RemoteInterface(object):
 
         return item
 
+    def reduce(self, key):
+
+        if self.useMPI:
+            code = 'temp_%(key)s = comm.reduce(%(key)s, root=%(root)d)'
+            self.dview.execute(code%{'key': key, 'root': 0})
+            item = self.e0['temp_%s'%(key,)]
+            self.dview.execute('del temp_%s'%(key,))
+
+        else:
+            item = reduce(np.add, self.dview[key])
+
+        return item
 
 class SeisFDFDProblem(Problem.BaseProblem):
     """
@@ -329,7 +345,8 @@ class SeisFDFDProblem(Problem.BaseProblem):
         # Set up dictionary for subproblem objects and push base configuration for the system
         dview['localSystem'] = {}
         self._remote['baseSystemConfig'] = systemConfig # Faster if MPI is available
-        dview['resultTracker'] = commonReducer()
+        dview['dataResultTracker'] = commonReducer()
+
         dview.execute("localLocator = Kernel.SeisLocator25D(baseSystemConfig['geom'])")
 
 
@@ -387,11 +404,26 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
     # Fields
     def forwardAccumulate(self, isrcs=None):
-        G = self.systemSolve(Reference('forwardFromTagAccumulateAll'), isrcs)
 
-        return G
+        dview = self.par['dview']
 
-    def systemSolve(self, fnRef, isrcs=None, clearRef=Reference('clearFromTag')):
+        systemsOnWorkers = dview['localSystem.keys()']
+        tags = set()
+        for ltags in systemsOnWorkers:
+            tags = tags.union(set(ltags))
+
+        #code = 'for tag in localSystem.keys(): dataResultTracker[tag[0]] = np.zeros((localLocator.nsrc, localLocator.nrec), dtype=np.complex128)'
+        ### In some ways this would be better if it was sparse and automatically grew whenever it saw a new source. That would be slow, though.
+        #dview.execute(code)
+        #dview.wait()
+        
+        G = self._systemSolve(Reference('forwardFromTagAccumulateAll'), isrcs)
+
+        self.par['lview'].wait(G.predecessors('End'))
+
+        #totalData = 
+
+    def _systemSolve(self, fnRef, isrcs=None, clearRef=Reference('clearFromTag')):
 
         dview = self.par['dview']
         lview = self.par['lview']
@@ -498,7 +530,6 @@ class SeisFDFDProblem(Problem.BaseProblem):
             self.systemConfig['c'] = c
             self._rebuildSystem()
             return
-
 
         self._subConfigSettings['cmin'] = self.systemConfig['c'].min()
         subConfigs = self._gen25DSubConfigs(**self._subConfigSettings)
