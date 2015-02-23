@@ -67,41 +67,56 @@ def clearFromTag(tag):
 
 @interactive
 # @blockOnTag
-def forwardFromTagAccumulate(tag, isrc):
+def forwardFromTagAccumulate(tag, isrc, **kwargs):
 
     from IPython.parallel.error import UnmetDependency
     if not tag in localSystem:
         raise UnmetDependency
 
     key = tag[0]
+
     if not key in dataResultTracker:
         dims = (localLocator.nsrc, localLocator.nrec)
         dataResultTracker[key] = np.zeros(dims, dtype=np.complex128)
-    dataResultTracker[key][isrc] += localSystem[tag].forward(isrc, True)
+
+    if not key in forwardResultTracker:
+        dims = (localLocator.nsrc, localSystem[tag].mesh.nN)
+        forwardResultTracker[key] = np.zeros(dims, dtype=np.complex128)
+
+    u, d = localSystem[tag].forward(isrc, dOnly=False, **kwargs)
+    forwardResultTracker[key][isrc] += u
+    dataResultTracker[key][isrc] += d
 
 @interactive
 # @blockOnTag
-def forwardFromTagAccumulateAll(tag, isrcs):
+def forwardFromTagAccumulateAll(tag, isrcs, **kwargs):
+
+    for isrc in isrcs:
+        forwardFromTagAccumulate(tag, isrc, **kwargs)
+
+@interactive
+# @blockOnTag
+def backpropFromTagAccumulate(tag, isrc):
 
     from IPython.parallel.error import UnmetDependency
     if not tag in localSystem:
         raise UnmetDependency
 
+    key = tag[0]
+
+    if not key in backpropResultTracker:
+        dims = (localLocator.nsrc, localSystem[tag].mesh.nN)
+        backpropResultTracker[key] = np.zeros(dims, dtype=np.complex128)
+
+    u = localSystem[tag].backprop(isrc, **kwargs)
+    backpropResultTracker[key][isrc] += u
+
+@interactive
+# @blockOnTag
+def backpropFromTagAccumulateAll(tag, isrcs, **kwargs):
+
     for isrc in isrcs:
-        forwardFromTagAccumulate(tag, isrc)
-
-# @interactive
-# @blockOnTag
-# def backpropFromTagAccumulate(tag, isrc):
-
-
-
-# @interactive
-# @blockOnTag
-# def backpropFromTagAccumulateAll(tag, isrcs):
-
-#     for isrc in isrcs:
-#         backpropFromTagAccumulate(tag, isrc) 
+        backpropFromTagAccumulate(tag, isrc, **kwargs) 
 
 @interactive
 def hasSystem(tag):
@@ -260,8 +275,6 @@ class RemoteInterface(object):
             'pclient':      self.pclient,
             'dview':        self.dview,
             'lview':        self.pclient.load_balanced_view(),
-            'nworkers':     len(pclient.ids),
-            'rank':         Reference('rank'),
         }
 
     def __setitem__(self, key, item):
@@ -357,6 +370,8 @@ class SeisFDFDProblem(Problem.BaseProblem):
         dview['localSystem'] = {}
         self._remote['baseSystemConfig'] = systemConfig # Faster if MPI is available
         dview['dataResultTracker'] = commonReducer()
+        dview['forwardResultTracker'] = commonReducer()
+        dview['backpropResultTracker'] = commonReducer()
 
         dview.execute("localLocator = Kernel.SeisLocator25D(baseSystemConfig['geom'])")
 
@@ -414,27 +429,42 @@ class SeisFDFDProblem(Problem.BaseProblem):
         return result
 
     # Fields
-    def forwardAccumulate(self, isrcs=None):
+    def forward(self, isrcs=None, **kwargs):
 
         dview = self.par['dview']
+        dview['dataResultTracker'] = commonReducer()
+        dview['forwardResultTracker'] = commonReducer()
 
-        systemsOnWorkers = dview['localSystem.keys()']
-        tags = set()
-        for ltags in systemsOnWorkers:
-            tags = tags.union(set(ltags))
-
-        #code = 'for tag in localSystem.keys(): dataResultTracker[tag[0]] = np.zeros((localLocator.nsrc, localLocator.nrec), dtype=np.complex128)'
-        ### In some ways this would be better if it was sparse and automatically grew whenever it saw a new source. That would be slow, though.
-        #dview.execute(code)
-        #dview.wait()
-        
         G = self._systemSolve(Reference('forwardFromTagAccumulateAll'), isrcs)
 
-        self.par['lview'].wait(G.predecessors('End'))
+        # self.par['lview'].wait(G.predecessors('End'))
 
-        #totalData = 
+        # d = self._remote.reduce('dataResultTracker')
 
-    def _systemSolve(self, fnRef, isrcs=None, clearRef=Reference('clearFromTag')):
+        # if not kwargs.get('dOnly', True):
+        #     uF = self._remote.reduce('forwardResultTracker')
+
+        #     return uF, d
+
+        # return d
+
+        return G
+
+    def backprop(self, **kwargs):
+
+        dview = self.par['dview']
+        dview['backpropResultTracker'] = commonReducer()
+
+        G = self._systemSolve(Reference('backpropFromTagAccumulateAll'), isrcs)
+
+        # self.par['lview'].wait(G.predecessors('End'))
+
+        # uB = self._remote.reduce('backpropResultTracker')
+
+        return G
+
+
+    def _systemSolve(self, fnRef, isrcs, clearRef=Reference('clearFromTag'), **kwargs):
 
         dview = self.par['dview']
         lview = self.par['lview']
@@ -492,7 +522,7 @@ class SeisFDFDProblem(Problem.BaseProblem):
                 iworks = 0
                 for work in getChunks(isrcslist, int(round(chunksPerWorker*len(relIDs)))):
                     if work:
-                        job = lview.apply(fnRef, tag, work)
+                        job = lview.apply(fnRef, tag, work, **kwargs)
                         systemJobs.append(job)
                         label = 'Compute: %d, %d, %d'%(tag[0], tag[1], iworks)
                         systemNodes.append(label)
@@ -554,14 +584,14 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
         self._rebuildSystem(c)
 
-        F = FieldsSeisFDFD(self.mesh, self.survey)
+        # F = FieldsSeisFDFD(self.mesh, self.survey)
 
-        for freq in self.survey.freqs:
-            A = self._initHelmholtzNinePoint(freq)
-            q = self.survey.getTransmitters(freq)
-            Ainv = self.Solver(A, **self.solverOpts)
-            sol = Ainv * q
-            F[q, 'u'] = sol
+        # for freq in self.survey.freqs:
+        #     A = self._initHelmholtzNinePoint(freq)
+        #     q = self.survey.getTransmitters(freq)
+        #     Ainv = self.Solver(A, **self.solverOpts)
+        #     sol = Ainv * q
+        #     F[q, 'u'] = sol
 
         return F
 
