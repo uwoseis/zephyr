@@ -9,6 +9,15 @@ DEFAULT_MPI = True
 MPI_BELLWETHERS = ['PMI_SIZE', 'OMPI_UNIVERSE_SIZE']
 
 @interactive
+def noMKLVectorization():
+    try:
+        import mkl
+    except ImportError:
+        pass
+    finally:
+        mkl.set_num_threads(1)
+
+@interactive
 def setupSystem(scu):
 
     import os
@@ -216,6 +225,8 @@ class RemoteInterface(object):
             dview.execute(command.strip())
 
         dview.scatter('rank', pclient.ids, flatten=True)
+
+        dview.apply(noMKLVectorization)
 
         self.useMPI = False
         if systemConfig.get('MPI', DEFAULT_MPI):
