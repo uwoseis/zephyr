@@ -671,7 +671,7 @@ class SeisFDFDKernel(object):
         self._invalidateMatrix()
     
     # What about @caching decorators?
-    def forward(self, isrc, dOnly = True, sterm=1.):
+    def forward(self, isrc, dOnly=True, sterm=1.):
 
         sloc, rlocs, coeffs = self._locator(isrc, self.ky)
 
@@ -695,10 +695,10 @@ class SeisFDFDKernel(object):
 
         return u
 
-    def gradient(self, isrc, sterm, dresid):
+    # def gradient(self, isrc, sterm, dresid):
 
-        uF, d = self.forward(isrc, False, sterm)
-        uB = self.backprop(isrc, dresid)
+    #     uF, d = self.forward(isrc, False, sterm)
+    #     uB = self.backprop(isrc, dresid)
 
-        return uF * uB
+    #     return uF * uB
 
