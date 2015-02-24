@@ -10,5 +10,3 @@ if __name__ == '__main__':
     testSuite = unittest.TestSuite(suites)
 
     unittest.TextTestRunner(verbosity=2).run(testSuite)
-
-    blah

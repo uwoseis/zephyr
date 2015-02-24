@@ -58,3 +58,6 @@ target/
 
 # Working cache for solver
 cache/
+
+# Temporary IPython Notebooks
+Untitled*.ipynb
