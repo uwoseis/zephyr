@@ -12,7 +12,12 @@ from IPython.parallel import require, interactive, Reference
 DEFAULT_FREESURF_BOUNDS = [False, False, False, False]
 DEFAULT_PML_SIZE = 10
 DEFAULT_IREG = 4
-DEFAULT_SOLVER = scipy.sparse.linalg.splu
+
+try:
+    from pymatsolver import MumpsSolver
+    DEFAULT_SOLVER = MumpsSolver
+except:
+    DEFAULT_SOLVER = scipy.sparse.linalg.splu
 
 HC_KAISER = {
     1:  1.24,
@@ -196,8 +201,8 @@ class SeisFDFDKernel(object):
                 self.forward = self._mem.cache(self.forward)
                 self.backprop = self._mem.cache(self.backprop)
 
-        hx = [(systemConfig['dx'], systemConfig['nx'])]
-        hz = [(systemConfig['dz'], systemConfig['nz'])]
+        hx = [(systemConfig['dx'], systemConfig['nx']-1)]
+        hz = [(systemConfig['dz'], systemConfig['nz']-1)]
         self.mesh = SimPEG.Mesh.TensorMesh([hx, hz], '00')
 
         initMap = {
@@ -374,10 +379,13 @@ class SeisFDFDKernel(object):
 
         # Set up SimPEG mesh
         dims = (self.mesh.nNy, self.mesh.nNx)
-        mAve = self.mesh.aveN2CC
+        # mAve = self.mesh.aveN2CC
 
-        c = (mAve.T * self.c.ravel()).reshape(dims)
-        rho = (mAve.T * self.rho.ravel()).reshape(dims)
+        # c = (mAve.T * self.c.ravel()).reshape(dims)
+        # rho = (mAve.T * self.rho.ravel()).reshape(dims)
+
+        c = self.c
+        rho = self.rho
 
         # fast --> slow is x --> y --> z as Fortran
 
@@ -477,7 +485,7 @@ class SeisFDFDKernel(object):
         # Buoyancies
         bMM = 1. / rhoPad[0:-2,0:-2] # bottom left
         bME = 1. / rhoPad[0:-2,1:-1] # bottom centre
-        bMP = 1. / rhoPad[0:-2,2:  ] # bottom centre
+        bMP = 1. / rhoPad[0:-2,2:  ] # bottom right
         bEM = 1. / rhoPad[1:-1,0:-2] # middle left
         bEE = 1. / rhoPad[1:-1,1:-1] # middle centre
         bEP = 1. / rhoPad[1:-1,2:  ] # middle right
@@ -497,18 +505,18 @@ class SeisFDFDKernel(object):
         bPP = (bEE + bPP) / 2 # c2
 
         # Reset the buoyancies on the outside edges
-        bMM[ 0, :] = bEE[ 0, :]
-        bMM[ :, 0] = bEE[ :, 0]
-        bME[ 0, :] = bEE[ 0, :]
-        bMP[ 0, :] = bEE[ 0, :]
-        bMP[ :,-1] = bEE[ :,-1]
-        bEM[ :, 0] = bEE[ :, 0]
-        bEP[ :,-1] = bEE[ :,-1]
-        bPM[-1, :] = bEE[-1, :]
-        bPM[ :, 0] = bEE[ :, 0]
-        bPE[-1, :] = bEE[-1, :]
-        bPP[-1, :] = bEE[-1, :]
-        bPP[ :,-1] = bEE[ :,-1]
+        # bMM[ 0, :] = bEE[ 0, :]
+        # bMM[ :, 0] = bEE[ :, 0]
+        # bME[ 0, :] = bEE[ 0, :]
+        # bMP[ 0, :] = bEE[ 0, :]
+        # bMP[ :,-1] = bEE[ :,-1]
+        # bEM[ :, 0] = bEE[ :, 0]
+        # bEP[ :,-1] = bEE[ :,-1]
+        # bPM[-1, :] = bEE[-1, :]
+        # bPM[ :, 0] = bEE[ :, 0]
+        # bPE[-1, :] = bEE[-1, :]
+        # bPP[-1, :] = bEE[-1, :]
+        # bPP[ :,-1] = bEE[ :,-1]
 
         # K = omega^2/(c^2 . rho)
         kMM = K[0:-2,0:-2] # bottom left
@@ -562,51 +570,66 @@ class SeisFDFDKernel(object):
                     + bcoef*bPP*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
         }
 
-        self._setupBoundary(diagonals, freeSurf)
+        diagonals['AD'] = diagonals['AD'].ravel()[dims[1]+1:          ]
+        diagonals['DD'] = diagonals['DD'].ravel()[dims[1]  :          ]
+        diagonals['CD'] = diagonals['CD'].ravel()[dims[1]-1:          ]
+        diagonals['AA'] = diagonals['AA'].ravel()[        1:          ]
+        diagonals['BE'] = diagonals['BE'].ravel()[         :          ]
+        diagonals['CC'] = diagonals['CC'].ravel()[         :-1        ]
+        diagonals['AF'] = diagonals['AF'].ravel()[         :-dims[1]+1]
+        diagonals['FF'] = diagonals['FF'].ravel()[         :-dims[1]  ]
+        diagonals['CF'] = diagonals['CF'].ravel()[         :-dims[1]-1]
 
-        diagonals = numpy.array([diagonals[key].ravel() for key in keys])
+        # self._setupBoundary(diagonals, freeSurf)
+        if any(freeSurf):
+            raise NotImplementedError('Free surface not implemented!')
+
+        # for key in diagonals.keys():
+        #     print('%s:\t%d\t%d'%(key, diagonals[key].size, offsets[key]))
+
+        diagonals = [diagonals[key] for key in keys]
         offsets = [offsets[key] for key in keys]
 
-        A = scipy.sparse.spdiags(diagonals, offsets, self.mesh.nN, self.mesh.nN, format='csr')
+        A = scipy.sparse.diags(diagonals, offsets, shape=(self.mesh.nN, self.mesh.nN), format='csr', dtype=numpy.complex128)#, shape=(self.mesh.nN, self.mesh.nN))#, self.mesh.nN, self.mesh.nN, format='csr')
 
         return A
 
-    def _setupBoundary(self, diagonals, freeSurf):
-        """
-        Function to set up boundary regions for the Seismic FDFD problem
-        using the 9-point finite-difference stencil from OMEGA/FULLWV.
-        """
+    # def _setupBoundary(self, diagonals, freeSurf):
+    #     """
+    #     Function to set up boundary regions for the Seismic FDFD problem
+    #     using the 9-point finite-difference stencil from OMEGA/FULLWV.
+    #     """
 
-        keys = diagonals.keys()
-        pickDiag = lambda x: -1. if freeSurf[x] else 1.
+    #     keys = diagonals.keys()
+    #     pickDiag = lambda x: -1. if freeSurf[x] else 1.
 
-        # Left
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][:,0] = pickDiag(3)
-            else:
-                diagonals[key][:,0] = 0.
+    #     # Left
+    #     for key in keys:
+    #         if key is 'BE':
+    #             diagonals[key][:,0] = pickDiag(3)
+    #         else:
+    #             diagonals[key][:,0] = 0.
 
-        # Right
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][:,-1] = pickDiag(1)
-            else:
-                diagonals[key][:,-1] = 0.
+    #     # Right
+    #     for key in keys:
+    #         if key is 'BE':
+    #             diagonals[key][:,-1] = pickDiag(1)
+    #         else:
+    #             diagonals[key][:,-1] = 0.
 
-        # Bottom
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][0,:] = pickDiag(2)
-            else:
-                diagonals[key][0,:] = 0.
+    #     # Bottom
+    #     for key in keys:
+    #         if key is 'BE':
+    #             diagonals[key][0,:] = pickDiag(2)
+    #         else:
+    #             diagonals[key][0,:] = 0.
 
-        # Top
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][-1,:] = pickDiag(0)
-            else:
-                diagonals[key][-1,:] = 0.
+    #     # Top
+    #     for key in keys:
+    #         if key is 'BE':
+    #             diagonals[key][-1,:] = pickDiag(0)
+    #         else:
+    #             diagonals[key][-1,:] = 0.
 
     # Quasi-functional attempt -----------------------------------------------
     #

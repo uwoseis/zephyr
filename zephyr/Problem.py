@@ -45,8 +45,8 @@ def setupSystem(scu):
     return tag
 
 # def blockOnTag(fn):
-#     from IPython.parallel.error import UnmetDependency
 #     def checkForSystem(*args, **kwargs):
+#         from IPython.parallel.error import UnmetDependency
 #         if not args[0] in localSystem:
 #             raise UnmetDependency
 
@@ -330,8 +330,8 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
         self.systemConfig = systemConfig.copy()
 
-        hx = [self.systemConfig['dx'], self.systemConfig['nx']]
-        hz = [self.systemConfig['dz'], self.systemConfig['nz']]
+        hx = [self.systemConfig['dx'], self.systemConfig['nx']-1]
+        hz = [self.systemConfig['dz'], self.systemConfig['nz']-1]
         mesh = Mesh.TensorMesh([hx, hz], '00')
 
         # NB: Remember to set up something to do geometry conversion
