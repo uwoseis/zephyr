@@ -17,7 +17,7 @@ try:
     from pymatsolver import MumpsSolver
     DEFAULT_SOLVER = MumpsSolver
 except:
-    DEFAULT_SOLVER = scipy.sparse.linalg.splu
+    DEFAULT_SOLVER = SimPEG.SolverWrapD(scipy.sparse.linalg.splu)
 
 HC_KAISER = {
     1:  1.24,
@@ -336,7 +336,7 @@ class SeisFDFDKernel(object):
     @property
     def Solver(self):
         if getattr(self, '_Solver', None) is None:
-            self._Solver = SimPEG.SolverWrapD(DEFAULT_SOLVER)
+            self._Solver = DEFAULT_SOLVER
         return self._Solver
     @Solver.setter
     def Solver(self, value):
