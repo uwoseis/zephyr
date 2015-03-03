@@ -61,3 +61,7 @@ cache/
 
 # Temporary IPython Notebooks
 Untitled*.ipynb
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
