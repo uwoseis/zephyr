@@ -1,21 +1,13 @@
 import numpy as np
-import scipy as sp
-from IPython.parallel import Client, parallel, Reference, require, depend, interactive
-from SimPEG import Survey, Problem, Mesh, np, sp, Solver as SimpegSolver
-from Kernel import *
+from IPython.parallel import Reference, interactive
+from SimPEG import Survey, Problem, Mesh, Solver as SimpegSolver
+from zephyr.Util import commonReducer
+from zephyr.Parallel import RemoteInterface
 import networkx
 
 DEFAULT_MPI = True
 MPI_BELLWETHERS = ['PMI_SIZE', 'OMPI_UNIVERSE_SIZE']
 
-@interactive
-def noMKLVectorization():
-    try:
-        import mkl
-    except ImportError:
-        pass
-    finally:
-        mkl.set_num_threads(1)
 
 @interactive
 def setupSystem(scu):
@@ -129,189 +121,10 @@ def hasSystemRank(tag, wid):
     global rank
     return (tag in localSystem) and (rank == wid)
 
-class commonReducer(dict):
-
-    def __init__(self, *args, **kwargs):
-        dict.__init__(self, *args, **kwargs)
-        self.addcounter = 0
-        self.iaddcounter = 0
-        self.interactcounter = 0
-        self.callcounter = 0
-
-    def __add__(self, other):
-        result = commonReducer(self)
-        for key in other.keys():
-            if key in result:
-                result[key] = self[key] + other[key]
-            else:
-                result[key] = other[key]
-
-        self.addcounter += 1
-        self.interactcounter += 1
-
-        return result
-
-    def __iadd__(self, other):
-        for key in other.keys():
-            if key in self:
-                self[key] += other[key]
-            else:
-                self[key] = other[key]
-
-        self.iaddcounter += 1
-        self.interactcounter += 1
-
-        return self
-
-    def copy(self):
-
-        return commonReducer(self)
-
-    def __call__(self, key, result):
-        if key in self:
-            self[key] += result
-        else:
-            self[key] = result
-
-        self.callcounter += 1
-        self.interactcounter += 1
-
 def getChunks(problems, chunks=1):
     nproblems = len(problems)
     return (problems[i*nproblems // chunks: (i+1)*nproblems // chunks] for i in range(chunks))
 
-def cdSame(rc):
-    import os
-
-    dview = rc[:]
-
-    home = os.getenv('HOME')
-    cwd = os.getcwd()
-
-    @interactive
-    def cdrel(relpath):
-        import os
-        home = os.getenv('HOME')
-        fullpath = os.path.join(home, relpath)
-        try:
-            os.chdir(fullpath)
-        except OSError:
-            return False
-        else:
-            return True
-
-    if cwd.find(home) == 0:
-        relpath = cwd[len(home)+1:]
-        return all(rc[:].apply_sync(cdrel, relpath))
-
-class RemoteInterface(object):
-
-    def __init__(self, systemConfig):
-
-        if 'profile' in systemConfig:
-            pupdate = {'profile': systemConfig['profile']}
-        else:
-            pupdate = {}
-
-        pclient = Client(**pupdate)
-
-        if not cdSame(pclient):
-            print('Could not change all workers to the same directory as the client!')
-
-        dview = pclient[:]
-        dview.block = True
-        dview.clear()
-
-        remoteSetup = '''
-        import os
-        import numpy as np
-        import scipy as scipy
-        import scipy.sparse
-        import mkl
-        import SimPEG
-        import zephyr.Kernel as Kernel'''
-
-        parMPISetup = ''' 
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()''' 
-
-        for command in remoteSetup.strip().split('\n'):
-            dview.execute(command.strip())
-
-        dview.scatter('rank', pclient.ids, flatten=True)
-
-        dview.apply(noMKLVectorization)
-
-        self.useMPI = False
-        if systemConfig.get('MPI', DEFAULT_MPI):
-            MPISafe = False
-
-            for var in MPI_BELLWETHERS:
-                MPISafe = MPISafe or all(dview["os.getenv('%s')"%(var,)])
-
-            if MPISafe:
-                for command in parMPISetup.strip().split('\n'):
-                    dview.execute(command.strip())
-                ranks = dview['rank']
-                reorder = [ranks.index(i) for i in xrange(len(ranks))]
-                dview = pclient[reorder]
-                dview.block = True
-                dview.activate()
-
-                # Set up necessary parts for broadcast-based communication
-                self.e0 = pclient[reorder[0]]
-                self.e0.block = True
-                self.comm = Reference('comm')
-
-            self.useMPI = MPISafe
-
-        self.pclient = pclient
-        self.dview = dview
-        self.lview = pclient.load_balanced_view()
-
-        # Generate 'par' object for Problem to grab
-        self.par = {
-            'pclient':      self.pclient,
-            'dview':        self.dview,
-            'lview':        self.pclient.load_balanced_view(),
-        }
-
-    def __setitem__(self, key, item):
-
-        if self.useMPI:
-            self.e0[key] = item
-            code = 'if rank != 0: %(key)s = None\n%(key)s = comm.bcast(%(key)s, root=0)'
-            self.dview.execute(code%{'key': key})
-
-        else:
-            self.dview[key] = item
-
-    def __getitem__(self, key):
-
-        if self.useMPI:
-            code = 'temp_%(key)s = None\ntemp_%(key)s = comm.gather(%(key)s, root=%(root)d)'
-            self.dview.execute(code%{'key': key, 'root': 0})
-            item = self.e0['temp_%s'%(key,)]
-            self.e0.execute('del temp_%s'%(key,))
-
-        else:
-            item = self.dview[key]
-
-        return item
-
-    def reduce(self, key):
-
-        if self.useMPI:
-            code = 'temp_%(key)s = comm.reduce(%(key)s, root=%(root)d)'
-            self.dview.execute(code%{'key': key, 'root': 0})
-            item = self.e0['temp_%s'%(key,)]
-            self.dview.execute('del temp_%s'%(key,))
-
-        else:
-            item = reduce(np.add, self.dview[key])
-
-        return item
 
 class SeisFDFDProblem(Problem.BaseProblem):
     """
@@ -352,16 +165,27 @@ class SeisFDFDProblem(Problem.BaseProblem):
         self._subConfigSettings = subConfigSettings
 
         self._remote = RemoteInterface(systemConfig)
-        self.par = self._remote.par
+        dview = self._remote.dview
+
+        code = '''
+        import numpy as np
+        import scipy as scipy
+        import scipy.sparse
+        import SimPEG
+        import zephyr.Kernel as Kernel
+        '''
+
+        for command in code.strip().split('\n'):
+            dview.execute(command.strip())
 
         self._rebuildSystem()
 
 
     def _getHandles(self, systemConfig, subConfigSettings):
 
-        pclient = self.par['pclient']
-        dview = self.par['dview']
-        lview = self.par['lview']
+        pclient = self._remote.pclient
+        dview = self._remote.dview
+        lview = self._remote.lview
 
         subConfigs = self._gen25DSubConfigs(**subConfigSettings)
         nsp = len(subConfigs)
@@ -431,13 +255,13 @@ class SeisFDFDProblem(Problem.BaseProblem):
     # Fields
     def forward(self, isrcs=None, **kwargs):
 
-        dview = self.par['dview']
+        dview = self._remote.dview
         dview['dataResultTracker'] = commonReducer()
         dview['forwardResultTracker'] = commonReducer()
 
         G = self._systemSolve(Reference('forwardFromTagAccumulateAll'), isrcs)
 
-        # self.par['lview'].wait(G.predecessors('End'))
+        # self._remote.lview.wait(G.predecessors('End'))
 
         # d = self._remote.reduce('dataResultTracker')
 
@@ -452,12 +276,12 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
     def backprop(self, **kwargs):
 
-        dview = self.par['dview']
+        dview = self._remote.dview
         dview['backpropResultTracker'] = commonReducer()
 
         G = self._systemSolve(Reference('backpropFromTagAccumulateAll'), isrcs)
 
-        # self.par['lview'].wait(G.predecessors('End'))
+        # self._remote.lview.wait(G.predecessors('End'))
 
         # uB = self._remote.reduce('backpropResultTracker')
 
@@ -466,8 +290,8 @@ class SeisFDFDProblem(Problem.BaseProblem):
 
     def _systemSolve(self, fnRef, isrcs, clearRef=Reference('clearFromTag'), **kwargs):
 
-        dview = self.par['dview']
-        lview = self.par['lview']
+        dview = self._remote.dview
+        lview = self._remote.lview
 
         chunksPerWorker = self.systemConfig.get('chunksPerWorker', 1)
 
@@ -575,7 +399,6 @@ class SeisFDFDProblem(Problem.BaseProblem):
         self._subConfigSettings['cmin'] = self.systemConfig['c'].min()
         subConfigs = self._gen25DSubConfigs(**self._subConfigSettings)
         nsp = len(subConfigs)
-        self.par['nproblems'] = nsp
 
         #self.curModel = self.systemConfig['c'].ravel()
         self._handles = self._getHandles(self.systemConfig, self._subConfigSettings)
