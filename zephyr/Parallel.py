@@ -28,13 +28,13 @@ def cdSame(rc):
         relpath = cwd[len(home)+1:]
         return all(rc[:].apply_sync(cdrel, relpath))
 
-def noMKLVectorization():
+def adjustMKLVectorization(nt=1):
     try:
         import mkl
     except ImportError:
         pass
     finally:
-        mkl.set_num_threads(1)
+        mkl.set_num_threads(nt)
 
 class RemoteInterface(object):
 
@@ -67,7 +67,7 @@ class RemoteInterface(object):
 
         dview.scatter('rank', pclient.ids, flatten=True)
 
-        dview.apply(noMKLVectorization)
+        dview.apply(adjustMKLVectorization)
 
         self.useMPI = False
         if systemConfig.get('MPI', DEFAULT_MPI):
