@@ -126,7 +126,7 @@ def getChunks(problems, chunks=1):
     return (problems[i*nproblems // chunks: (i+1)*nproblems // chunks] for i in range(chunks))
 
 
-class SeisFDFDProblem(Problem.BaseProblem):
+class SeisFDFDSystem(object):
     """
     Base problem class for FDFD (Frequency Domain Finite Difference)
     modelling of systems for seismic imaging.
@@ -150,9 +150,6 @@ class SeisFDFDProblem(Problem.BaseProblem):
         # NB: Remember to set up something to do geometry conversion
         #     from origin geometry to local geometry. Functions that
         #     wrap the geometry vectors are probably easiest.
-
-        Problem.BaseProblem.__init__(self, mesh, **kwargs)
-
 
         splitkeys = ['freqs', 'nky']
 
