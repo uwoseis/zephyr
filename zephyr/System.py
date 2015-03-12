@@ -400,23 +400,23 @@ class SeisFDFDSystem(object):
         #self.curModel = self.systemConfig['c'].ravel()
         self._handles = self._getHandles(self.systemConfig, self._subConfigSettings)
 
-    def fields(self, c):
+    # def fields(self, c):
 
-        self._rebuildSystem(c)
+    #     self._rebuildSystem(c)
 
-        # F = FieldsSeisFDFD(self.mesh, self.survey)
+    #     # F = FieldsSeisFDFD(self.mesh, self.survey)
 
-        # for freq in self.survey.freqs:
-        #     A = self._initHelmholtzNinePoint(freq)
-        #     q = self.survey.getTransmitters(freq)
-        #     Ainv = self.Solver(A, **self.solverOpts)
-        #     sol = Ainv * q
-        #     F[q, 'u'] = sol
+    #     # for freq in self.survey.freqs:
+    #     #     A = self._initHelmholtzNinePoint(freq)
+    #     #     q = self.survey.getTransmitters(freq)
+    #     #     Ainv = self.Solver(A, **self.solverOpts)
+    #     #     sol = Ainv * q
+    #     #     F[q, 'u'] = sol
 
-        return F
+    #     return F
 
-    def Jvec(self, m, v, u=None):
-        pass
+    # def Jvec(self, m, v, u=None):
+    #     pass
 
-    def Jtvec(self, m, v, u=None):
-        pass
+    # def Jtvec(self, m, v, u=None):
+    #     pass

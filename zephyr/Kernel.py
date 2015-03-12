@@ -631,62 +631,6 @@ class SeisFDFDKernel(object):
     #         else:
     #             diagonals[key][-1,:] = 0.
 
-    # Quasi-functional attempt -----------------------------------------------
-    #
-    def _srcVec(self, sLocs, terms):
-
-        q = numpy.zeros((self.mesh.nNy, self.mesh.nNx), dtype=numpy.complex128)
-        srcScale = -self.dx*self.dz
-
-        if self.ireg == 0:
-            # Closest source point
-            q = q.ravel()
-
-            for i in xrange(len(sLocs)):
-                qI = SimPEG.Utils.closestPoints(self.mesh, sLocs[i], gridLoc='N')
-                q[qI] += terms[i]/srcScale
-
-        else:
-            # Kaiser windowed sinc function
-
-            freg = 2*self.ireg+1
-            q = numpy.pad(q, self.ireg, mode='constant')
-
-            for i in xrange(len(sLocs)):
-                qI = SimPEG.Utils.closestPoints(self.mesh, sLocs[i], gridLoc='N')
-                Zi, Xi = (qI / self.mesh.nNx, numpy.mod(qI, self.mesh.nNx))
-                offset = (sLocs[i][0] - Xi * self.dx, sLocs[i][1] - Zi * self.dz)
-                sourceRegion = KaiserWindowedSinc(self.ireg, offset)
-                q[Zi:Zi+freg,Xi:Xi+freg] += terms[i] * sourceRegion / srcScale
-
-            # Mirror and flip sign on terms that cross the free-surface boundary
-            if self.freeSurf[0]:
-                q[self.ireg:2*self.ireg,:]      -= numpy.flipud(q[:self.ireg,:])    # Top
-            if self.freeSurf[1]:
-                q[:,-2*self.ireg:-self.ireg]    -= numpy.fliplr(q[:,-self.ireg:])   # Right
-            if self.freeSurf[2]:
-                q[-2*self.ireg:-self.ireg,:]    -= numpy.flipud(q[-self.ireg:,:])   # Bottom
-            if self.freeSurf[3]:
-                q[:,self.ireg:2*self.ireg]      -= numpy.fliplr(q[:,:self.ireg])    # Left
-
-            # Cut off edges
-            q = q[self.ireg:-self.ireg,self.ireg:-self.ireg].ravel()
-
-        return q
-
-    def _srcTerm(self, sLocs, individual=True, terms=1):
-
-        if individual and len(sLocs) > 1:
-            result = []
-            for i in xrange(len(sLocs)):
-                result.append(self._srcVec([sLocs[i] if hasattr(sLocs, '__contains__') else sLocs], [terms[i]] if hasattr(terms, '__contains__') else [terms]))
-        else:
-            result = self._srcVec(sLocs if hasattr(sLocs, '__contains__') else [sLocs], terms if hasattr(terms, '__contains__') else [terms])
-
-        return result 
-    #
-    # Quasi-functional attempt -----------------------------------------------
-
     # ------------------------------------------------------------------------
     # Externally-callable functions
 
@@ -698,10 +642,10 @@ class SeisFDFDKernel(object):
 
         sloc, rlocs, coeffs = self._locator(isrc, self.ky)
 
-        q = self._srcTerm(sloc, individual=True, terms=sterm)
+        q = srcTerm(sloc, individual=True, terms=sterm)
         u = self.Ainv * q
 
-        d = numpy.array([numpy.dot(u,qr) for qr in self._srcTerm(rlocs, individual=True, terms=coeffs)])
+        d = numpy.array([numpy.dot(u,qr) for qr in srcTerm(rlocs, individual=True, terms=coeffs)])
 
         if dOnly:
             return d
@@ -712,7 +656,7 @@ class SeisFDFDKernel(object):
         
         sloc, rlocs, coeffs = self._locator(isrc, self.ky)
 
-        qr = self._srcTerm(rlocs, individual=False, terms=dresid*coeffs)
+        qr = srcTerm(rlocs, individual=False, terms=dresid*coeffs)
 
         u = self.Ainv * qr
 
