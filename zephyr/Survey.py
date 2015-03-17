@@ -1,6 +1,7 @@
 import numpy
 import SimPEG
 
+DEFAULT_FREESURF_BOUNDS = [False, False, False, False]
 DEFAULT_IREG = 4
 HC_KAISER = {
     1:  1.24,
@@ -72,11 +73,11 @@ def srcVec(sLocs, terms, mesh, ireg, freeSurf):
 
     q = numpy.zeros((mesh.nNy, mesh.nNx), dtype=numpy.complex128)
     dx = mesh.hx[0]
-    dz = mesh.hz[0]
+    dz = mesh.hy[0]
 
     # Scale source based on the cellsize so that changing the grid doesn't
     # change the overall source amplitude
-    srcScale = -mesh.hx[0]*mesh.hz[0]
+    srcScale = -mesh.hx[0]*mesh.hy[0]
 
     if ireg == 0:
         # Closest source point
@@ -114,138 +115,178 @@ def srcVec(sLocs, terms, mesh, ireg, freeSurf):
 
     return q
 
-def srcTerm(sLocs, individual=True, terms=1):
+srcVecs = lambda sLocs, terms, mesh, ireg, freeSurf: [srcVec([sLocs[i] if hasattr(sLocs, '__contains__') else sLocs], [terms[i]] if hasattr(terms, '__contains__') else [terms], mesh, ireg, freeSurf) for i in xrange(len(sLocs))]
 
-    if individual and len(sLocs) > 1:
+class HelmRx(SimPEG.Survey.BaseRx):
+
+    def __init__(self, locs, terms, ireg, freeSurf, **kwargs):
+
+        self.terms = terms
+        self.ireg = ireg
+        self.freeSurf = freeSurf
+
+        SimPEG.Survey.BaseRx.__init__(self, locs.reshape((1,3)) if locs.ndim == 1 else locs, self.__class__.__name__, **kwargs)
+
+    def getP(self, mesh, coeffs=None):
+
+        return [q.T for q in self.getq(mesh, coeffs)]
+
+    def getq(self, mesh, coeffs=None):
+
+        if coeffs is not None:
+            icoeffs = coeffs
+        else:
+            icoeffs = 1.
+
+        if self.locs.shape[0] == 1:
+            locterms = self.locs[0, ::2].reshape((1,2))
+        else:
+            locterms = self.locs[:, ::2]
+
+        q = srcVecs(locterms, icoeffs*self.terms, mesh, self.ireg, self.freeSurf)
+
+        return q
+
+    def __getstate__(self):
+        return {key: self.__dict__[key] for key in ['locs', 'terms', 'ireg', 'freeSurf', 'kwargs'] if key in self.__dict__}
+
+    def __setstate__(self, d):
+        if 'kwargs' in d:
+            self.__init__(d['locs'], d['terms'], d['ireg'], d['freeSurf'], **d['kwargs'])
+        else:
+            self.__init__(d['locs'], d['terms'], d['ireg'], d['freeSurf'])
+
+class HelmTx(SimPEG.Survey.BaseTx):
+
+    rxPair = HelmRx
+
+    def __init__(self, loc, term, rxList, ireg, freeSurf, **kwargs):
+
+        # TODO: I would rather not store ireg and freeSurf in every single source and receiver!
+        #       I feel like it actually makes more sense to have these as properties of the mesh.
+        
+        self.term = term
+        self.ireg = ireg            
+        self.freeSurf = freeSurf
+
+        SimPEG.Survey.BaseTx.__init__(self, loc.reshape((1,3)), self.__class__.__name__, rxList, **kwargs)
+
+    def getq(self, mesh):
+
+        q = srcVecs(self.loc[0, ::2].reshape((1,2)), self.term, mesh, self.ireg, self.freeSurf)[0]
+
+        return q
+
+    def _getcoeffs(self, ky):
+
+        coeffs = []
+
+        slocy = self.loc[0,1]
+        for rx in self.rxList:
+            rlocys = rx.locs[:, 1]
+            dy = abs(slocy - rlocys)
+            coeffs.append(numpy.cos(1*numpy.pi*ky*dy))
+
+        return coeffs
+
+    def getP(self, mesh, ky=None):
+
+        if ky is None:
+            inky = 0.
+        else:
+            inky = ky
+
         result = []
-        for i in xrange(len(sLocs)):
-            result.append(srcVec([sLocs[i] if hasattr(sLocs, '__contains__') else sLocs], [terms[i]] if hasattr(terms, '__contains__') else [terms]))
-    else:
-        result = srcVec(sLocs if hasattr(sLocs, '__contains__') else [sLocs], terms if hasattr(terms, '__contains__') else [terms])
+        coeffslist = self._getcoeffs(inky)
 
-    return result 
+        for ir in xrange(len(self.rxList)):
+            rx = self.rxList[ir]
+            coeffs = coeffslist[ir]
+            result.append(rx.getP(mesh, coeffs))
+
+        return result
+
+    def getqback(self, mesh, terms, ky=None):
+
+        if ky is None:
+            inky = 0.
+        else:
+            inky = ky
+
+        coeffs = self._getcoeffs(inky)
+
+        # Loop over all receivers in self.rxList
+        # Get the results, possibly for more than one component, times the appropriate term
+        # Add all of these together to produce a single RHS vector for backpropagation
+        q = reduce(numpy.add, (reduce(numpy.add, rx.getq(mesh, terms[i]*coeffs[i])) for i, rx in enumerate(self.rxList)))
+
+        return q
+
+    def __getitem__(self, sl):
+        return self.rxList.__getitem__(sl)
+
+    def __getstate__(self):
+        return {key: self.__dict__[key] for key in ['loc', 'term', 'rxList', 'ireg', 'freeSurf', 'kwargs'] if key in self.__dict__}
+
+    def __setstate__(self, d):
+        if 'kwargs' in d:
+            self.__init__(d['loc'], d['term'], d['rxList'], d['ireg'], d['freeSurf'], **d['kwargs'])
+        else:
+            self.__init__(d['loc'], d['term'], d['rxList'], d['ireg'], d['freeSurf'])
 
 class SurveyHelm(SimPEG.Survey.BaseSurvey):
 
-    def __init__(self, txList, **kwargs):
-        self.txList = txList
-        self.ireg = ireg
-        self.freeSurf = freeSurf
+    txPair = HelmTx
+
+    def __init__(self, dispatcher, **kwargs):
+
+        sc = dispatcher.systemConfig
+
+        self.ireg = sc.get('ireg', DEFAULT_IREG)
+        self.freeSurf = sc.get('freeSurf', DEFAULT_FREESURF_BOUNDS)
+
+        self.geom = sc.get('geom', None)
+
+        if self.geom is not None:
+            self.txList = self.genTx()
+        else:
+            self.txList = None
         SimPEG.Survey.BaseSurvey.__init__(self, **kwargs)
 
-    def projectFields(self, u):
-        data = []
+    def genTx(self, txTerms=None, rxTerms=None):
 
+        mode = self.geom['mode'].lower()
+
+        if mode == 'relative':
+            # Streamer relative to source location
+            txs = []
+            for i, sloc in enumerate(self.geom['src']):
+                rxs = [HelmRx(sloc + rloc, rxTerms[j] if rxTerms is not None else 1., self.ireg, self.freeSurf) for j, rloc in enumerate(self.geom['rec'])]
+                txs.append(HelmTx(sloc, txTerms[i] if txTerms is not None else 1., rxs, self.ireg, self.freeSurf))
+
+        elif mode == 'absolute':
+            # Separate array in absolute coordinates for each source
+            txs = []
+            for i, sloc in enumerate(self.geom['src']):
+                rxs = [HelmRx(rloc, rxTerms[i][j] if rxTerms is not None else 1., self.ireg, self.freeSurf) for j, rloc in enumerate(self.geom['rec'][i])]
+                txs.append(HelmTx(sloc, txTerms[i] if txTerms is not None else 1., rxs, self.ireg, self.freeSurf))
+
+        else:
+            # Fixed array common for all sources
+            rxs = [HelmRx(loc, rxTerms[j] if rxTerms is not None else 1., self.ireg, self.freeSurf) for j, loc in enumerate(self.geom['rec'])]
+            txs = [HelmTx(loc, txTerms[i] if txTerms is not None else 1., rxs, self.ireg, self.freeSurf) for i, loc in enumerate(self.geom['src'])]
+
+        return txs
+
+    def projectFields(self, u):
+
+        data = []
         for i, tx in enumerate(self.txList):
             Proj = tx.rxList[0].getP(self.prob.mesh)    # Generate an operator to extract the data from the wavefield upon multiplication
             data.append(Proj*u[i])                      # Extract the data for that particular source and all receivers
 
+        data = DataObject(self.prob, self.txList)
 
 
-# class Rec(object):
 
-#     def __init__(self, parent, geometry, origin):
-
-#         self._parent = parent
-#         self._nsrc = parent.nsrc
-#         self._mode = geometry['mode']
-#         self._rec = geometry['rec']
-#         self._origin = origin
-
-#     def _getrec(self, i):
-#         if self._mode == 'fixed':
-#             return self._rec - self._origin
-#         elif self._mode == 'relative':
-#             return self._rec[i] - self._origin
-#         else:
-#             return None
-
-#     def __getitem__(self, index):
-
-#         if isinstance(index, slice):
-#             return [self._getrec(i) for i in xrange(*index.indices(self._nsrc))]
-#         else:
-#             return self._getrec(index)
-
-#     @property
-#     def nrec(self):
-#         if getattr(self, '_nrec', None) is None:
-#             if self._mode == 'fixed':
-#                 self._nrec = len(self._rec)
-#             else:
-#                 self._nrec = max((len(item) for item in self._rec))
-
-#         return self._nrec
-
-# class SeisLocator25D(object):
-
-#     def __init__(self, geometry):
-
-#         x0 = geometry.get('x0', 0.)
-#         z0 = geometry.get('z0', 0.)
-#         self._origin = numpy.array([x0, 0., z0]).reshape((1,3))
-
-#         if len(geometry['src'].shape) < 2:
-#             self.src = geometry['src'].reshape((1,3))
-#         else:
-#             self.src = geometry['src']
-#         self.rec = Rec(self, geometry, self._origin)
-
-#     def __call__(self, isrc, ky):
-
-#         sloc = self.src[isrc,:].reshape((1,3)) - self._origin
-#         rlocs = self.rec[isrc]
-#         if len(rlocs.shape) < 2:
-#             rlocs.shape = (1,3)
-#         dy = abs(sloc[:,1] - rlocs[:,1])
-#         coeffs = numpy.cos(2*numpy.pi*ky*dy)
-
-#         return sloc[:,::2], rlocs[:,::2], coeffs
-
-#     @property
-#     def nsrc(self):
-#         return len(self.src)
-
-#     @property
-#     def nrec(self):
-#         return self.rec.nrec
-
-class HelmTx(SimPEG.Survey.BaseTx):
-
-    def __init__(self, loc, term, rxList, ireg, freeSurf, **kwargs):
-
-        self.loc = loc
-        self.term = term
-        # TODO: I would rather not store ireg and freeSurf in every single source and receiver!
-        self.ireg = ireg            
-        self.freeSurf = freeSurf
-        self.rxList = rxList
-        self.kwargs = kwargs
-
-        SimPEG.Survey.BaseTx.__init__(self)
-
-    def getq(self, mesh):
-
-        q = srcVec(self.loc, self.term, mesh, ireg, freeSurf)
-
-class HelmRx(SimPEG.Survey.BaseRx):
-
-    def __init__(self, locs, terms):
-
-        self.locs = locs
-        self.terms = terms
-
-        SimPEG.Survey.BaseRx.__init__(self)
-
-    @property
-    def nD(self):
-        ''' The number of receivers for this source '''
-        return self.locs.shape[0]
-
-    def getP(self, mesh):
-        # P = mesh.getInterpolationMat(self.locs, 'CC')
-        # ASSERT mesh == storedmesh
-        P = SimPEG.Utils.sdiag()
-
-        return P
 

@@ -3,6 +3,8 @@ from IPython.parallel import Reference, interactive
 from SimPEG import Survey, Problem, Mesh, Solver as SimpegSolver
 from zephyr.Util import commonReducer
 from zephyr.Parallel import RemoteInterface
+from zephyr.Survey import SurveyHelm
+from zephyr.Problem import ProblemHelm
 import networkx
 
 DEFAULT_MPI = True
@@ -17,7 +19,6 @@ def setupSystem(scu):
     from IPython.parallel.error import UnmetDependency
 
     global localSystem
-    global localLocator
 
     tag = (scu['ifreq'], scu['iky'])
 
@@ -32,7 +33,7 @@ def setupSystem(scu):
     if 'cacheDir' in baseSystemConfig:
         subSystemConfig['cacheDir'] = os.path.join(baseSystemConfig['cacheDir'], 'cache', '%d-%d'%tag)
 
-    localSystem[tag] = Kernel.SeisFDFDKernel(subSystemConfig, locator=localLocator)
+    localSystem[tag] = Kernel.SeisFDFDKernel(subSystemConfig)
 
     return tag
 
@@ -46,12 +47,6 @@ def setupSystem(scu):
 
 #     return checkForSystem
 
-
-@interactive
-def setupCommon():
-    global baseSystemConfig
-
-    localLocator = Kernel.SeisLocator25D(subSystemConfig['geom'])
 
 @interactive
 def clearFromTag(tag):
@@ -68,16 +63,16 @@ def forwardFromTagAccumulate(tag, isrc, **kwargs):
     key = tag[0]
 
     if not key in dataResultTracker:
-        dims = (localLocator.nsrc, localLocator.nrec)
+        dims = (len(txs), reduce(max, (tx.nD for tx in txs)))
         dataResultTracker[key] = np.zeros(dims, dtype=np.complex128)
 
     if not key in forwardResultTracker:
-        dims = (localLocator.nsrc, localSystem[tag].mesh.nN)
+        dims = (len(txs), localSystem[tag].mesh.nN)
         forwardResultTracker[key] = np.zeros(dims, dtype=np.complex128)
 
-    u, d = localSystem[tag].forward(isrc, dOnly=False, **kwargs)
-    forwardResultTracker[key][isrc] += u
-    dataResultTracker[key][isrc] += d
+    u, d = localSystem[tag].forward(txs[isrc], dOnly=False, **kwargs)
+    forwardResultTracker[key][isrc,:] += u
+    dataResultTracker[key][isrc,:] += d
 
 @interactive
 # @blockOnTag
@@ -88,7 +83,7 @@ def forwardFromTagAccumulateAll(tag, isrcs, **kwargs):
 
 @interactive
 # @blockOnTag
-def backpropFromTagAccumulate(tag, isrc):
+def backpropFromTagAccumulate(tag, isrc, **kwargs):
 
     from IPython.parallel.error import UnmetDependency
     if not tag in localSystem:
@@ -97,11 +92,11 @@ def backpropFromTagAccumulate(tag, isrc):
     key = tag[0]
 
     if not key in backpropResultTracker:
-        dims = (localLocator.nsrc, localSystem[tag].mesh.nN)
+        dims = (len(txs), localSystem[tag].mesh.nN)
         backpropResultTracker[key] = np.zeros(dims, dtype=np.complex128)
 
-    u = localSystem[tag].backprop(isrc, **kwargs)
-    backpropResultTracker[key][isrc] += u
+    u = localSystem[tag].backprop(txs[isrc], **kwargs)
+    backpropResultTracker[key][isrc,:] += u
 
 @interactive
 # @blockOnTag
@@ -126,7 +121,7 @@ def getChunks(problems, chunks=1):
     return (problems[i*nproblems // chunks: (i+1)*nproblems // chunks] for i in range(chunks))
 
 
-class SeisFDFDSystem(object):
+class SeisFDFDDispatcher(object):
     """
     Base problem class for FDFD (Frequency Domain Finite Difference)
     modelling of systems for seismic imaging.
@@ -143,9 +138,9 @@ class SeisFDFDSystem(object):
 
         self.systemConfig = systemConfig.copy()
 
-        hx = [self.systemConfig['dx'], self.systemConfig['nx']-1]
-        hz = [self.systemConfig['dz'], self.systemConfig['nz']-1]
-        mesh = Mesh.TensorMesh([hx, hz], '00')
+        hx = [(self.systemConfig['dx'], self.systemConfig['nx']-1)]
+        hz = [(self.systemConfig['dz'], self.systemConfig['nz']-1)]
+        self.mesh = Mesh.TensorMesh([hx, hz], '00')
 
         # NB: Remember to set up something to do geometry conversion
         #     from origin geometry to local geometry. Functions that
@@ -194,8 +189,6 @@ class SeisFDFDSystem(object):
         dview['forwardResultTracker'] = commonReducer()
         dview['backpropResultTracker'] = commonReducer()
 
-        dview.execute("localLocator = Kernel.SeisLocator25D(baseSystemConfig['geom'])")
-
 
         # Create a function to get a subproblem forward modelling function
         dview['forwardFromTag'] = lambda tag, isrc, dOnly=True: localSystem[tag].forward(isrc, dOnly)
@@ -220,18 +213,6 @@ class SeisFDFDSystem(object):
             tags = lview.map_sync(setupSystem, subConfigs)
             parFac -= 1
 
-        # Forward model in 2.5D (in parallel) for an arbitrary source location
-        # TODO: Write code to handle multiple data residuals for nom>1
-        handles = {
-            'forward':  lambda isrc, dOnly=True: reduce(np.add, dview.map(forwardFromTag, tags, [isrc]*nsp, [dOnly]*nsp)),
-            'forwardSep': lambda isrc, dOnly=True: dview.map_sync(forwardFromTag, tags, [isrc]*nsp, [dOnly]*nsp),
-            'gradient': lambda isrc, dresid=1.0: reduce(np.add, dview.map(gradientFromTag, tags, [isrc]*nsp, [dresid]*nsp)),
-            'gradSep':  lambda isrc, dresid=1.0: dview.map_sync(gradientFromTag, tags, [isrc]*nsp, [dresid]*nsp),
-    #from __future__ import print_function
-    #        'clear':    lambda: print('Cleared stored matrix terms for %d systems.'%len(dview.map_sync(clearFromTag, tags))),
-        }
-
-        return handles
 
     def _gen25DSubConfigs(self, freqs, nky, cmin):
         result = []
@@ -250,13 +231,14 @@ class SeisFDFDSystem(object):
         return result
 
     # Fields
-    def forward(self, isrcs=None, **kwargs):
+    def forward(self, txs, **kwargs):
 
         dview = self._remote.dview
         dview['dataResultTracker'] = commonReducer()
         dview['forwardResultTracker'] = commonReducer()
+        self._remote['txs'] = txs
 
-        G = self._systemSolve(Reference('forwardFromTagAccumulateAll'), isrcs)
+        G = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(txs)))
 
         # self._remote.lview.wait(G.predecessors('End'))
 
@@ -271,12 +253,13 @@ class SeisFDFDSystem(object):
 
         return G
 
-    def backprop(self, **kwargs):
+    def backprop(self, txs, **kwargs):
 
         dview = self._remote.dview
         dview['backpropResultTracker'] = commonReducer()
+        self._remote['txs'] = txs
 
-        G = self._systemSolve(Reference('backpropFromTagAccumulateAll'), isrcs)
+        G = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(txs)))
 
         # self._remote.lview.wait(G.predecessors('End'))
 
@@ -399,6 +382,13 @@ class SeisFDFDSystem(object):
 
         #self.curModel = self.systemConfig['c'].ravel()
         self._handles = self._getHandles(self.systemConfig, self._subConfigSettings)
+
+    def spawnInterfaces(self):
+
+        survey = SurveyHelm(self)
+        problem = ProblemHelm(self)
+
+        return survey, problem
 
     # def fields(self, c):
 
