@@ -178,6 +178,16 @@ class SeisFDFDKernel(object):
         self._invalidateMatrix()
 
     @property
+    def kyweight(self):
+        if getattr(self, '_kyweight', None) is None:
+            self_kyweight = 1.
+        return self._kyweight
+    @kyweight.setter
+    def kyweight(self, value):
+        self._kyweight = value
+        self._invalidateMatrix()
+
+    @property
     def ireg(self):
         if getattr(self, '_ireg', None) is None:
             self._ireg = DEFAULT_IREG
@@ -496,7 +506,7 @@ class SeisFDFDKernel(object):
     # What about @caching decorators?
     def forward(self, tx, dOnly=True):
 
-        q = tx.getq(self.mesh)
+        q = self.kyweight * tx.getq(self.mesh)
         u = self.Ainv * q
 
         d = numpy.array([numpy.dot(P,u) for P in tx.getP(self.mesh, self.ky)]).ravel()
@@ -508,7 +518,7 @@ class SeisFDFDKernel(object):
 
     def backprop(self, tx, dresid):
         
-        qr = tx.getqback(self.mesh, dresid, self.ky)
+        qr = self.kyweight * tx.getqback(self.mesh, dresid, self.ky)
         u = self.Ainv * qr
 
         return u
