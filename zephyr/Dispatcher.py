@@ -120,7 +120,6 @@ def getChunks(problems, chunks=1):
     nproblems = len(problems)
     return (problems[i*nproblems // chunks: (i+1)*nproblems // chunks] for i in range(chunks))
 
-
 class SeisFDFDDispatcher(object):
     """
     Base problem class for FDFD (Frequency Domain Finite Difference)
@@ -245,7 +244,7 @@ class SeisFDFDDispatcher(object):
         if block:
             return getResult()
 
-        G.node['End']['getResult'] = getResult
+        G.getResult = getResult
         return G
 
     def backprop(self, txs, block=True, **kwargs):
@@ -265,7 +264,7 @@ class SeisFDFDDispatcher(object):
         if block:
             return getResult()
 
-        G.node['End']['getResult'] = getResult
+        G.getResult = getResult
         return G
 
     def _wait(self, G):
