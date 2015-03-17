@@ -189,15 +189,6 @@ class SeisFDFDDispatcher(object):
         dview['forwardResultTracker'] = commonReducer()
         dview['backpropResultTracker'] = commonReducer()
 
-
-        # Create a function to get a subproblem forward modelling function
-        dview['forwardFromTag'] = lambda tag, isrc, dOnly=True: localSystem[tag].forward(isrc, dOnly)
-        forwardFromTag = Reference('forwardFromTag')
-
-        # Create a function to get a subproblem gradient function
-        dview['gradientFromTag'] = lambda tag, isrc, dresid=1.: localSystem[tag].gradient(isrc, dresid)
-        gradientFromTag = Reference('gradientFromTag')
-
         dview['forwardFromTagAccumulate'] = forwardFromTagAccumulate
         dview['forwardFromTagAccumulateAll'] = forwardFromTagAccumulateAll
         dview['clearFromTag'] = clearFromTag
@@ -231,7 +222,7 @@ class SeisFDFDDispatcher(object):
         return result
 
     # Fields
-    def forward(self, txs, **kwargs):
+    def forward(self, txs, block=True, **kwargs):
 
         dview = self._remote.dview
         dview['dataResultTracker'] = commonReducer()
@@ -240,20 +231,24 @@ class SeisFDFDDispatcher(object):
 
         G = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(txs)))
 
-        # self._remote.lview.wait(G.predecessors('End'))
+        def getResult(dOnly = kwargs.get('dOnly', True)):
+            self._wait(G)
+            d = self._remote.reduce('dataResultTracker')
 
-        # d = self._remote.reduce('dataResultTracker')
+            if not dOnly:
+                uF = self._remote.reduce('forwardResultTracker')
 
-        # if not kwargs.get('dOnly', True):
-        #     uF = self._remote.reduce('forwardResultTracker')
+                return uF, d
 
-        #     return uF, d
+            return d
 
-        # return d
+        if block:
+            return getResult()
 
+        G.node['End']['getResult'] = getResult
         return G
 
-    def backprop(self, txs, **kwargs):
+    def backprop(self, txs, block=True, **kwargs):
 
         dview = self._remote.dview
         dview['backpropResultTracker'] = commonReducer()
@@ -261,11 +256,20 @@ class SeisFDFDDispatcher(object):
 
         G = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(txs)))
 
-        # self._remote.lview.wait(G.predecessors('End'))
+        def getResult():
+            self._wait(G)
+            uB = self._remote.reduce('backpropResultTracker')
 
-        # uB = self._remote.reduce('backpropResultTracker')
+            return uB
 
+        if block:
+            return getResult()
+
+        G.node['End']['getResult'] = getResult
         return G
+
+    def _wait(self, G):
+        self._remote.lview.wait((G.node[wn]['job'] for wn in (G.predecessors(tn)[0] for tn in G.predecessors('End'))))
 
 
     def _systemSolve(self, fnRef, isrcs, clearRef=Reference('clearFromTag'), **kwargs):
