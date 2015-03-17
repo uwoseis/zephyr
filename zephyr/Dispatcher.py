@@ -206,7 +206,7 @@ class SeisFDFDDispatcher(object):
 
     def _gen25DSubConfigs(self, freqs, nky, cmin):
         result = []
-        weightfac = 1/(2*nky - 1) if nky > 1 else 1# alternatively, 1/dky
+        weightfac = 1./(2*nky - 1) if nky > 1 else 1.# alternatively, 1/dky
         for ifreq, freq in enumerate(freqs):
             k_c = freq / cmin
             dky = k_c / (nky - 1) if nky > 1 else 0.

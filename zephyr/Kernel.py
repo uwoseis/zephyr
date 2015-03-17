@@ -180,7 +180,7 @@ class SeisFDFDKernel(object):
     @property
     def kyweight(self):
         if getattr(self, '_kyweight', None) is None:
-            self_kyweight = 1.
+            self._kyweight = 1.
         return self._kyweight
     @kyweight.setter
     def kyweight(self, value):
