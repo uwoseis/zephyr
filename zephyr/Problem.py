@@ -16,7 +16,11 @@ class ProblemHelm(SimPEG.Problem.BaseProblem):
     def fields(self, c):
 
         self.dispatcher._rebuildSystem(c)
+        txs = self.survey.txList
 
+        u, d = self.dispatcher.forward(txs, block=True, dOnly=False)
+
+        return u
     #     # F = FieldsSeisFDFD(self.mesh, self.survey)
 
     #     # for freq in self.survey.freqs:

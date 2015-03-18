@@ -391,6 +391,8 @@ class SeisFDFDDispatcher(object):
         survey = SurveyHelm(self)
         problem = ProblemHelm(self)
 
+        survey.pair(problem)
+
         return survey, problem
 
     # def fields(self, c):

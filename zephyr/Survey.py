@@ -240,7 +240,8 @@ class SurveyHelm(SimPEG.Survey.BaseSurvey):
 
     def __init__(self, dispatcher, **kwargs):
 
-        sc = dispatcher.systemConfig
+        self.dispatcher = dispatcher
+        sc = self.dispatcher.systemConfig
 
         self.ireg = sc.get('ireg', DEFAULT_IREG)
         self.freeSurf = sc.get('freeSurf', DEFAULT_FREESURF_BOUNDS)
@@ -278,14 +279,15 @@ class SurveyHelm(SimPEG.Survey.BaseSurvey):
 
         return txs
 
-    def projectFields(self, u):
+    def projectFields(self, u=None):
 
-        data = []
-        for i, tx in enumerate(self.txList):
-            Proj = tx.rxList[0].getP(self.prob.mesh)    # Generate an operator to extract the data from the wavefield upon multiplication
-            data.append(Proj*u[i])                      # Extract the data for that particular source and all receivers
+        if hasattr(u, 'getResult'):
+            d = u.getResult(dOnly=True)
 
-        data = DataObject(self.prob, self.txList)
+        else:
+            d = self.dispatcher.forward(self.txList, block=True, dOnly=True)
+
+        return d
 
 
 
