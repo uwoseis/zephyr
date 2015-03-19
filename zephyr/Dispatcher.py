@@ -228,10 +228,9 @@ class SeisFDFDDispatcher(object):
         dview['forwardResultTracker'] = commonReducer()
         self._remote['waveTxs'] = txs
 
-        if hasattr(self, '_lastBWaveTxs'):
-            if txs is not getattr(self, '_lastWaveTxs', None):
-                self._lastWaveTxs = txs
-                self.lastWaveG = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(txs)))
+        if (not hasattr(self, '_lastBWaveTxs')) or (txs is not getattr(self, '_lastWaveTxs', None)):
+            self._lastWaveTxs = txs
+            self.lastWaveG = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(txs)))
 
     def backprop(self, txs):
 
@@ -239,10 +238,9 @@ class SeisFDFDDispatcher(object):
         dview['backpropResultTracker'] = commonReducer()
         self._remote['bwaveTxs'] = txs
 
-        if hasattr(self, '_lastBWaveTxs'):
-            if txs is not getattr(self, '_lastBWaveTxs', None):
-                self._lastBWaveTxs = txs
-                self.lastBWaveG = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(txs)))
+        if (not hasattr(self, '_lastBWaveTxs')) or (txs is not getattr(self, '_lastBWaveTxs', None)):
+            self._lastBWaveTxs = txs
+            self.lastBWaveG = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(txs)))
 
     def _wait(self, G):
         self._remote.lview.wait((G.node[wn]['job'] for wn in (G.predecessors(tn)[0] for tn in G.predecessors('End'))))
