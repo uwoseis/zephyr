@@ -226,11 +226,10 @@ class SeisFDFDDispatcher(object):
         if self.txs is None:
             raise Exception('Transmitters not defined!')
 
-        dview = self._remote.dview
-        dview['dataResultTracker'] = commonReducer()
-        dview['forwardResultTracker'] = commonReducer()
-
         if not self.solvedF:
+            dview = self._remote.dview
+            dview['dataResultTracker'] = commonReducer()
+            dview['forwardResultTracker'] = commonReducer()
             self.lastWaveG = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(self.txs)))
 
     def backprop(self):
@@ -241,10 +240,9 @@ class SeisFDFDDispatcher(object):
         # if not self.dresid:
         #     raise Exception('Data residuals not defined!')
 
-        dview = self._remote.dview
-        dview['backpropResultTracker'] = commonReducer()
-
         if not self.solvedB:
+            dview = self._remote.dview
+            dview['backpropResultTracker'] = commonReducer()
             self.lastBWaveG = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(self.txs)))
 
     def _wait(self, G):
