@@ -38,10 +38,10 @@ def adjustMKLVectorization(nt=1):
 
 class RemoteInterface(object):
 
-    def __init__(self, systemConfig):
+    def __init__(self, profile=None, MPI=None):
 
-        if 'profile' in systemConfig:
-            pupdate = {'profile': systemConfig['profile']}
+        if profile is not None:
+            pupdate = {'profile': profile}
         else:
             pupdate = {}
 
@@ -70,7 +70,8 @@ class RemoteInterface(object):
         dview.apply(adjustMKLVectorization)
 
         self.useMPI = False
-        if systemConfig.get('MPI', DEFAULT_MPI):
+        MPI = DEFAULT_MPI if MPI is None else MPI
+        if MPI:
             MPISafe = False
 
             for var in MPI_BELLWETHERS:

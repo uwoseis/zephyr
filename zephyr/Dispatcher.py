@@ -155,7 +155,7 @@ class SeisFDFDDispatcher(object):
 
         self._subConfigSettings = subConfigSettings
 
-        self._remote = RemoteInterface(systemConfig)
+        self._remote = RemoteInterface(systemConfig.get('profile', None), systemConfig.get('MPI', None))
         dview = self._remote.dview
 
         code = '''
