@@ -281,7 +281,7 @@ class SurveyHelm(SimPEG.Survey.BaseSurvey):
 
     def projectFields(self, u=None):
 
-        self.dispatcher.forward(self.txList)
+        self.dispatcher.forward()
 
         return self.dispatcher.d
 

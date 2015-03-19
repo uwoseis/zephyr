@@ -18,8 +18,7 @@ class ProblemHelm(SimPEG.Problem.BaseProblem):
         if c is not None:
             self.dispatcher.rebuildSystem(c)
 
-        txs = self.survey.txList
-        self.dispatcher.forward(txs)
+        self.dispatcher.forward()
 
         return self.dispatcher.uF
 

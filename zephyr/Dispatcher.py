@@ -63,14 +63,14 @@ def forwardFromTagAccumulate(tag, isrc, **kwargs):
     key = tag[0]
 
     if not key in dataResultTracker:
-        dims = (len(waveTxs), reduce(max, (tx.nD for tx in waveTxs)))
+        dims = (len(txs), reduce(max, (tx.nD for tx in txs)))
         dataResultTracker[key] = np.zeros(dims, dtype=np.complex128)
 
     if not key in forwardResultTracker:
-        dims = (len(waveTxs), localSystem[tag].mesh.nN)
+        dims = (len(txs), localSystem[tag].mesh.nN)
         forwardResultTracker[key] = np.zeros(dims, dtype=np.complex128)
 
-    u, d = localSystem[tag].forward(waveTxs[isrc], dOnly=False, **kwargs)
+    u, d = localSystem[tag].forward(txs[isrc], dOnly=False, **kwargs)
     forwardResultTracker[key][isrc,:] += u
     dataResultTracker[key][isrc,:] += d
 
@@ -92,10 +92,10 @@ def backpropFromTagAccumulate(tag, isrc, **kwargs):
     key = tag[0]
 
     if not key in backpropResultTracker:
-        dims = (len(bwaveTxs), localSystem[tag].mesh.nN)
+        dims = (len(txs), localSystem[tag].mesh.nN)
         backpropResultTracker[key] = np.zeros(dims, dtype=np.complex128)
 
-    u = localSystem[tag].backprop(bwaveTxs[isrc], **kwargs)
+    u = localSystem[tag].backprop(txs[isrc], **kwargs)
     backpropResultTracker[key][isrc,:] += u
 
 @interactive
@@ -221,26 +221,31 @@ class SeisFDFDDispatcher(object):
         return result
 
     # Fields
-    def forward(self, txs):
+    def forward(self):
+
+        if self.txs is None:
+            raise Exception('Transmitters not defined!')
 
         dview = self._remote.dview
         dview['dataResultTracker'] = commonReducer()
         dview['forwardResultTracker'] = commonReducer()
-        self._remote['waveTxs'] = txs
 
-        if (not hasattr(self, '_lastBWaveTxs')) or (txs is not getattr(self, '_lastWaveTxs', None)):
-            self._lastWaveTxs = txs
-            self.lastWaveG = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(txs)))
+        if not self.solvedF:
+            self.lastWaveG = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(self.txs)))
 
-    def backprop(self, txs):
+    def backprop(self):
+
+        if self.txs is None:
+            raise Exception('Transmitters not defined!')
+
+        # if not self.dresid:
+        #     raise Exception('Data residuals not defined!')
 
         dview = self._remote.dview
         dview['backpropResultTracker'] = commonReducer()
-        self._remote['bwaveTxs'] = txs
 
-        if (not hasattr(self, '_lastBWaveTxs')) or (txs is not getattr(self, '_lastBWaveTxs', None)):
-            self._lastBWaveTxs = txs
-            self.lastBWaveG = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(txs)))
+        if not self.solvedB:
+            self.lastBWaveG = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(self.txs)))
 
     def _wait(self, G):
         self._remote.lview.wait((G.node[wn]['job'] for wn in (G.predecessors(tn)[0] for tn in G.predecessors('End'))))
@@ -353,17 +358,14 @@ class SeisFDFDDispatcher(object):
             self.rebuildSystem()
             return
 
-        if hasattr(self, '_lastWaveTxs'):
-            del self._lastWaveTxs
-
         if hasattr(self, 'lastWaveG'):
             del self.lastWaveG
 
-        if hasattr(self, '_lastBWaveTxs'):
-            del self._lastBWaveTxs
-
         if hasattr(self, 'lastBWaveG'):
             del self.lastBWaveG
+
+        self._solvedF = False
+        self._solvedB = False
 
         self._subConfigSettings['cmin'] = self.systemConfig['c'].min()
         subConfigs = self._gen25DSubConfigs(**self._subConfigSettings)
@@ -373,54 +375,67 @@ class SeisFDFDDispatcher(object):
         self._handles = self._getHandles(self.systemConfig, self._subConfigSettings)
 
     @property
-    def uF(self):
-        try:
-            self._wait(self.lastWaveG)
-        except AttributeError:
-            return None
+    def txs(self):
+        if getattr(self, '_txs', None) is None:
+            self._txs = None
+        return self._txs
+    @txs.setter
+    def txs(self, value):
+        self._txs = value
+        self.rebuildSystem()
+        self._remote['txs'] = self._txs
 
-        return self._remote.reduce('forwardResultTracker')
+    @property
+    def solvedF(self):
+        if getattr(self, '_solvedF', None) is None:
+            self._solvedF = False
+
+        if hasattr(self, 'lastWaveG'):
+            self._wait(self.lastWaveG)
+            self._solvedF = True
+
+        return self._solvedF
+
+    @property
+    def solvedB(self):
+        if getattr(self, '_solvedB', None) is None:
+            self._solvedB = False
+
+        if hasattr(self, 'lastBWaveG'):
+            self._wait(self.lastBWaveG)
+            self._solvedB = True
+
+        return self._solvedB
+
+    @property
+    def uF(self):
+        if self.solvedF:
+            return self._remote.reduce('forwardResultTracker')
+        else:
+            return None
 
     @property
     def uB(self):
-        try:
-            self._wait(self.lastBWaveG)
-        except AttributeError:
+        if self.solvedB:
+            return self._remote.reduce('backpropResultTracker')
+        else:
             return None
-
-        return self._remote.reduce('backpropResultTracker')
 
     @property
     def d(self):
-        try:
-            self._wait(self.lastWaveG)
-        except AttributeError:
-            return None
-
-        return self._remote.reduce('dataResultTracker')
-
-    @property
-    def lastWaveTxs(self):
-        try:
-            return self._lastWaveTxs
-        except AttributeError:
-            return None
-
-    @property
-    def lastBWaveTxs(self):
-        try:
-            return self._lastBWaveTxs
-        except AttributeError:
+        if self.solvedF:
+            return self._remote.reduce('dataResultTracker')
+        else:
             return None
 
     def spawnInterfaces(self):
 
-        survey = SurveyHelm(self)
-        problem = ProblemHelm(self)
+        self.survey = SurveyHelm(self)
+        self.problem = ProblemHelm(self)
 
-        survey.pair(problem)
+        self.survey.pair(self.problem)
 
-        return survey, problem
+        return self.survey, self.problem
 
     # def fields(self, c):
 
