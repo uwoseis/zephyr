@@ -190,6 +190,8 @@ class SeisFDFDDispatcher(object):
 
         dview['forwardFromTagAccumulate'] = forwardFromTagAccumulate
         dview['forwardFromTagAccumulateAll'] = forwardFromTagAccumulateAll
+        dview['backpropFromTagAccumulate'] = forwardFromTagAccumulate
+        dview['backpropFromTagAccumulateAll'] = forwardFromTagAccumulateAll
         dview['clearFromTag'] = clearFromTag
 
         dview.wait()
