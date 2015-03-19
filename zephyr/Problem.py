@@ -13,24 +13,15 @@ class ProblemHelm(SimPEG.Problem.BaseProblem):
         SimPEG.Problem.BaseProblem.__init__(self, dispatcher.mesh, **kwargs)
         SimPEG.Utils.setKwargs(self, **kwargs)
 
-    def fields(self, c):
+    def fields(self, c=None):
 
-        self.dispatcher._rebuildSystem(c)
+        if c is not None:
+            self.dispatcher.rebuildSystem(c)
+
         txs = self.survey.txList
+        self.dispatcher.forward(txs)
 
-        u, d = self.dispatcher.forward(txs, block=True, dOnly=False)
-
-        return u
-    #     # F = FieldsSeisFDFD(self.mesh, self.survey)
-
-    #     # for freq in self.survey.freqs:
-    #     #     A = self._initHelmholtzNinePoint(freq)
-    #     #     q = self.survey.getTransmitters(freq)
-    #     #     Ainv = self.Solver(A, **self.solverOpts)
-    #     #     sol = Ainv * q
-    #     #     F[q, 'u'] = sol
-
-    #     return F
+        return self.dispatcher.uF
 
     # def Jvec(self, m, v, u=None):
     #     pass

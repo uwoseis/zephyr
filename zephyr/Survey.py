@@ -281,13 +281,9 @@ class SurveyHelm(SimPEG.Survey.BaseSurvey):
 
     def projectFields(self, u=None):
 
-        if hasattr(u, 'getResult'):
-            d = u.getResult(dOnly=True)
+        self.dispatcher.forward(self.txList)
 
-        else:
-            d = self.dispatcher.forward(self.txList, block=True, dOnly=True)
-
-        return d
+        return self.dispatcher.uF
 
 
 

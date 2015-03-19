@@ -63,14 +63,14 @@ def forwardFromTagAccumulate(tag, isrc, **kwargs):
     key = tag[0]
 
     if not key in dataResultTracker:
-        dims = (len(txs), reduce(max, (tx.nD for tx in txs)))
+        dims = (len(waveTxs), reduce(max, (tx.nD for tx in waveTxs)))
         dataResultTracker[key] = np.zeros(dims, dtype=np.complex128)
 
     if not key in forwardResultTracker:
-        dims = (len(txs), localSystem[tag].mesh.nN)
+        dims = (len(waveTxs), localSystem[tag].mesh.nN)
         forwardResultTracker[key] = np.zeros(dims, dtype=np.complex128)
 
-    u, d = localSystem[tag].forward(txs[isrc], dOnly=False, **kwargs)
+    u, d = localSystem[tag].forward(waveTxs[isrc], dOnly=False, **kwargs)
     forwardResultTracker[key][isrc,:] += u
     dataResultTracker[key][isrc,:] += d
 
@@ -92,10 +92,10 @@ def backpropFromTagAccumulate(tag, isrc, **kwargs):
     key = tag[0]
 
     if not key in backpropResultTracker:
-        dims = (len(txs), localSystem[tag].mesh.nN)
+        dims = (len(bwaveTxs), localSystem[tag].mesh.nN)
         backpropResultTracker[key] = np.zeros(dims, dtype=np.complex128)
 
-    u = localSystem[tag].backprop(txs[isrc], **kwargs)
+    u = localSystem[tag].backprop(bwaveTxs[isrc], **kwargs)
     backpropResultTracker[key][isrc,:] += u
 
 @interactive
@@ -169,7 +169,7 @@ class SeisFDFDDispatcher(object):
         for command in code.strip().split('\n'):
             dview.execute(command.strip())
 
-        self._rebuildSystem()
+        self.rebuildSystem()
 
 
     def _getHandles(self, systemConfig, subConfigSettings):
@@ -221,55 +221,31 @@ class SeisFDFDDispatcher(object):
         return result
 
     # Fields
-    def forward(self, txs, block=True, **kwargs):
+    def forward(self, txs):
 
         dview = self._remote.dview
         dview['dataResultTracker'] = commonReducer()
         dview['forwardResultTracker'] = commonReducer()
-        self._remote['txs'] = txs
+        self._remote['waveTxs'] = txs
 
-        G = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(txs)))
+        if hasattr(self, '_lastBWaveTxs'):
+            if txs is not getattr(self, '_lastWaveTxs', None):
+                self._lastWaveTxs = txs
+                self.lastWaveG = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(txs)))
 
-        def getResult(dOnly = kwargs.get('dOnly', True)):
-            self._wait(G)
-            d = self._remote.reduce('dataResultTracker')
-
-            if not dOnly:
-                uF = self._remote.reduce('forwardResultTracker')
-
-                return uF, d
-
-            return d
-
-        if block:
-            return getResult()
-
-        G.getResult = getResult
-        return G
-
-    def backprop(self, txs, block=True, **kwargs):
+    def backprop(self, txs):
 
         dview = self._remote.dview
         dview['backpropResultTracker'] = commonReducer()
-        self._remote['txs'] = txs
+        self._remote['bwaveTxs'] = txs
 
-        G = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(txs)))
-
-        def getResult():
-            self._wait(G)
-            uB = self._remote.reduce('backpropResultTracker')
-
-            return uB
-
-        if block:
-            return getResult()
-
-        G.getResult = getResult
-        return G
+        if hasattr(self, '_lastBWaveTxs'):
+            if txs is not getattr(self, '_lastBWaveTxs', None):
+                self._lastBWaveTxs = txs
+                self.lastBWaveG = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(txs)))
 
     def _wait(self, G):
         self._remote.lview.wait((G.node[wn]['job'] for wn in (G.predecessors(tn)[0] for tn in G.predecessors('End'))))
-
 
     def _systemSolve(self, fnRef, isrcs, clearRef=Reference('clearFromTag'), **kwargs):
 
@@ -373,11 +349,17 @@ class SeisFDFDDispatcher(object):
 
         return G
 
-    def _rebuildSystem(self, c = None):
+    def rebuildSystem(self, c = None):
         if c is not None:
             self.systemConfig['c'] = c
-            self._rebuildSystem()
+            self.rebuildSystem()
             return
+
+        del self._lastWaveTxs
+        del self.lastWaveG
+
+        del self._lastBWaveTxs
+        del self.lastBWaveG
 
         self._subConfigSettings['cmin'] = self.systemConfig['c'].min()
         subConfigs = self._gen25DSubConfigs(**self._subConfigSettings)
@@ -385,6 +367,47 @@ class SeisFDFDDispatcher(object):
 
         #self.curModel = self.systemConfig['c'].ravel()
         self._handles = self._getHandles(self.systemConfig, self._subConfigSettings)
+
+    @property
+    def uF(self):
+        try:
+            self._wait(self.lastWaveG)
+        except AttributeError:
+            return None
+
+        return self._remote.reduce('forwardResultTracker')
+
+    @property
+    def uB(self):
+        try:
+            self._wait(self.lastBWaveG)
+        except AttributeError:
+            return None
+
+        return self._remote.reduce('backpropResultTracker')
+
+    @property
+    def d(self):
+        try:
+            self._wait(self.lastWaveG)
+        except AttributeError:
+            return None
+
+        return self._remote.reduce('dataResultTracker')
+
+    @property
+    def lastWaveTxs(self):
+        try:
+            return self._lastWaveTxs
+        except AttributeError:
+            return None
+
+    @property
+    def lastBWaveTxs(self):
+        try:
+            return self._lastBWaveTxs
+        except AttributeError:
+            return None
 
     def spawnInterfaces(self):
 
