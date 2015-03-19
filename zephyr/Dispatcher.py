@@ -355,16 +355,16 @@ class SeisFDFDDispatcher(object):
             self.rebuildSystem()
             return
 
-        if hasattr(self, '_lastWaveTxs', None):
+        if hasattr(self, '_lastWaveTxs'):
             del self._lastWaveTxs
 
-        if hasattr(self, 'lastWaveG', None):
+        if hasattr(self, 'lastWaveG'):
             del self.lastWaveG
 
-        if hasattr(self, '_lastBWaveTxs', None):
+        if hasattr(self, '_lastBWaveTxs'):
             del self._lastBWaveTxs
 
-        if hasattr(self, 'lastBWaveG', None):
+        if hasattr(self, 'lastBWaveG'):
             del self.lastBWaveG
 
         self._subConfigSettings['cmin'] = self.systemConfig['c'].min()
