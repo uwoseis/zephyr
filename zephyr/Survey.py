@@ -283,7 +283,7 @@ class SurveyHelm(SimPEG.Survey.BaseSurvey):
 
         self.dispatcher.forward(self.txList)
 
-        return self.dispatcher.uF
+        return self.dispatcher.d
 
 
 
