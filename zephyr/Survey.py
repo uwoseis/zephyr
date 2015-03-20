@@ -218,7 +218,7 @@ class HelmTx(SimPEG.Survey.BaseTx):
         # Loop over all receivers in self.rxList
         # Get the results, possibly for more than one component, times the appropriate term
         # Add all of these together to produce a single RHS vector for backpropagation
-        q = reduce(numpy.add, (reduce(numpy.add, rx.getq(mesh, terms[i]*coeffs[i])) for i, rx in enumerate(self.rxList)))
+        q = reduce(numpy.add, (reduce(numpy.add, rx.getq(mesh, terms[i]*coeffs[i] if hasattr(terms, '__contains__') else coeffs[i])) for i, rx in enumerate(self.rxList)))
 
         return q
 

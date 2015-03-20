@@ -516,8 +516,8 @@ class SeisFDFDKernel(object):
         else:
             return u, d
 
-    def backprop(self, tx, dresid):
-        
+    def backprop(self, tx, dresid=1.):
+
         qr = self.kyweight * tx.getqback(self.mesh, dresid, self.ky)
         u = self.Ainv * qr
 

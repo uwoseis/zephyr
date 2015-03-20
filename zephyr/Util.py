@@ -34,6 +34,22 @@ class commonReducer(dict):
 
         return self
 
+    def __mul__(self, other):
+        result = commonReducer()
+        for key in other.keys():
+            if key in self:
+                result[key] = self[key] * other[key]
+
+        return result
+
+    def __sub__(self, other):
+        result = commonReducer()
+        for key in other.keys():
+            if key in self:
+                result[key] = self[key] - other[key]
+
+        return result
+
     def copy(self):
 
         return commonReducer(self)

@@ -127,11 +127,16 @@ class RemoteInterface(object):
 
         return item
 
-    def reduce(self, key):
+    def reduce(self, key, axis=None):
 
         if self.useMPI:
             code = 'temp_%(key)s = comm.reduce(%(key)s, root=%(root)d)'
             self.dview.execute(code%{'key': key, 'root': 0})
+
+            # if axis is not None:
+            #     code = 'temp_%(key)s = temp_%(key)s.sum(axis=%(axis)d)'
+            #     self.e0.execute(code%{'key': key, 'axis': axis})
+
             item = self.e0['temp_%s'%(key,)]
             self.dview.execute('del temp_%s'%(key,))
 
@@ -140,3 +145,34 @@ class RemoteInterface(object):
 
         return item
 
+    def reduceMul(self, key1, key2, axis=None):
+
+        if self.useMPI:
+            # Gather
+            code_reduce = 'temp_%(key)s = comm.reduce(%(key)s, root=%(root)d)'
+            self.dview.execute(code_reduce%{'key': key1, 'root': 0})
+            self.dview.execute(code_reduce%{'key': key2, 'root': 0})
+
+            # Multiply
+            code_mul = 'temp_%(key1)s%(key2)s = temp_%(key1)s * temp_%(key2)s'
+            self.e0.execute(code_mul%{'key1': key1, 'key2': key2})
+
+            # # Potentially sum
+            # if axis is not None:
+            #     code = 'temp_%(key1)s%(key2)s = temp_%(key1)s%(key2)s.sum(axis=%(axis)d)'
+            #     self.e0.execute(code%{'key1': key1, 'key2': key2, 'axis': axis})
+
+            # Pull
+            item = self.e0['temp_%(key1)s%(key2)s'%{'key1': key1, 'key2': key2}]
+
+            # Clear
+            self.dview.execute('del temp_%s'%(key1,))
+            self.dview.execute('del temp_%s'%(key2,))
+            self.e0.execute('del temp_%(key1)s%(key2)s'%{'key1': key1, 'key2': key2})
+
+        else:
+            item1 = reduce(np.add, self.dview[key1])
+            item2 = reduce(np.add, self.dview[key2])
+            item = item1 * item2
+
+        return item

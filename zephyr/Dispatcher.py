@@ -190,8 +190,8 @@ class SeisFDFDDispatcher(object):
 
         dview['forwardFromTagAccumulate'] = forwardFromTagAccumulate
         dview['forwardFromTagAccumulateAll'] = forwardFromTagAccumulateAll
-        dview['backpropFromTagAccumulate'] = forwardFromTagAccumulate
-        dview['backpropFromTagAccumulateAll'] = forwardFromTagAccumulateAll
+        dview['backpropFromTagAccumulate'] = backpropFromTagAccumulate
+        dview['backpropFromTagAccumulateAll'] = backpropFromTagAccumulateAll
         dview['clearFromTag'] = clearFromTag
 
         dview.wait()
@@ -425,6 +425,13 @@ class SeisFDFDDispatcher(object):
     def d(self):
         if self.solvedF:
             return self._remote.reduce('dataResultTracker')
+        else:
+            return None
+
+    @property
+    def g(self):
+        if self.solvedF and self.solvedB:
+            return self._remote.reduceMul('forwardResultTracker', 'backpropResultTracker')
         else:
             return None
 
