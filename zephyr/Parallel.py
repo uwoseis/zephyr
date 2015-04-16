@@ -296,3 +296,75 @@ class RemoteInterface(object):
             item = item1 * item2
 
         return item
+
+    def remoteDifference(self, key1, key2, keyresult):
+
+        if self.useMPI:
+
+            root = 0
+
+            # Gather
+            code_reduce = 'temp_%(key)s = comm.reduce(%(key)s, root=%(root)d)'
+            self.dview.execute(code_reduce%{'key': key1, 'root': root})
+            self.dview.execute(code_reduce%{'key': key2, 'root': root})
+
+            # Difference
+            code_difference = '%(keyresult)s = temp_%(key1)s - temp_%(key2)s'
+            self.e0.execute(code_difference%{'key1': key1, 'key2': key2, 'keyresult': keyresult})
+
+            # Broadcast
+            code = 'if rank != 0: %(key)s = None\n%(key)s = comm.bcast(%(key)s, root=%(root)d)'
+            self.dview.execute(code%{'key': keyresult, 'root': root})
+
+            # Clear
+            self.e0.execute('del temp_%s'%(key1,))
+            self.e0.execute('del temp_%s'%(key2,))
+
+        else:
+            item1 = reduce(np.add, self.dview[key1])
+            item2 = reduce(np.add, self.dview[key2])
+
+            item = item1 - item2
+            self.dview[keyresult] = item
+
+    def remoteOpGatherFirst(self, op, key1, key2, keyresult):
+
+        if self.useMPI:
+
+            root = 0
+
+            # Gather
+            code_reduce = 'temp_%(key)s = comm.reduce(%(key)s, root=%(root)d)'
+            self.dview.execute(code_reduce%{'key': key1, 'root': root})
+
+            # Difference
+            code_difference = '%(keyresult)s = temp_%(key1)s %(op)s %(key2)s'
+            self.e0.execute(code_difference%{'op': op, 'key1': key1, 'key2': key2, 'keyresult': keyresult})
+
+            # Broadcast
+            code = 'if rank != 0: %(key)s = None\n%(key)s = comm.bcast(%(key)s, root=%(root)d)'
+            self.dview.execute(code%{'key': keyresult, 'root': root})
+
+            # Clear
+            self.e0.execute('del temp_%s'%(key1,))
+
+        else:
+            item1 = reduce(np.add, self.dview[key1])
+            item2 = self.e0[key2] # Assumes that any arbitrary worker has this information
+
+            item = eval('item1 %s item2'%(op,))
+            self.dview[keyresult] = item
+
+    def remoteDifferenceGatherFirst(self, *args):
+        self.remoteOpGatherFirst('-', *args)
+
+    def normFromDifference(self, key):
+
+        code = 'temp_norm%(key)s = (%(key)s * %(key)s.conj()).sum(0).sum(0)'
+        self.e0.execute(code%{'key': key})
+        code = 'temp_norm%(key)s = {key: np.sqrt(temp_norm%(key)s[key]).real for key in temp_norm%(key)s.keys()}'
+        self.e0.execute(code%{'key': key})
+        result = commonReducer(self.e0['temp_norm%s'%(key,)])
+        self.e0.execute('del temp_norm%s'%(key,))
+
+        return result
