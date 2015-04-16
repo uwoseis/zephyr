@@ -86,10 +86,60 @@ class commonReducer(dict):
 
         return result
 
+    def __div__(self, other):
+        result = commonReducer()
+        for key in other.keys():
+            if key in self:
+                result[key] = self[key] / other[key]
+
+        return result
+
     def sum(self, *args, **kwargs):
         result = commonReducer()
         for key in self.keys():
             result[key] = self[key].sum(*args, **kwargs)
+
+        return result
+
+    def log(self):
+        result = commonReducer()
+        for key in self.keys():
+            result[key] = np.log(self[key])
+
+        return result
+
+    def conj(self):
+        result = commonReducer()
+        for key in self.keys():
+            result[key] = self[key].conj()
+
+        return result
+
+    def real(self):
+        result = commonReducer()
+        for key in self.keys():
+            result[key] = self[key].real()
+
+        return result
+
+    def imag(self):
+        result = commonReducer()
+        for key in self.keys():
+            result[key] = self[key].imag()
+
+        return result
+
+    def ravel(self):
+        result = commonReducer()
+        for key in self.keys():
+            result[key] = self[key].ravel()
+
+        return result
+
+    def reshape(self, *args, **kwargs):
+        result = commonReducer()
+        for key in self.keys():
+            result[key] = self[key].reshape(*args, **kwargs)
 
         return result
 
