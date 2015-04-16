@@ -1,8 +1,7 @@
 import numpy as np
 from IPython.parallel import Reference, interactive
 from SimPEG import Survey, Problem, Mesh, Solver as SimpegSolver
-from zephyr.Util import commonReducer
-from zephyr.Parallel import RemoteInterface
+from zephyr.Parallel import RemoteInterface, commonReducer
 from zephyr.Survey import SurveyHelm
 from zephyr.Problem import ProblemHelm
 import networkx
@@ -62,17 +61,17 @@ def forwardFromTagAccumulate(tag, isrc, **kwargs):
 
     key = tag[0]
 
-    if not key in dataResultTracker:
+    if not key in dPred:
         dims = (len(txs), reduce(max, (tx.nD for tx in txs)))
-        dataResultTracker[key] = np.zeros(dims, dtype=np.complex128)
+        dPred[key] = np.zeros(dims, dtype=np.complex128)
 
-    if not key in forwardResultTracker:
+    if not key in fWave:
         dims = (len(txs), localSystem[tag].mesh.nN)
-        forwardResultTracker[key] = np.zeros(dims, dtype=np.complex128)
+        fWave[key] = np.zeros(dims, dtype=np.complex128)
 
     u, d = localSystem[tag].forward(txs[isrc], dOnly=False, **kwargs)
-    forwardResultTracker[key][isrc,:] += u
-    dataResultTracker[key][isrc,:] += d
+    fWave[key][isrc,:] += u
+    dPred[key][isrc,:] += d
 
 @interactive
 # @blockOnTag
@@ -91,12 +90,17 @@ def backpropFromTagAccumulate(tag, isrc, **kwargs):
 
     key = tag[0]
 
-    if not key in backpropResultTracker:
+    if not key in bWave:
         dims = (len(txs), localSystem[tag].mesh.nN)
-        backpropResultTracker[key] = np.zeros(dims, dtype=np.complex128)
+        bWave[key] = np.zeros(dims, dtype=np.complex128)
 
-    u = localSystem[tag].backprop(txs[isrc], **kwargs)
-    backpropResultTracker[key][isrc,:] += u
+    if key in dResid:
+        resid = dResid[key][isrc,:]
+    else:
+        resid = 0.
+
+    u = localSystem[tag].backprop(txs[isrc], np.conj(resid))
+    bWave[key][isrc,:] += u
 
 @interactive
 # @blockOnTag
@@ -184,9 +188,9 @@ class SeisFDFDDispatcher(object):
         # Set up dictionary for subproblem objects and push base configuration for the system
         dview['localSystem'] = {}
         self._remote['baseSystemConfig'] = systemConfig # Faster if MPI is available
-        dview['dataResultTracker'] = commonReducer()
-        dview['forwardResultTracker'] = commonReducer()
-        dview['backpropResultTracker'] = commonReducer()
+        dview['dPred'] = commonReducer()
+        dview['fWave'] = commonReducer()
+        dview['bWave'] = commonReducer()
 
         dview['forwardFromTagAccumulate'] = forwardFromTagAccumulate
         dview['forwardFromTagAccumulateAll'] = forwardFromTagAccumulateAll
@@ -230,11 +234,11 @@ class SeisFDFDDispatcher(object):
 
         if not self.solvedF:
             dview = self._remote.dview
-            dview['dataResultTracker'] = commonReducer()
-            dview['forwardResultTracker'] = commonReducer()
-            self.lastWaveG = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(self.txs)))
+            dview['dPred'] = commonReducer()
+            dview['fWave'] = commonReducer()
+            self.forwardGraph = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(self.txs)))
 
-    def backprop(self):
+    def backprop(self, dresid=None):
 
         if self.txs is None:
             raise Exception('Transmitters not defined!')
@@ -244,8 +248,8 @@ class SeisFDFDDispatcher(object):
 
         if not self.solvedB:
             dview = self._remote.dview
-            dview['backpropResultTracker'] = commonReducer()
-            self.lastBWaveG = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(self.txs)))
+            dview['bWave'] = commonReducer()
+            self.backpropGraph = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(self.txs)))
 
     def _wait(self, G):
         self._remote.lview.wait((G.node[wn]['job'] for wn in (G.predecessors(tn)[0] for tn in G.predecessors('End'))))
@@ -263,7 +267,7 @@ class SeisFDFDDispatcher(object):
         G.add_node(mainNode)
 
         # Parse sources
-        nsrc = len(self.systemConfig['geom']['src'])
+        nsrc = self.nsrc
         if isrcs is None:
             isrcslist = range(nsrc)
 
@@ -358,14 +362,16 @@ class SeisFDFDDispatcher(object):
             self.rebuildSystem()
             return
 
-        if hasattr(self, 'lastWaveG'):
-            del self.lastWaveG
+        if hasattr(self, 'forwardGraph'):
+            del self.forwardGraph
 
-        if hasattr(self, 'lastBWaveG'):
-            del self.lastBWaveG
+        if hasattr(self, 'backpropGraph'):
+            del self.backpropGraph
 
         self._solvedF = False
         self._solvedB = False
+        self._residualPrecomputed = False
+        self._misfit = None
 
         self._subConfigSettings['cmin'] = self.systemConfig['c'].min()
         subConfigs = self._gen25DSubConfigs(**self._subConfigSettings)
@@ -390,8 +396,8 @@ class SeisFDFDDispatcher(object):
         if getattr(self, '_solvedF', None) is None:
             self._solvedF = False
 
-        if hasattr(self, 'lastWaveG'):
-            self._wait(self.lastWaveG)
+        if hasattr(self, 'forwardGraph'):
+            self._wait(self.forwardGraph)
             self._solvedF = True
 
         return self._solvedF
@@ -401,8 +407,8 @@ class SeisFDFDDispatcher(object):
         if getattr(self, '_solvedB', None) is None:
             self._solvedB = False
 
-        if hasattr(self, 'lastBWaveG'):
-            self._wait(self.lastBWaveG)
+        if hasattr(self, 'backpropGraph'):
+            self._wait(self.backpropGraph)
             self._solvedB = True
 
         return self._solvedB
@@ -410,30 +416,99 @@ class SeisFDFDDispatcher(object):
     @property
     def uF(self):
         if self.solvedF:
-            return self._remote.reduce('forwardResultTracker')
+            return self._remote.reduce('fWave').reshape(self.fieldDims)
         else:
             return None
 
     @property
     def uB(self):
         if self.solvedB:
-            return self._remote.reduce('backpropResultTracker')
+            return self._remote.reduce('bWave').reshape(self.fieldDims)
         else:
             return None
 
     @property
-    def d(self):
+    def dPred(self):
         if self.solvedF:
-            return self._remote.reduce('dataResultTracker')
+            return self._remote.reduce('dPred')
         else:
             return None
 
     @property
     def g(self):
         if self.solvedF and self.solvedB:
-            return self._remote.reduceMul('forwardResultTracker', 'backpropResultTracker')
+            return self._remote.reduceMul('fWave', 'bWave', axis=0).reshape(self.modelDims)
         else:
             return None
+
+    @property
+    def dObs(self):
+        return getattr(self, '_dobs', None)
+    @dObs.setter
+    def dObs(self, value):
+        self._dobs = commonReducer(value)
+        self._remote['dObs'] = self._dobs
+
+    def _computeResidual(self):
+        if not self.solvedF:
+            raise Exception('Forward problem has not been solved yet!')
+
+        if self.dObs is None:
+            raise Exception('No observed data has been defined!')
+
+        if getattr(self, '_residualPrecomputed', None) is None:
+            self._residualPrecomputed = False
+
+        if not self._residualPrecomputed:
+            self._remote.remoteDifferenceGatherFirst('dPred', 'dObs', 'dResid')
+            #self._remote.dview.execute('dResid = commonReducer({key: np.log(dResid[key]).real for key in dResid.keys()}')
+            self._residualPrecomputed = True
+
+    @property
+    def residual(self):
+        if self.solvedF:
+            self._computeResidual()
+            return self._remote.e0['dResid']
+        else:
+            return None
+    # A day may come when it may be useful to set this, or to set dPred; but it is not this day!
+    # @residual.setter
+    # def residual(self, value):
+    #     self._remote['dResid'] = commonReducer(value)
+
+    @property
+    def misfit(self):
+        if self.solvedF:
+            if getattr(self, '_misfit', None) is None:
+                self._computeResidual()
+                self._misfit = self._remote.normFromDifference('dResid')
+            return self._misfit
+        else:
+            return None
+
+    @property
+    def nx(self):
+        return self.systemConfig['nx']
+
+    @property
+    def nz(self):
+        return self.systemConfig['nz']
+
+    @property
+    def nsrc(self):
+        return len(self.systemConfig['geom']['src'])
+    
+    @property
+    def modelDims(self):
+        return (self.nz, self.nx)
+
+    @property
+    def fieldDims(self):
+        return (self.nsrc, self.nz, self.nx)
+
+    @property
+    def _remoteFieldDims(self):
+        return (self.nsrc, self.nz*self.nx)
 
     def spawnInterfaces(self):
 
