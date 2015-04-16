@@ -50,6 +50,13 @@ class commonReducer(dict):
 
         return result
 
+    def sum(self, *args, **kwargs):
+        result = commonReducer()
+        for key in self.keys():
+            result[key] = self[key].sum(*args, **kwargs)
+
+        return result
+
     def copy(self):
 
         return commonReducer(self)

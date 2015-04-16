@@ -431,7 +431,7 @@ class SeisFDFDDispatcher(object):
     @property
     def g(self):
         if self.solvedF and self.solvedB:
-            return self._remote.reduceMul('forwardResultTracker', 'backpropResultTracker')
+            return self._remote.reduceMul('forwardResultTracker', 'backpropResultTracker', axis=0)
         else:
             return None
 

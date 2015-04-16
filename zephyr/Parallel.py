@@ -157,10 +157,10 @@ class RemoteInterface(object):
             code_mul = 'temp_%(key1)s%(key2)s = temp_%(key1)s * temp_%(key2)s'
             self.e0.execute(code_mul%{'key1': key1, 'key2': key2})
 
-            # # Potentially sum
-            # if axis is not None:
-            #     code = 'temp_%(key1)s%(key2)s = temp_%(key1)s%(key2)s.sum(axis=%(axis)d)'
-            #     self.e0.execute(code%{'key1': key1, 'key2': key2, 'axis': axis})
+            # Potentially sum
+            if axis is not None:
+                code = 'temp_%(key1)s%(key2)s = temp_%(key1)s%(key2)s.sum(axis=%(axis)d)'
+                self.e0.execute(code%{'key1': key1, 'key2': key2, 'axis': axis})
 
             # Pull
             item = self.e0['temp_%(key1)s%(key2)s'%{'key1': key1, 'key2': key2}]
