@@ -1,8 +1,7 @@
 import numpy as np
 from IPython.parallel import Reference, interactive
 from SimPEG import Survey, Problem, Mesh, Solver as SimpegSolver
-from zephyr.Util import commonReducer
-from zephyr.Parallel import RemoteInterface
+from zephyr.Parallel import RemoteInterface, commonReducer
 from zephyr.Survey import SurveyHelm
 from zephyr.Problem import ProblemHelm
 import networkx
