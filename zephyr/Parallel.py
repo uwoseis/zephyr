@@ -189,6 +189,8 @@ class RemoteInterface(object):
 
         dview.apply(adjustMKLVectorization)
 
+        self.e0 = pclient[0]
+
         self.useMPI = False
         MPI = DEFAULT_MPI if MPI is None else MPI
         if MPI:
