@@ -158,7 +158,7 @@ class commonReducer(dict):
 
 class RemoteInterface(object):
 
-    def __init__(self, profile=None, MPI=None):
+    def __init__(self, profile=None, MPI=None, nThreads=1):
 
         if profile is not None:
             pupdate = {'profile': profile}
@@ -187,9 +187,8 @@ class RemoteInterface(object):
 
         dview.scatter('rank', pclient.ids, flatten=True)
 
-        dview.apply(adjustMKLVectorization)
-
         self.e0 = pclient[0]
+        self.e0.block = True
 
         self.useMPI = False
         MPI = DEFAULT_MPI if MPI is None else MPI
@@ -219,12 +218,23 @@ class RemoteInterface(object):
         self.dview = dview
         self.lview = pclient.load_balanced_view()
 
+        self.nThreads = nThreads
+
         # Generate 'par' object for Problem to grab
         self.par = {
             'pclient':      self.pclient,
             'dview':        self.dview,
             'lview':        self.pclient.load_balanced_view(),
         }
+
+    @property
+    def nThreads(self):
+        return self._nThreads
+    @nThreads.setter
+    def nThreads(self, value):
+        self._nThreads = value
+        self.dview.apply(adjustMKLVectorization, self._nThreads)
+    
 
     def __setitem__(self, key, item):
 
