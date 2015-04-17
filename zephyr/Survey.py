@@ -23,7 +23,7 @@ def KaiserWindowedSinc(ireg, offset):
     Hicks, Graham J. (2002) Arbitrary source and receiver positioning in finite-difference
         schemes using Kaiser windowed sinc functions. Geophysics (67) 1, 156-166.
 
-    KaiserWindowedSince(ireg, offset) --> 2D ndarray of size (2*ireg+1, 2*ireg+1)
+    KaiserWindowedSinc(ireg, offset) --> 2D ndarray of size (2*ireg+1, 2*ireg+1)
     Input offset is the 2D offsets in fractional gridpoints between the source location and
     the nearest node on the modelling grid.
     '''
