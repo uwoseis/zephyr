@@ -1,8 +1,24 @@
 from IPython.parallel import Client, parallel, Reference, require, depend, interactive
 import numpy as np
+import networkx
 
 DEFAULT_MPI = True
 MPI_BELLWETHERS = ['PMI_SIZE', 'OMPI_UNIVERSE_SIZE']
+
+def getChunks(problems, chunks=1):
+    nproblems = len(problems)
+    return (problems[i*nproblems // chunks: (i+1)*nproblems // chunks] for i in range(chunks))
+
+@interactive
+def hasSystem(tag):
+    global localSystem
+    return tag in localSystem
+
+@interactive
+def hasSystemRank(tag, wid):
+    global localSystem
+    global rank
+    return (tag in localSystem) and (rank == wid)
 
 def cdSame(rc):
     import os
@@ -36,7 +52,7 @@ def adjustMKLVectorization(nt=1):
     finally:
         mkl.set_num_threads(nt)
 
-class commonReducer(dict):
+class CommonReducer(dict):
 
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
@@ -46,7 +62,7 @@ class commonReducer(dict):
         self.callcounter = 0
 
     def __add__(self, other):
-        result = commonReducer(self)
+        result = CommonReducer(self)
         for key in other.keys():
             if key in result:
                 result[key] = self[key] + other[key]
@@ -71,7 +87,7 @@ class commonReducer(dict):
         return self
 
     def __mul__(self, other):
-        result = commonReducer()
+        result = CommonReducer()
         for key in other.keys():
             if key in self:
                 result[key] = self[key] * other[key]
@@ -79,7 +95,7 @@ class commonReducer(dict):
         return result
 
     def __sub__(self, other):
-        result = commonReducer()
+        result = CommonReducer()
         for key in other.keys():
             if key in self:
                 result[key] = self[key] - other[key]
@@ -87,7 +103,7 @@ class commonReducer(dict):
         return result
 
     def __div__(self, other):
-        result = commonReducer()
+        result = CommonReducer()
         for key in other.keys():
             if key in self:
                 result[key] = self[key] / other[key]
@@ -95,49 +111,49 @@ class commonReducer(dict):
         return result
 
     def sum(self, *args, **kwargs):
-        result = commonReducer()
+        result = CommonReducer()
         for key in self.keys():
             result[key] = self[key].sum(*args, **kwargs)
 
         return result
 
     def log(self):
-        result = commonReducer()
+        result = CommonReducer()
         for key in self.keys():
             result[key] = np.log(self[key])
 
         return result
 
     def conj(self):
-        result = commonReducer()
+        result = CommonReducer()
         for key in self.keys():
             result[key] = self[key].conj()
 
         return result
 
     def real(self):
-        result = commonReducer()
+        result = CommonReducer()
         for key in self.keys():
             result[key] = self[key].real()
 
         return result
 
     def imag(self):
-        result = commonReducer()
+        result = CommonReducer()
         for key in self.keys():
             result[key] = self[key].imag()
 
         return result
 
     def ravel(self):
-        result = commonReducer()
+        result = CommonReducer()
         for key in self.keys():
             result[key] = self[key].ravel()
 
         return result
 
     def reshape(self, *args, **kwargs):
-        result = commonReducer()
+        result = CommonReducer()
         for key in self.keys():
             result[key] = self[key].reshape(*args, **kwargs)
 
@@ -145,7 +161,7 @@ class commonReducer(dict):
 
     def copy(self):
 
-        return commonReducer(self)
+        return CommonReducer(self)
 
     def __call__(self, key, result):
         if key in self:
@@ -155,6 +171,130 @@ class commonReducer(dict):
 
         self.callcounter += 1
         self.interactcounter += 1
+
+
+class SystemSolver(object):
+
+    def __init__(self, dispatcher, schedule):
+
+        self.dispatcher = dispatcher
+        self.schedule = schedule
+
+        # for key in schedule:
+        #     refs = schedule[key]
+        #     handler = lambda target, isrcs: self._systemSolve(isrcs, refs['solve'], refs['clear'])
+        #     handler.__name__ = key
+        #     setattr(self, key, handler.__get__(self, self.__class__))
+
+    # def _systemSolve(self, isrcs, fnRef, clearRef):
+
+    def __call__(self, entry, isrcs):
+        
+        fnRef = self.schedule[entry]['solve']
+        clearRef = self.schedule[entry]['clear']
+
+        dview = self.dispatcher.remote.dview
+        lview = self.dispatcher.remote.lview
+
+        chunksPerWorker = getattr(self.dispatcher, 'chunksPerWorker', 1)
+
+        G = networkx.DiGraph()
+
+        mainNode = 'Beginning'
+        G.add_node(mainNode)
+
+        # Parse sources
+        nsrc = self.dispatcher.nsrc
+        if isrcs is None:
+            isrcslist = range(nsrc)
+
+        elif isinstance(isrcs, slice):
+            isrcslist = range(isrcs.start or 0, isrcs.stop or nsrc, isrcs.step or 1)
+
+        else:
+            try:
+                _ = isrcs[0]
+                isrcslist = isrcs
+            except TypeError:
+                isrcslist = [isrcs]
+
+        systemsOnWorkers = dview['localSystem.keys()']
+        ids = dview['rank']
+        tags = set()
+        for ltags in systemsOnWorkers:
+            tags = tags.union(set(ltags))
+
+        endNodes = {}
+        tailNodes = []
+
+        for tag in tags:
+
+            tagNode = 'Head: %d, %d'%tag
+            G.add_edge(mainNode, tagNode)
+
+            relIDs = []
+            for i in xrange(len(ids)):
+
+                systems = systemsOnWorkers[i]
+                rank = ids[i]
+
+                if tag in systems:
+                    relIDs.append(i)
+
+            systemJobs = []
+            endNodes[tag] = []
+            systemNodes = []
+
+            with lview.temp_flags(block=False):
+                iworks = 0
+                for work in getChunks(isrcslist, int(round(chunksPerWorker*len(relIDs)))):
+                    if work:
+                        job = lview.apply(fnRef, tag, work)
+                        systemJobs.append(job)
+                        label = 'Compute: %d, %d, %d'%(tag[0], tag[1], iworks)
+                        systemNodes.append(label)
+                        G.add_node(label, job=job)
+                        G.add_edge(tagNode, label)
+                        iworks += 1
+
+            if getattr(self.dispatcher, 'ensembleClear', False): # True for ensemble ending, False for individual ending
+                tagNode = 'Wrap: %d, %d'%tag
+                for label in systemNodes:
+                    G.add_edge(label, tagNode)
+
+                for i in relIDs:
+
+                    rank = ids[i]
+
+                    with lview.temp_flags(block=False, after=systemJobs):
+                        job = lview.apply(depend(hasSystemRank, tag, rank)(clearRef), tag)
+                        label = 'Wrap: %d, %d, %d'%(tag[0],tag[1], i)
+                        G.add_node(label, job=job)
+                        endNodes[tag].append(label)
+                        G.add_edge(tagNode, label)
+            else:
+
+                for i, sjob in enumerate(systemJobs):
+                    with lview.temp_flags(block=False, follow=sjob):
+                        job = lview.apply(clearRef, tag)
+                        label = 'Wrap: %d, %d, %d'%(tag[0],tag[1],i)
+                        G.add_node(label, job=job)
+                        endNodes[tag].append(label)
+                        G.add_edge(systemNodes[i], label)
+
+            tagNode = 'Tail: %d, %d'%tag
+            for label in endNodes[tag]:
+                G.add_edge(label, tagNode)
+            tailNodes.append(tagNode)
+
+        endNode = 'End'
+        for node in tailNodes:
+            G.add_edge(node, endNode)
+
+        return G
+
+    def wait(self, G):
+        self.dispatcher.remote.lview.wait((G.node[wn]['job'] for wn in (G.predecessors(tn)[0] for tn in G.predecessors('End'))))
 
 class RemoteInterface(object):
 
@@ -376,7 +516,7 @@ class RemoteInterface(object):
         self.e0.execute(code%{'key': key})
         code = 'temp_norm%(key)s = {key: np.sqrt(temp_norm%(key)s[key]).real for key in temp_norm%(key)s.keys()}'
         self.e0.execute(code%{'key': key})
-        result = commonReducer(self.e0['temp_norm%s'%(key,)])
+        result = CommonReducer(self.e0['temp_norm%s'%(key,)])
         self.e0.execute('del temp_norm%s'%(key,))
 
         return result

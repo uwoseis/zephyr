@@ -1,7 +1,7 @@
 import numpy as np
 from IPython.parallel import Reference, interactive
 from SimPEG import Survey, Problem, Mesh, Solver as SimpegSolver
-from zephyr.Parallel import RemoteInterface, commonReducer
+from zephyr.Parallel import RemoteInterface, CommonReducer, SystemSolver
 from zephyr.Survey import SurveyHelm
 from zephyr.Problem import ProblemHelm
 import networkx
@@ -109,20 +109,6 @@ def backpropFromTagAccumulateAll(tag, isrcs, **kwargs):
     for isrc in isrcs:
         backpropFromTagAccumulate(tag, isrc, **kwargs) 
 
-@interactive
-def hasSystem(tag):
-    global localSystem
-    return tag in localSystem
-
-@interactive
-def hasSystemRank(tag, wid):
-    global localSystem
-    global rank
-    return (tag in localSystem) and (rank == wid)
-
-def getChunks(problems, chunks=1):
-    nproblems = len(problems)
-    return (problems[i*nproblems // chunks: (i+1)*nproblems // chunks] for i in range(chunks))
 
 class SeisFDFDDispatcher(object):
     """
@@ -159,8 +145,8 @@ class SeisFDFDDispatcher(object):
 
         self._subConfigSettings = subConfigSettings
 
-        self._remote = RemoteInterface(systemConfig.get('profile', None), systemConfig.get('MPI', None))
-        dview = self._remote.dview
+        self.remote = RemoteInterface(systemConfig.get('profile', None), systemConfig.get('MPI', None))
+        dview = self.remote.dview
 
         code = '''
         import numpy as np
@@ -173,24 +159,29 @@ class SeisFDFDDispatcher(object):
         for command in code.strip().split('\n'):
             dview.execute(command.strip())
 
+        localcache = ['chunksPerWorker', 'ensembleClear']
+        for key in localcache:
+            if key in self.systemConfig:
+                setattr(self, '_%s'%(key,), systemConfig[key])
+
         self.rebuildSystem()
 
 
     def _getHandles(self, systemConfig, subConfigSettings):
 
-        pclient = self._remote.pclient
-        dview = self._remote.dview
-        lview = self._remote.lview
+        pclient = self.remote.pclient
+        dview = self.remote.dview
+        lview = self.remote.lview
 
         subConfigs = self._gen25DSubConfigs(**subConfigSettings)
         nsp = len(subConfigs)
 
         # Set up dictionary for subproblem objects and push base configuration for the system
         dview['localSystem'] = {}
-        self._remote['baseSystemConfig'] = systemConfig # Faster if MPI is available
-        dview['dPred'] = commonReducer()
-        dview['fWave'] = commonReducer()
-        dview['bWave'] = commonReducer()
+        self.remote['baseSystemConfig'] = systemConfig # Faster if MPI is available
+        dview['dPred'] = CommonReducer()
+        dview['fWave'] = CommonReducer()
+        dview['bWave'] = CommonReducer()
 
         dview['forwardFromTagAccumulate'] = forwardFromTagAccumulate
         dview['forwardFromTagAccumulateAll'] = forwardFromTagAccumulateAll
@@ -199,6 +190,13 @@ class SeisFDFDDispatcher(object):
         dview['clearFromTag'] = clearFromTag
 
         dview.wait()
+
+        schedule = {
+            'forward': {'solve': Reference('forwardFromTagAccumulateAll'), 'clear': Reference('clearFromTag')},
+            'backprop': {'solve': Reference('backpropFromTagAccumulateAll'), 'clear': Reference('clearFromTag')},
+        }
+
+        self.systemsolver = SystemSolver(self, schedule)
 
         if 'parFac' in systemConfig:
             parFac = systemConfig['parFac']
@@ -233,10 +231,10 @@ class SeisFDFDDispatcher(object):
             raise Exception('Transmitters not defined!')
 
         if not self.solvedF:
-            dview = self._remote.dview
-            dview['dPred'] = commonReducer()
-            dview['fWave'] = commonReducer()
-            self.forwardGraph = self._systemSolve(Reference('forwardFromTagAccumulateAll'), slice(len(self.txs)))
+            dview = self.remote.dview
+            dview['dPred'] = CommonReducer()
+            dview['fWave'] = CommonReducer()
+            self.forwardGraph = self.systemsolver('forward', slice(len(self.txs)))
 
     def backprop(self, dresid=None):
 
@@ -247,114 +245,9 @@ class SeisFDFDDispatcher(object):
         #     raise Exception('Data residuals not defined!')
 
         if not self.solvedB:
-            dview = self._remote.dview
-            dview['bWave'] = commonReducer()
-            self.backpropGraph = self._systemSolve(Reference('backpropFromTagAccumulateAll'), slice(len(self.txs)))
-
-    def _wait(self, G):
-        self._remote.lview.wait((G.node[wn]['job'] for wn in (G.predecessors(tn)[0] for tn in G.predecessors('End'))))
-
-    def _systemSolve(self, fnRef, isrcs, clearRef=Reference('clearFromTag'), **kwargs):
-
-        dview = self._remote.dview
-        lview = self._remote.lview
-
-        chunksPerWorker = self.systemConfig.get('chunksPerWorker', 1)
-
-        G = networkx.DiGraph()
-
-        mainNode = 'Beginning'
-        G.add_node(mainNode)
-
-        # Parse sources
-        nsrc = self.nsrc
-        if isrcs is None:
-            isrcslist = range(nsrc)
-
-        elif isinstance(isrcs, slice):
-            isrcslist = range(isrcs.start or 0, isrcs.stop or nsrc, isrcs.step or 1)
-
-        else:
-            try:
-                _ = isrcs[0]
-                isrcslist = isrcs
-            except TypeError:
-                isrcslist = [isrcs]
-
-        systemsOnWorkers = dview['localSystem.keys()']
-        ids = dview['rank']
-        tags = set()
-        for ltags in systemsOnWorkers:
-            tags = tags.union(set(ltags))
-
-        endNodes = {}
-        tailNodes = []
-
-        for tag in tags:
-
-            tagNode = 'Head: %d, %d'%tag
-            G.add_edge(mainNode, tagNode)
-
-            relIDs = []
-            for i in xrange(len(ids)):
-
-                systems = systemsOnWorkers[i]
-                rank = ids[i]
-
-                if tag in systems:
-                    relIDs.append(i)
-
-            systemJobs = []
-            endNodes[tag] = []
-            systemNodes = []
-
-            with lview.temp_flags(block=False):
-                iworks = 0
-                for work in getChunks(isrcslist, int(round(chunksPerWorker*len(relIDs)))):
-                    if work:
-                        job = lview.apply(fnRef, tag, work, **kwargs)
-                        systemJobs.append(job)
-                        label = 'Compute: %d, %d, %d'%(tag[0], tag[1], iworks)
-                        systemNodes.append(label)
-                        G.add_node(label, job=job)
-                        G.add_edge(tagNode, label)
-                        iworks += 1
-
-            if self.systemConfig.get('ensembleClear', False): # True for ensemble ending, False for individual ending
-                tagNode = 'Wrap: %d, %d'%tag
-                for label in systemNodes:
-                    G.add_edge(label, tagNode)
-
-                for i in relIDs:
-
-                    rank = ids[i]
-
-                    with lview.temp_flags(block=False, after=systemJobs):
-                        job = lview.apply(depend(hasSystemRank, tag, rank)(clearRef), tag)
-                        label = 'Wrap: %d, %d, %d'%(tag[0],tag[1], i)
-                        G.add_node(label, job=job)
-                        endNodes[tag].append(label)
-                        G.add_edge(tagNode, label)
-            else:
-
-                for i, sjob in enumerate(systemJobs):
-                    with lview.temp_flags(block=False, follow=sjob):
-                        job = lview.apply(clearRef, tag)
-                        label = 'Wrap: %d, %d, %d'%(tag[0],tag[1],i)
-                        G.add_node(label, job=job)
-                        endNodes[tag].append(label)
-                        G.add_edge(systemNodes[i], label)
-
-            tagNode = 'Tail: %d, %d'%tag
-            for label in endNodes[tag]:
-                G.add_edge(label, tagNode)
-            tailNodes.append(tagNode)
-
-        endNode = 'End'
-        for node in tailNodes:
-            G.add_edge(node, endNode)
-
-        return G
+            dview = self.remote.dview
+            dview['bWave'] = CommonReducer()
+            self.backpropGraph = self.systemsolver('backprop', slice(len(self.txs)))
 
     def rebuildSystem(self, c = None):
         if c is not None:
@@ -389,7 +282,7 @@ class SeisFDFDDispatcher(object):
     def txs(self, value):
         self._txs = value
         self.rebuildSystem()
-        self._remote['txs'] = self._txs
+        self.remote['txs'] = self._txs
 
     @property
     def solvedF(self):
@@ -397,7 +290,7 @@ class SeisFDFDDispatcher(object):
             self._solvedF = False
 
         if hasattr(self, 'forwardGraph'):
-            self._wait(self.forwardGraph)
+            self.systemsolver.wait(self.forwardGraph)
             self._solvedF = True
 
         return self._solvedF
@@ -408,7 +301,7 @@ class SeisFDFDDispatcher(object):
             self._solvedB = False
 
         if hasattr(self, 'backpropGraph'):
-            self._wait(self.backpropGraph)
+            self.systemsolver.wait(self.backpropGraph)
             self._solvedB = True
 
         return self._solvedB
@@ -416,28 +309,28 @@ class SeisFDFDDispatcher(object):
     @property
     def uF(self):
         if self.solvedF:
-            return self._remote.reduce('fWave').reshape(self.fieldDims)
+            return self.remote.reduce('fWave').reshape(self.fieldDims)
         else:
             return None
 
     @property
     def uB(self):
         if self.solvedB:
-            return self._remote.reduce('bWave').reshape(self.fieldDims)
+            return self.remote.reduce('bWave').reshape(self.fieldDims)
         else:
             return None
 
     @property
     def dPred(self):
         if self.solvedF:
-            return self._remote.reduce('dPred')
+            return self.remote.reduce('dPred')
         else:
             return None
 
     @property
     def g(self):
         if self.solvedF and self.solvedB:
-            return self._remote.reduceMul('fWave', 'bWave', axis=0).reshape(self.modelDims)
+            return self.remote.reduceMul('fWave', 'bWave', axis=0).reshape(self.modelDims)
         else:
             return None
 
@@ -446,8 +339,8 @@ class SeisFDFDDispatcher(object):
         return getattr(self, '_dobs', None)
     @dObs.setter
     def dObs(self, value):
-        self._dobs = commonReducer(value)
-        self._remote['dObs'] = self._dobs
+        self._dobs = CommonReducer(value)
+        self.remote['dObs'] = self._dobs
 
     def _computeResidual(self):
         if not self.solvedF:
@@ -460,28 +353,28 @@ class SeisFDFDDispatcher(object):
             self._residualPrecomputed = False
 
         if not self._residualPrecomputed:
-            self._remote.remoteDifferenceGatherFirst('dPred', 'dObs', 'dResid')
-            #self._remote.dview.execute('dResid = commonReducer({key: np.log(dResid[key]).real for key in dResid.keys()}')
+            self.remote.remoteDifferenceGatherFirst('dPred', 'dObs', 'dResid')
+            #self.remote.dview.execute('dResid = CommonReducer({key: np.log(dResid[key]).real for key in dResid.keys()}')
             self._residualPrecomputed = True
 
     @property
     def residual(self):
         if self.solvedF:
             self._computeResidual()
-            return self._remote.e0['dResid']
+            return self.remote.e0['dResid']
         else:
             return None
     # A day may come when it may be useful to set this, or to set dPred; but it is not this day!
     # @residual.setter
     # def residual(self, value):
-    #     self._remote['dResid'] = commonReducer(value)
+    #     self.remote['dResid'] = CommonReducer(value)
 
     @property
     def misfit(self):
         if self.solvedF:
             if getattr(self, '_misfit', None) is None:
                 self._computeResidual()
-                self._misfit = self._remote.normFromDifference('dResid')
+                self._misfit = self.remote.normFromDifference('dResid')
             return self._misfit
         else:
             return None
@@ -507,7 +400,7 @@ class SeisFDFDDispatcher(object):
         return (self.nsrc, self.nz, self.nx)
 
     @property
-    def _remoteFieldDims(self):
+    def remoteFieldDims(self):
         return (self.nsrc, self.nz*self.nx)
 
     def spawnInterfaces(self):
@@ -519,6 +412,14 @@ class SeisFDFDDispatcher(object):
 
         return self.survey, self.problem
 
+    @property
+    def chunksPerWorker(self):
+        return getattr(self, '_chunksPerWorker', 1)
+
+    @property
+    def ensembleClear(self):
+        return getattr(self, '_ensembleClear', False)
+    
     # def fields(self, c):
 
     #     self._rebuildSystem(c)
