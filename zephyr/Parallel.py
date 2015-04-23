@@ -63,7 +63,7 @@ class CommonReducer(dict):
     this is equivalent to cr += {key: value}.
     ''' 
 
-    FOREBODENFAKERY = ['__getnewargs__']
+    FOREBODENFAKERY = ['__getinitargs__', '__getnewargs__', '__getstate__', '__setstate__']
 
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
