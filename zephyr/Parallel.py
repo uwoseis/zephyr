@@ -110,52 +110,34 @@ class CommonReducer(dict):
 
         return result
 
-    def sum(self, *args, **kwargs):
-        result = CommonReducer()
-        for key in self.keys():
-            result[key] = self[key].sum(*args, **kwargs)
+    def __getattr__(self, attr):
 
-        return result
+        try:
+            result = getattr(super(CommonReducer, self), attr)
+        except AttributeError:
+            if all((getattr(self[key], attr, None) is not None for key in self.keys())):
 
-    def log(self):
-        result = CommonReducer()
-        for key in self.keys():
-            result[key] = np.log(self[key])
+                if any((callable(getattr(self[key], attr)) for key in self.keys())):
 
-        return result
+                    def wrapperFunction(*args, **kwargs):
+                        # innerresult = CommonReducer()
 
-    def conj(self):
-        result = CommonReducer()
-        for key in self.keys():
-            result[key] = self[key].conj()
+                        innerresult = CommonReducer({key: getattr(self[key], attr, None)(*args, **kwargs) for key in self.keys()})
+                        # for key in self.keys():
+                        #     methodresult = getattr(self[key], attr, None)(*args, **kwargs)
+                        #     if methodresult is not None:
+                        #         inplace = False
+                        #         innerresult[key] = methodresult
 
-        return result
+                        if not all((innerresult[key] is None for key in innerresult.keys())):
+                            return innerresult
 
-    def real(self):
-        result = CommonReducer()
-        for key in self.keys():
-            result[key] = self[key].real()
+                    result = wrapperFunction
 
-        return result
-
-    def imag(self):
-        result = CommonReducer()
-        for key in self.keys():
-            result[key] = self[key].imag()
-
-        return result
-
-    def ravel(self):
-        result = CommonReducer()
-        for key in self.keys():
-            result[key] = self[key].ravel()
-
-        return result
-
-    def reshape(self, *args, **kwargs):
-        result = CommonReducer()
-        for key in self.keys():
-            result[key] = self[key].reshape(*args, **kwargs)
+                else:
+                    return CommonReducer({key: getattr(self[key], attr) for key in self.keys()})
+            else:
+                raise
 
         return result
 
