@@ -53,13 +53,18 @@ def adjustMKLVectorization(nt=1):
         mkl.set_num_threads(nt)
 
 class CommonReducer(dict):
+    '''
+    Object based on 'dict' that implements the binary addition (obj1 + obj1) and
+    accumulation (obj += obj2). These operations pass through to the entries in
+    the commonReducer.
+    
+    Instances of commonReducer are also callable, with the syntax:
+        cr(key, value)
+    this is equivalent to cr += {key: value}.
+    ''' 
 
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
-        self.addcounter = 0
-        self.iaddcounter = 0
-        self.interactcounter = 0
-        self.callcounter = 0
 
     def __add__(self, other):
         result = CommonReducer(self)
@@ -69,9 +74,6 @@ class CommonReducer(dict):
             else:
                 result[key] = other[key]
 
-        self.addcounter += 1
-        self.interactcounter += 1
-
         return result
 
     def __iadd__(self, other):
@@ -80,9 +82,6 @@ class CommonReducer(dict):
                 self[key] += other[key]
             else:
                 self[key] = other[key]
-
-        self.iaddcounter += 1
-        self.interactcounter += 1
 
         return self
 
@@ -112,32 +111,23 @@ class CommonReducer(dict):
 
     def __getattr__(self, attr):
 
-        try:
-            result = getattr(super(CommonReducer, self), attr)
-        except AttributeError:
-            if all((getattr(self[key], attr, None) is not None for key in self.keys())):
+        if all((getattr(self[key], attr, None) is not None for key in self.keys())):
 
-                if any((callable(getattr(self[key], attr)) for key in self.keys())):
+            if any((callable(getattr(self[key], attr)) for key in self.keys())):
 
-                    def wrapperFunction(*args, **kwargs):
-                        # innerresult = CommonReducer()
+                def wrapperFunction(*args, **kwargs):
 
-                        innerresult = CommonReducer({key: getattr(self[key], attr, None)(*args, **kwargs) for key in self.keys()})
-                        # for key in self.keys():
-                        #     methodresult = getattr(self[key], attr, None)(*args, **kwargs)
-                        #     if methodresult is not None:
-                        #         inplace = False
-                        #         innerresult[key] = methodresult
+                    innerresult = CommonReducer({key: getattr(self[key], attr, None)(*args, **kwargs) for key in self.keys()})
 
-                        if not all((innerresult[key] is None for key in innerresult.keys())):
-                            return innerresult
+                    if not all((innerresult[key] is None for key in innerresult.keys())):
+                        return innerresult
 
-                    result = wrapperFunction
+                result = wrapperFunction
 
-                else:
-                    return CommonReducer({key: getattr(self[key], attr) for key in self.keys()})
             else:
-                raise
+                return CommonReducer({key: getattr(self[key], attr) for key in self.keys()})
+        else:
+            raise AttributeError('\'CommonReducer\' object has no attribute \'%s\', and it could not be satisfied through cascade lookup'%attr)
 
         return result
 
@@ -150,9 +140,6 @@ class CommonReducer(dict):
             self[key] += result
         else:
             self[key] = result
-
-        self.callcounter += 1
-        self.interactcounter += 1
 
 
 class SystemSolver(object):
