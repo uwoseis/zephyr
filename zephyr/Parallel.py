@@ -63,6 +63,8 @@ class CommonReducer(dict):
     this is equivalent to cr += {key: value}.
     ''' 
 
+    FOREBODENFAKERY = ['__getnewargs__']
+
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
 
@@ -111,7 +113,7 @@ class CommonReducer(dict):
 
     def __getattr__(self, attr):
 
-        if all((getattr(self[key], attr, None) is not None for key in self.keys())):
+        if not attr in self.FOREBODENFAKERY and all((getattr(self[key], attr, None) is not None for key in self.keys())):
 
             if any((callable(getattr(self[key], attr)) for key in self.keys())):
 
