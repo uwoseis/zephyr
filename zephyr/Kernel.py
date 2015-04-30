@@ -12,6 +12,7 @@ from IPython.parallel import require, interactive, Reference
 DEFAULT_FREESURF_BOUNDS = [False, False, False, False]
 DEFAULT_PML_SIZE = 10
 DEFAULT_IREG = 4
+DEFAULT_DTYPE = 'double'
 
 try:
     from pymatsolver import MumpsSolver
@@ -77,6 +78,7 @@ class SeisFDFDKernel(object):
             'Solver':       None,
             'dx':           None,
             'dz':           None,
+            'dtype':        None,
         }
 
         for key in initMap.keys():
@@ -210,6 +212,36 @@ class SeisFDFDKernel(object):
         if getattr(self, '_mem', None) is not None:
             self._mem.clear()
 
+    @property
+    def dtypeReal(self):
+        if self.dtype == 'float':
+            return numpy.float32
+        elif self.dtype == 'double':
+            return numpy.float64
+        else:
+            raise NotImplementedError('Unknown dtype: %s'%self.dtype)
+
+    @property
+    def dtypeComplex(self):
+        if self.dtype == 'float':
+            return numpy.complex64
+        elif self.dtype == 'double':
+            return numpy.complex128
+        else:
+            raise NotImplementedError('Unknown dtype: %s'%self.dtype)
+
+    @property
+    def dtype(self):
+        return getattr(self, '_dtype', DEFAULT_DTYPE)
+    @dtype.setter
+    def dtype(self, value):
+        # Currently this doesn't work because all the solvers assume doubles
+        # if value in ['float', 'double']:
+        if value in ['double']:
+            self._dtype = value
+        else:
+            raise NotImplementedError('Unknown dtype: %s'%value)
+
     # ------------------------------------------------------------------------
     # Matrix setup
 
@@ -267,10 +299,10 @@ class SeisFDFDKernel(object):
         pmlfx   = 3.0 * numpy.log(1/pmlr)/(2*pmldx**3)
         pmlfz   = 3.0 * numpy.log(1/pmlr)/(2*pmldz**3)
 
-        dpmlx   = numpy.zeros(dims, dtype=numpy.complex128)
-        dpmlz   = numpy.zeros(dims, dtype=numpy.complex128)
-        isnx    = numpy.zeros(dims, dtype=numpy.float64)
-        isnz    = numpy.zeros(dims, dtype=numpy.float64)
+        dpmlx   = numpy.zeros(dims, dtype=self.dtypeComplex)
+        dpmlz   = numpy.zeros(dims, dtype=self.dtypeComplex)
+        isnx    = numpy.zeros(dims, dtype=self.dtypeReal)
+        isnz    = numpy.zeros(dims, dtype=self.dtypeReal)
 
         # Only enable PML if the free surface isn't set
 
@@ -438,7 +470,7 @@ class SeisFDFDKernel(object):
         diagonals = [diagonals[key] for key in keys]
         offsets = [offsets[key] for key in keys]
 
-        A = scipy.sparse.diags(diagonals, offsets, shape=(self.mesh.nN, self.mesh.nN), format='csr', dtype=numpy.complex128)#, shape=(self.mesh.nN, self.mesh.nN))#, self.mesh.nN, self.mesh.nN, format='csr')
+        A = scipy.sparse.diags(diagonals, offsets, shape=(self.mesh.nN, self.mesh.nN), format='csr', dtype=self.dtypeComplex)#, shape=(self.mesh.nN, self.mesh.nN))#, self.mesh.nN, self.mesh.nN, format='csr')
 
         return A
 

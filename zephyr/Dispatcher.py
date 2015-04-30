@@ -6,6 +6,7 @@ from zephyr.Survey import SurveyHelm
 from zephyr.Problem import ProblemHelm
 import networkx
 
+DEFAULT_DTYPE = 'double'
 DEFAULT_MPI = True
 MPI_BELLWETHERS = ['PMI_SIZE', 'OMPI_UNIVERSE_SIZE']
 
@@ -63,11 +64,11 @@ def forwardFromTagAccumulate(tag, isrc, **kwargs):
 
     if not key in dPred:
         dims = (len(txs), reduce(max, (tx.nD for tx in txs)))
-        dPred[key] = np.zeros(dims, dtype=np.complex128)
+        dPred[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
 
     if not key in fWave:
         dims = (len(txs), localSystem[tag].mesh.nN)
-        fWave[key] = np.zeros(dims, dtype=np.complex128)
+        fWave[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
 
     u, d = localSystem[tag].forward(txs[isrc], dOnly=False, **kwargs)
     fWave[key][isrc,:] += u
@@ -92,7 +93,7 @@ def backpropFromTagAccumulate(tag, isrc, **kwargs):
 
     if not key in bWave:
         dims = (len(txs), localSystem[tag].mesh.nN)
-        bWave[key] = np.zeros(dims, dtype=np.complex128)
+        bWave[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
 
     dResid = globals().get('dResid', None)
     if dResid is not None and key in dResid:
