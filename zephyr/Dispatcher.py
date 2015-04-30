@@ -191,8 +191,8 @@ class SeisFDFDDispatcher(object):
         dview.wait()
 
         schedule = {
-            'forward': {'solve': Reference('forwardFromTagAccumulateAll'), 'clear': Reference('clearFromTag')},
-            'backprop': {'solve': Reference('backpropFromTagAccumulateAll'), 'clear': Reference('clearFromTag')},
+            'forward': {'solve': Reference('forwardFromTagAccumulateAll'), 'clear': Reference('clearFromTag'), 'reduce': ['dPred', 'fWave']},
+            'backprop': {'solve': Reference('backpropFromTagAccumulateAll'), 'clear': Reference('clearFromTag'), 'reduce': ['bWave']},
         }
 
         self.systemsolver = SystemSolver(self, schedule)

@@ -163,6 +163,7 @@ class SystemSolver(object):
         
         fnRef = self.schedule[entry]['solve']
         clearRef = self.schedule[entry]['clear']
+        reduceLabels = self.schedule[entry]['reduce']
 
         dview = self.dispatcher.remote.dview
         lview = self.dispatcher.remote.lview
@@ -195,6 +196,7 @@ class SystemSolver(object):
         for ltags in systemsOnWorkers:
             tags = tags.union(set(ltags))
 
+        clearJobs = []
         endNodes = {}
         tailNodes = []
 
@@ -224,7 +226,7 @@ class SystemSolver(object):
                         systemJobs.append(job)
                         label = 'Compute: %d, %d, %d'%(tag[0], tag[1], iworks)
                         systemNodes.append(label)
-                        G.add_node(label, job=job)
+                        G.add_node(label, jobs=[job])
                         G.add_edge(tagNode, label)
                         iworks += 1
 
@@ -239,8 +241,9 @@ class SystemSolver(object):
 
                     with lview.temp_flags(block=False, after=systemJobs):
                         job = lview.apply(depend(hasSystemRank, tag, rank)(clearRef), tag)
+                        clearJobs.append(job)
                         label = 'Wrap: %d, %d, %d'%(tag[0],tag[1], i)
-                        G.add_node(label, job=job)
+                        G.add_node(label, jobs=[job])
                         endNodes[tag].append(label)
                         G.add_edge(tagNode, label)
             else:
@@ -248,8 +251,9 @@ class SystemSolver(object):
                 for i, sjob in enumerate(systemJobs):
                     with lview.temp_flags(block=False, follow=sjob):
                         job = lview.apply(clearRef, tag)
+                        clearJobs.append(job)
                         label = 'Wrap: %d, %d, %d'%(tag[0],tag[1],i)
-                        G.add_node(label, job=job)
+                        G.add_node(label, jobs=[job])
                         endNodes[tag].append(label)
                         G.add_edge(systemNodes[i], label)
 
@@ -259,13 +263,36 @@ class SystemSolver(object):
             tailNodes.append(tagNode)
 
         endNode = 'End'
+        jobs = []
+        after = clearJobs
+        for label in reduceLabels:
+            job = self.dispatcher.remote.reduceLB(label, after=after)
+            after = job
+            if job is not None:
+                jobs.append(job)
+        G.add_node(endNode, jobs=jobs)
         for node in tailNodes:
             G.add_edge(node, endNode)
 
         return G
 
     def wait(self, G):
-        self.dispatcher.remote.lview.wait((G.node[wn]['job'] for wn in (G.predecessors(tn)[0] for tn in G.predecessors('End'))))
+        self.dispatcher.remote.lview.wait(G.node['End']['jobs'] if G.node['End']['jobs'] else (G.node[wn]['jobs'] for wn in (G.predecessors(tn)[0] for tn in G.predecessors('End'))))
+
+@interactive
+def reduceJob(worker, root, key):
+
+    from IPython.parallel.error import UnmetDependency
+    if not rank == worker:
+        raise UnmetDependency
+
+    from zephyr.Parallel import CommonReducer
+
+    # exec('global %s'%key)
+
+    code = 'globals()["%(key)s"] = comm.reduce(%(key)s, root=%(root)d)'
+    exec(code%{'key': key, 'root': root})
+    exec('globals()["%(key)s"] = %(key)s if %(key)s is not None else CommonReducer()'%{'key': key})
 
 class RemoteInterface(object):
 
@@ -369,6 +396,16 @@ class RemoteInterface(object):
             item = self.dview[key]
 
         return item
+
+    def reduceLB(self, key, after=None):
+
+        repeat = lambda value: (value for i in xrange(len(self.pclient.ids)))
+
+        if self.useMPI:
+            with self.lview.temp_flags(block=False, after=after):
+                job = self.lview.map(reduceJob, xrange(len(self.pclient.ids)), repeat(0), repeat(key))
+
+            return job
 
     def reduce(self, key, axis=None):
 
