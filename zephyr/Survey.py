@@ -117,13 +117,13 @@ def srcVec(sLocs, terms, mesh, ireg, freeSurf):
 
 srcVecs = lambda sLocs, terms, mesh, ireg, freeSurf: [srcVec([sLocs[i] if hasattr(sLocs, '__contains__') else sLocs], [terms[i]] if hasattr(terms, '__contains__') else [terms], mesh, ireg, freeSurf) for i in xrange(len(sLocs))]
 
+assumeConditions = lambda mesh: (getattr(mesh, 'ireg', DEFAULT_IREG), getattr(mesh, 'freeSurf', DEFAULT_FREESURF_BOUNDS))
+
 class HelmRx(SimPEG.Survey.BaseRx):
 
-    def __init__(self, locs, terms, ireg, freeSurf, **kwargs):
+    def __init__(self, locs, terms, **kwargs):
 
         self.terms = terms
-        self.ireg = ireg
-        self.freeSurf = freeSurf
 
         SimPEG.Survey.BaseRx.__init__(self, locs.reshape((1,3)) if locs.ndim == 1 else locs, self.__class__.__name__, **kwargs)
 
@@ -143,37 +143,37 @@ class HelmRx(SimPEG.Survey.BaseRx):
         else:
             locterms = self.locs[:, ::2]
 
-        q = srcVecs(locterms, icoeffs*self.terms, mesh, self.ireg, self.freeSurf)
+        ireg, freeSurf = assumeConditions(mesh)
+        q = srcVecs(locterms, icoeffs*self.terms, mesh, ireg, freeSurf)
 
         return q
 
     def __getstate__(self):
-        return {key: self.__dict__[key] for key in ['locs', 'terms', 'ireg', 'freeSurf', 'kwargs'] if key in self.__dict__}
+        return {key: self.__dict__[key] for key in ['locs', 'terms', 'kwargs'] if key in self.__dict__}
 
     def __setstate__(self, d):
         if 'kwargs' in d:
-            self.__init__(d['locs'], d['terms'], d['ireg'], d['freeSurf'], **d['kwargs'])
+            self.__init__(d['locs'], d['terms'], **d['kwargs'])
         else:
-            self.__init__(d['locs'], d['terms'], d['ireg'], d['freeSurf'])
+            self.__init__(d['locs'], d['terms'])
 
 class HelmTx(SimPEG.Survey.BaseTx):
 
     rxPair = HelmRx
 
-    def __init__(self, loc, term, rxList, ireg, freeSurf, **kwargs):
+    def __init__(self, loc, term, rxList, **kwargs):
 
         # TODO: I would rather not store ireg and freeSurf in every single source and receiver!
         #       I feel like it actually makes more sense to have these as properties of the mesh.
         
         self.term = term
-        self.ireg = ireg            
-        self.freeSurf = freeSurf
 
         SimPEG.Survey.BaseTx.__init__(self, loc.reshape((1,3)), self.__class__.__name__, rxList, **kwargs)
 
     def getq(self, mesh):
 
-        q = srcVecs(self.loc[0, ::2].reshape((1,2)), self.term, mesh, self.ireg, self.freeSurf)[0]
+        ireg, freeSurf = assumeConditions(mesh)
+        q = srcVecs(self.loc[0, ::2].reshape((1,2)), self.term, mesh, ireg, freeSurf)[0]
 
         return q
 
@@ -226,13 +226,13 @@ class HelmTx(SimPEG.Survey.BaseTx):
         return self.rxList.__getitem__(sl)
 
     def __getstate__(self):
-        return {key: self.__dict__[key] for key in ['loc', 'term', 'rxList', 'ireg', 'freeSurf', 'kwargs'] if key in self.__dict__}
+        return {key: self.__dict__[key] for key in ['loc', 'term', 'rxList', 'kwargs'] if key in self.__dict__}
 
     def __setstate__(self, d):
         if 'kwargs' in d:
-            self.__init__(d['loc'], d['term'], d['rxList'], d['ireg'], d['freeSurf'], **d['kwargs'])
+            self.__init__(d['loc'], d['term'], d['rxList'], **d['kwargs'])
         else:
-            self.__init__(d['loc'], d['term'], d['rxList'], d['ireg'], d['freeSurf'])
+            self.__init__(d['loc'], d['term'], d['rxList'])
 
 class SurveyHelm(SimPEG.Survey.BaseSurvey):
 
@@ -242,9 +242,6 @@ class SurveyHelm(SimPEG.Survey.BaseSurvey):
 
         self.dispatcher = dispatcher
         sc = self.dispatcher.systemConfig
-
-        self.ireg = sc.get('ireg', DEFAULT_IREG)
-        self.freeSurf = sc.get('freeSurf', DEFAULT_FREESURF_BOUNDS)
 
         self.geom = sc.get('geom', None)
 
@@ -262,20 +259,20 @@ class SurveyHelm(SimPEG.Survey.BaseSurvey):
             # Streamer relative to source location
             txs = []
             for i, sloc in enumerate(self.geom['src']):
-                rxs = [HelmRx(sloc + rloc, rxTerms[j] if rxTerms is not None else 1., self.ireg, self.freeSurf) for j, rloc in enumerate(self.geom['rec'])]
-                txs.append(HelmTx(sloc, txTerms[i] if txTerms is not None else 1., rxs, self.ireg, self.freeSurf))
+                rxs = [HelmRx(sloc + rloc, rxTerms[j] if rxTerms is not None else 1.) for j, rloc in enumerate(self.geom['rec'])]
+                txs.append(HelmTx(sloc, txTerms[i] if txTerms is not None else 1., rxs))
 
         elif mode == 'absolute':
             # Separate array in absolute coordinates for each source
             txs = []
             for i, sloc in enumerate(self.geom['src']):
-                rxs = [HelmRx(rloc, rxTerms[i][j] if rxTerms is not None else 1., self.ireg, self.freeSurf) for j, rloc in enumerate(self.geom['rec'][i])]
-                txs.append(HelmTx(sloc, txTerms[i] if txTerms is not None else 1., rxs, self.ireg, self.freeSurf))
+                rxs = [HelmRx(rloc, rxTerms[i][j] if rxTerms is not None else 1.) for j, rloc in enumerate(self.geom['rec'][i])]
+                txs.append(HelmTx(sloc, txTerms[i] if txTerms is not None else 1., rxs))
 
         else:
             # Fixed array common for all sources
-            rxs = [HelmRx(loc, rxTerms[j] if rxTerms is not None else 1., self.ireg, self.freeSurf) for j, loc in enumerate(self.geom['rec'])]
-            txs = [HelmTx(loc, txTerms[i] if txTerms is not None else 1., rxs, self.ireg, self.freeSurf) for i, loc in enumerate(self.geom['src'])]
+            rxs = [HelmRx(loc, rxTerms[j] if rxTerms is not None else 1.) for j, loc in enumerate(self.geom['rec'])]
+            txs = [HelmTx(loc, txTerms[i] if txTerms is not None else 1., rxs) for i, loc in enumerate(self.geom['src'])]
 
         return txs
 

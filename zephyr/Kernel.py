@@ -61,6 +61,9 @@ class SeisFDFDKernel(object):
         hz = [(systemConfig['dz'], systemConfig['nz']-1)]
         self.mesh = SimPEG.Mesh.TensorMesh([hx, hz], '00')
 
+        self.mesh.ireg = systemConfig.get('ireg', DEFAULT_IREG)
+        self.mesh.freeSurf = systemConfig.get('freeSurf', DEFAULT_FREESURF_BOUNDS)
+
         initMap = {
         #   Argument        Rename to Property
             'c':            'cR',
@@ -72,7 +75,6 @@ class SeisFDFDKernel(object):
             'ky':           None,
             'kyweight':     None,
             'Solver':       None,
-            'ireg':         None,
             'dx':           None,
             'dz':           None,
         }
@@ -158,16 +160,6 @@ class SeisFDFDKernel(object):
         self._invalidateMatrix()
 
     @property
-    def freeSurf(self):
-        if getattr(self, '_freeSurf', None) is None:
-            self._freeSurf = DEFAULT_FREESURF_BOUNDS
-        return self._freeSurf
-    @freeSurf.setter
-    def freeSurf(self, value):
-        self._freeSurf = value
-        self._invalidateMatrix()
-
-    @property
     def ky(self):
         if getattr(self, '_ky', None) is None:
             self._ky = 0.
@@ -186,16 +178,6 @@ class SeisFDFDKernel(object):
     def kyweight(self, value):
         self._kyweight = value
         self._invalidateMatrix()
-
-    @property
-    def ireg(self):
-        if getattr(self, '_ireg', None) is None:
-            self._ireg = DEFAULT_IREG
-        return self._ireg
-    @ireg.setter
-    def ireg(self, value):
-        self._ireg = value
-    
 
     # Clever matrix setup properties
 
@@ -292,7 +274,7 @@ class SeisFDFDKernel(object):
 
         # Only enable PML if the free surface isn't set
 
-        freeSurf = self.freeSurf
+        freeSurf = self.mesh.freeSurf
 
         if freeSurf[0]:    
             isnz[-nPML:,:] = -1 # Top
