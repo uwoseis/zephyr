@@ -113,21 +113,21 @@ class CommonReducer(dict):
 
     def __getattr__(self, attr):
 
-        if not attr in self.FOREBODENFAKERY and all((getattr(self[key], attr, None) is not None for key in self.keys())):
+        if not attr in self.FOREBODENFAKERY and all((getattr(self[key], attr, None) is not None for key in self)):
 
-            if any((callable(getattr(self[key], attr)) for key in self.keys())):
+            if any((callable(getattr(self[key], attr)) for key in self)):
 
                 def wrapperFunction(*args, **kwargs):
 
-                    innerresult = CommonReducer({key: getattr(self[key], attr, None)(*args, **kwargs) for key in self.keys()})
+                    innerresult = CommonReducer({key: getattr(self[key], attr, None)(*args, **kwargs) for key in self})
 
-                    if not all((innerresult[key] is None for key in innerresult.keys())):
+                    if not all((innerresult[key] is None for key in innerresult)):
                         return innerresult
 
                 result = wrapperFunction
 
             else:
-                return CommonReducer({key: getattr(self[key], attr) for key in self.keys()})
+                return CommonReducer({key: getattr(self[key], attr) for key in self})
         else:
             raise AttributeError('\'CommonReducer\' object has no attribute \'%s\', and it could not be satisfied through cascade lookup'%attr)
 
