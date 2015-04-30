@@ -94,13 +94,11 @@ def backpropFromTagAccumulate(tag, isrc, **kwargs):
         dims = (len(txs), localSystem[tag].mesh.nN)
         bWave[key] = np.zeros(dims, dtype=np.complex128)
 
-    if key in dResid:
+    dResid = globals().get('dResid', None)
+    if dResid is not None and key in dResid:
         resid = dResid[key][isrc,:]
-    else:
-        resid = 0.
-
-    u = localSystem[tag].backprop(txs[isrc], np.conj(resid))
-    bWave[key][isrc,:] += u
+        u = localSystem[tag].backprop(txs[isrc], np.conj(resid))
+        bWave[key][isrc,:] += u
 
 @interactive
 # @blockOnTag
