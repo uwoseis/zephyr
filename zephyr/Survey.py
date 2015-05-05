@@ -157,7 +157,7 @@ class HelmRx(SimPEG.Survey.BaseRx):
         else:
             self.__init__(d['locs'], d['terms'])
 
-class HelmTx(SimPEG.Survey.BaseTx):
+class HelmSrc(SimPEG.Survey.BaseSrc):
 
     rxPair = HelmRx
 
@@ -168,7 +168,7 @@ class HelmTx(SimPEG.Survey.BaseTx):
         
         self.term = term
 
-        SimPEG.Survey.BaseTx.__init__(self, loc.reshape((1,3)), self.__class__.__name__, rxList, **kwargs)
+        SimPEG.Survey.BaseSrc.__init__(self, loc.reshape((1,3)), self.__class__.__name__, rxList, **kwargs)
 
     def getq(self, mesh):
 
@@ -236,7 +236,7 @@ class HelmTx(SimPEG.Survey.BaseTx):
 
 class SurveyHelm(SimPEG.Survey.BaseSurvey):
 
-    txPair = HelmTx
+    srcPair = HelmSrc
 
     def __init__(self, dispatcher, **kwargs):
 
@@ -246,35 +246,35 @@ class SurveyHelm(SimPEG.Survey.BaseSurvey):
         self.geom = sc.get('geom', None)
 
         if self.geom is not None:
-            self.txList = self.genTx()
+            self.srcList = self.genSrc()
         else:
-            self.txList = None
+            self.srcList = None
         SimPEG.Survey.BaseSurvey.__init__(self, **kwargs)
 
-    def genTx(self, txTerms=None, rxTerms=None):
+    def genSrc(self, srcTerms=None, rxTerms=None):
 
         mode = self.geom['mode'].lower()
 
         if mode == 'relative':
             # Streamer relative to source location
-            txs = []
+            srcs = []
             for i, sloc in enumerate(self.geom['src']):
                 rxs = [HelmRx(sloc + rloc, rxTerms[j] if rxTerms is not None else 1.) for j, rloc in enumerate(self.geom['rec'])]
-                txs.append(HelmTx(sloc, txTerms[i] if txTerms is not None else 1., rxs))
+                srcs.append(HelmSrc(sloc, srcTerms[i] if srcTerms is not None else 1., rxs))
 
         elif mode == 'absolute':
             # Separate array in absolute coordinates for each source
-            txs = []
+            srcs = []
             for i, sloc in enumerate(self.geom['src']):
                 rxs = [HelmRx(rloc, rxTerms[i][j] if rxTerms is not None else 1.) for j, rloc in enumerate(self.geom['rec'][i])]
-                txs.append(HelmTx(sloc, txTerms[i] if txTerms is not None else 1., rxs))
+                srcs.append(HelmSrc(sloc, srcTerms[i] if srcTerms is not None else 1., rxs))
 
         else:
             # Fixed array common for all sources
             rxs = [HelmRx(loc, rxTerms[j] if rxTerms is not None else 1.) for j, loc in enumerate(self.geom['rec'])]
-            txs = [HelmTx(loc, txTerms[i] if txTerms is not None else 1., rxs) for i, loc in enumerate(self.geom['src'])]
+            srcs = [HelmSrc(loc, srcTerms[i] if srcTerms is not None else 1., rxs) for i, loc in enumerate(self.geom['src'])]
 
-        return txs
+        return srcs
 
     def projectFields(self, u=None):
 

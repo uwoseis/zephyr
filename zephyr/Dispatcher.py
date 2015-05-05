@@ -1,7 +1,8 @@
 import numpy as np
 from IPython.parallel import Reference, interactive
 from SimPEG import Survey, Problem, Mesh, Solver as SimpegSolver
-from zephyr.Parallel import RemoteInterface, CommonReducer, SystemSolver
+from SimPEG.Parallel import RemoteInterface, SystemSolver
+from SimPEG.Utils import CommonReducer
 from zephyr.Survey import SurveyHelm
 from zephyr.Problem import ProblemHelm
 import networkx
@@ -63,14 +64,14 @@ def forwardFromTagAccumulate(tag, isrc, **kwargs):
     key = tag[0]
 
     if not key in dPred:
-        dims = (len(txs), reduce(max, (tx.nD for tx in txs)))
+        dims = (len(srcs), reduce(max, (src.nD for src in srcs)))
         dPred[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
 
     if not key in fWave:
-        dims = (len(txs), localSystem[tag].mesh.nN)
+        dims = (len(srcs), localSystem[tag].mesh.nN)
         fWave[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
 
-    u, d = localSystem[tag].forward(txs[isrc], dOnly=False, **kwargs)
+    u, d = localSystem[tag].forward(srcs[isrc], dOnly=False, **kwargs)
     fWave[key][isrc,:] += u
     dPred[key][isrc,:] += d
 
@@ -92,13 +93,13 @@ def backpropFromTagAccumulate(tag, isrc, **kwargs):
     key = tag[0]
 
     if not key in bWave:
-        dims = (len(txs), localSystem[tag].mesh.nN)
+        dims = (len(srcs), localSystem[tag].mesh.nN)
         bWave[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
 
     dResid = globals().get('dResid', None)
     if dResid is not None and key in dResid:
         resid = dResid[key][isrc,:]
-        u = localSystem[tag].backprop(txs[isrc], np.conj(resid))
+        u = localSystem[tag].backprop(srcs[isrc], np.conj(resid))
         bWave[key][isrc,:] += u
 
 @interactive
@@ -226,18 +227,18 @@ class SeisFDFDDispatcher(object):
     # Fields
     def forward(self):
 
-        if self.txs is None:
+        if self.srcs is None:
             raise Exception('Transmitters not defined!')
 
         if not self.solvedF:
             dview = self.remote.dview
             dview['dPred'] = CommonReducer()
             dview['fWave'] = CommonReducer()
-            self.forwardGraph = self.systemsolver('forward', slice(len(self.txs)))
+            self.forwardGraph = self.systemsolver('forward', slice(len(self.srcs)))
 
     def backprop(self, dresid=None):
 
-        if self.txs is None:
+        if self.srcs is None:
             raise Exception('Transmitters not defined!')
 
         # if not self.dresid:
@@ -246,7 +247,7 @@ class SeisFDFDDispatcher(object):
         if not self.solvedB:
             dview = self.remote.dview
             dview['bWave'] = CommonReducer()
-            self.backpropGraph = self.systemsolver('backprop', slice(len(self.txs)))
+            self.backpropGraph = self.systemsolver('backprop', slice(len(self.srcs)))
 
     def rebuildSystem(self, c = None):
         if c is not None:
@@ -273,15 +274,15 @@ class SeisFDFDDispatcher(object):
         self._handles = self._getHandles(self.systemConfig, self._subConfigSettings)
 
     @property
-    def txs(self):
-        if getattr(self, '_txs', None) is None:
-            self._txs = None
-        return self._txs
-    @txs.setter
-    def txs(self, value):
-        self._txs = value
+    def srcs(self):
+        if getattr(self, '_srcs', None) is None:
+            self._srcs = None
+        return self._srcs
+    @srcs.setter
+    def srcs(self, value):
+        self._srcs = value
         self.rebuildSystem()
-        self.remote['txs'] = self._txs
+        self.remote['srcs'] = self._srcs
 
     @property
     def solvedF(self):
