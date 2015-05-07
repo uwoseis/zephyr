@@ -12,104 +12,6 @@ DEFAULT_MPI = True
 MPI_BELLWETHERS = ['PMI_SIZE', 'OMPI_UNIVERSE_SIZE']
 
 
-@interactive
-def setupSystem(scu):
-
-    import os
-    import zephyr.Kernel as Kernel
-    from IPython.parallel.error import UnmetDependency
-
-    global localSystem
-
-    tag = (scu['ifreq'], scu['iky'])
-
-    # If there is already a system to do this job on this machine, push the duplicate to another
-    if tag in localSystem:
-        raise UnmetDependency
-
-    subSystemConfig = baseSystemConfig.copy()
-    subSystemConfig.update(scu)
-
-    # Set up method output caching
-    if 'cacheDir' in baseSystemConfig:
-        subSystemConfig['cacheDir'] = os.path.join(baseSystemConfig['cacheDir'], 'cache', '%d-%d'%tag)
-
-    localSystem[tag] = Kernel.SeisFDFDKernel(subSystemConfig)
-
-    return tag
-
-# def blockOnTag(fn):
-#     def checkForSystem(*args, **kwargs):
-#         from IPython.parallel.error import UnmetDependency
-#         if not args[0] in localSystem:
-#             raise UnmetDependency
-
-#         return fn(*args, **kwargs)
-
-#     return checkForSystem
-
-
-@interactive
-def clearFromTag(tag):
-    return localSystem[tag].clear()
-
-@interactive
-# @blockOnTag
-def forwardFromTagAccumulate(tag, isrc, **kwargs):
-
-    from IPython.parallel.error import UnmetDependency
-    if not tag in localSystem:
-        raise UnmetDependency
-
-    key = tag[0]
-
-    if not key in dPred:
-        dims = (len(srcs), reduce(max, (src.nD for src in srcs)))
-        dPred[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
-
-    if not key in fWave:
-        dims = (len(srcs), localSystem[tag].mesh.nN)
-        fWave[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
-
-    u, d = localSystem[tag].forward(srcs[isrc], dOnly=False, **kwargs)
-    fWave[key][isrc,:] += u
-    dPred[key][isrc,:] += d
-
-@interactive
-# @blockOnTag
-def forwardFromTagAccumulateAll(tag, isrcs, **kwargs):
-
-    for isrc in isrcs:
-        forwardFromTagAccumulate(tag, isrc, **kwargs)
-
-@interactive
-# @blockOnTag
-def backpropFromTagAccumulate(tag, isrc, **kwargs):
-
-    from IPython.parallel.error import UnmetDependency
-    if not tag in localSystem:
-        raise UnmetDependency
-
-    key = tag[0]
-
-    if not key in bWave:
-        dims = (len(srcs), localSystem[tag].mesh.nN)
-        bWave[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
-
-    dResid = globals().get('dResid', None)
-    if dResid is not None and key in dResid:
-        resid = dResid[key][isrc,:]
-        u = localSystem[tag].backprop(srcs[isrc], np.conj(resid))
-        bWave[key][isrc,:] += u
-
-@interactive
-# @blockOnTag
-def backpropFromTagAccumulateAll(tag, isrcs, **kwargs):
-
-    for isrc in isrcs:
-        backpropFromTagAccumulate(tag, isrc, **kwargs) 
-
-
 class SeisFDFDDispatcher(object):
     """
     Base problem class for FDFD (Frequency Domain Finite Difference)
@@ -145,9 +47,6 @@ class SeisFDFDDispatcher(object):
 
         self._subConfigSettings = subConfigSettings
 
-        self.remote = RemoteInterface(systemConfig.get('profile', None), systemConfig.get('MPI', None))
-        dview = self.remote.dview
-
         code = '''
         import numpy as np
         import scipy as scipy
@@ -156,8 +55,7 @@ class SeisFDFDDispatcher(object):
         import zephyr.Kernel as Kernel
         '''
 
-        for command in code.strip().split('\n'):
-            dview.execute(command.strip())
+        self.remote = RemoteInterface(systemConfig.get('profile', None), systemConfig.get('MPI', None), bootstrap=code)
 
         localcache = ['chunksPerWorker', 'ensembleClear']
         for key in localcache:
@@ -169,46 +67,72 @@ class SeisFDFDDispatcher(object):
 
     def _getHandles(self, systemConfig, subConfigSettings):
 
-        pclient = self.remote.pclient
-        dview = self.remote.dview
-        lview = self.remote.lview
+        from IPython.parallel.client.remotefunction import ParallelFunction
+        from SimPEG.Parallel import Endpoint
+        from Zephyr.Kernel import SeisFDFDKernel
 
-        subConfigs = self._gen25DSubConfigs(**subConfigSettings)
-        nsp = len(subConfigs)
+        # NB: The name of the Endpoint in the remote namespace should be propagated
+        #     from this function. Everything else is adaptable, to allow for changing
+        #     the namespace in a single place.
+        self.endpointName = 'endpoint'
 
-        # Set up dictionary for subproblem objects and push base configuration for the system
-        dview['localSystem'] = {}
-        self.remote['baseSystemConfig'] = systemConfig # Faster if MPI is available
-        dview['dPred'] = CommonReducer()
-        dview['fWave'] = CommonReducer()
-        dview['bWave'] = CommonReducer()
+        # Begin construction of Endpoint object
+        endpoint = Endpoint()
 
-        dview['forwardFromTagAccumulate'] = forwardFromTagAccumulate
-        dview['forwardFromTagAccumulateAll'] = forwardFromTagAccumulateAll
-        dview['backpropFromTagAccumulate'] = backpropFromTagAccumulate
-        dview['backpropFromTagAccumulateAll'] = backpropFromTagAccumulateAll
-        dview['clearFromTag'] = clearFromTag
-
-        dview.wait()
-
-        schedule = {
-            'forward': {'solve': Reference('forwardFromTagAccumulateAll'), 'clear': Reference('clearFromTag'), 'reduce': ['dPred', 'fWave']},
-            'backprop': {'solve': Reference('backpropFromTagAccumulateAll'), 'clear': Reference('clearFromTag'), 'reduce': ['bWave']},
+        endpoint.functions = {
+            'forwardFromTagAccumulate':     self._forwardFromTagAccumulate,
+            'forwardFromTagAccumulateAll':  self._forwardFromTagAccumulateAll,
+            'backpropFromTagAccumulate':    self._backpropFromTagAccumulate,
+            'backpropFromTagAccumulateAll': self._backpropFromTagAccumulateAll,
+            'clearFromTag':                 self._clearFromTag,
         }
 
-        self.systemsolver = SystemSolver(self, schedule)
+        endpoint.fieldspec = {
+            'dPred':    CommonReducer,
+            'dResid':   CommonReducer,
+            'fWave':    CommonReducer,
+            'bWave':    CommonReducer,
+        }
 
-        if 'parFac' in systemConfig:
-            parFac = systemConfig['parFac']
-        else:
-            parFac = 1
+        endpoint.systemFactory = SeisFDFDKernel
+        endpoint.baseSystemConfig = systemConfig
 
+        # End local construction of Endpoint object and send to workers
+        self.remote[self.endpointName] = Endpoint()
+
+        # Begin remote update of Endpoint object
+        dview = self.remote.dview
+        dview.apply_sync(Reference('%s.setupLocalFields'%(self.endpointName,)))
+
+        setupFunction = ParallelFunction(dview, Reference('%s.setupLocalSystem'%(self.endpointName,)), dist='r', block=True).map
+        rotate = lambda vec: vec[-1:] + vec[:-1]
+
+        # TODO: This is non-optimal if there are fewer subproblems than workers
+        subConfigs = self._gen25DSubConfigs(**subConfigSettings)
+        parFac = systemConfig.get('parFac', 1)
         while parFac > 0:
-            tags = lview.map_sync(setupSystem, subConfigs)
+            setupFunction(subConfigs)
+            # dview.map_sync(Reference('endpoint.setupLocalSystem'), subConfigs)
+            # lview.map_sync(self._setupSystem, subConfigs)
+            subConfigs = rotate(subConfigs)
             parFac -= 1
 
+        # End remote update of Endpoint object
 
-    def _gen25DSubConfigs(self, freqs, nky, cmin):
+        schedule = {
+            'forward': {'solve': 'forwardFromTagAccumulateAll', 'clear': 'clearFromTag', 'reduce': ['dPred', 'fWave']},
+            'backprop': {'solve': 'backpropFromTagAccumulateAll', 'clear': 'clearFromTag', 'reduce': ['bWave']},
+        }
+
+        self.systemsolver = SystemSolver(self, self.endpointName, schedule)
+
+    @staticmethod
+    @interactive
+    def _clearFromTag(endpoint, tag):
+        return endpoint.localSystems[tag].clear()
+
+    @staticmethod
+    def _gen25DSubConfigs(freqs, nky, cmin):
         result = []
         weightfac = 1./(2*nky - 1) if nky > 1 else 1.# alternatively, 1/dky
         for ifreq, freq in enumerate(freqs):
@@ -221,8 +145,76 @@ class SeisFDFDDispatcher(object):
                     'kyweight': 2*weightfac if ky != 0 else weightfac,
                     'ifreq':    ifreq,
                     'iky':      iky,
+                    'tag':      (ifreq, iky),
                 })
         return result
+
+    @staticmethod
+    @interactive
+    def _forwardFromTagAccumulate(endpoint, tag, isrc, **kwargs):
+
+        locS = endpoint.localSystems
+        locF = endpoint.localFields
+
+        from IPython.parallel.error import UnmetDependency
+        if not tag in locS:
+            raise UnmetDependency
+
+        key = tag[0]
+
+        dPred = locF['dPred']
+        if not key in dPred:
+            dims = (len(endpoint.srcs), reduce(max, (src.nD for src in endpoint.srcs)))
+            dPred[key] = np.zeros(dims, dtype=locS[tag].dtypeComplex)
+
+        fWave = locF['fWave']
+        if not key in fWave:
+            dims = (len(endpoint.srcs), locS[tag].mesh.nN)
+            fWave[key] = np.zeros(dims, dtype=locS[tag].dtypeComplex)
+
+        u, d = locS[tag].forward(endpoint.srcs[isrc], dOnly=False, **kwargs)
+        fWave[key][isrc,:] += u
+        dPred[key][isrc,:] += d
+
+    @staticmethod
+    @interactive
+    def _forwardFromTagAccumulateAll(endpoint, tag, isrcs, **kwargs):
+
+        for isrc in isrcs:
+            endpoint.functions['forwardFromTagAccumulate'](endpoint, tag, isrc, **kwargs)
+
+    @staticmethod
+    @interactive
+    def _backpropFromTagAccumulate(endpoint, tag, isrc, **kwargs):
+
+        locS = endpoint.localSystems
+        locF = endpoint.localFields
+        gloF = endpoint.globalFields
+
+        from IPython.parallel.error import UnmetDependency
+        if not tag in locS:
+            raise UnmetDependency
+
+        key = tag[0]
+
+        bWave = locF['bWave']
+        if not key in bWave:
+            dims = (len(endpoint.srcs), locS[tag].mesh.nN)
+            bWave[key] = np.zeros(dims, dtype=locS[tag].dtypeComplex)
+
+        dResid = gloF.get('dResid', None)
+        if dResid is not None and key in dResid:
+            resid = dResid[key][isrc,:]
+            u = locS[tag].backprop(endpoint.srcs[isrc], np.conj(resid))
+            bWave[key][isrc,:] += u
+
+    @staticmethod
+    @interactive
+    # @blockOnTag
+    def _backpropFromTagAccumulateAll(endpoint, tag, isrcs, **kwargs):
+
+        for isrc in isrcs:
+            endpoint.functions['backpropFromTagAccumulate'](endpoint, tag, isrc, **kwargs) 
 
     # Fields
     def forward(self):
@@ -231,9 +223,7 @@ class SeisFDFDDispatcher(object):
             raise Exception('Transmitters not defined!')
 
         if not self.solvedF:
-            dview = self.remote.dview
-            dview['dPred'] = CommonReducer()
-            dview['fWave'] = CommonReducer()
+            self.remote.dview.apply(Reference('endpoint.setupLocalFields'), ['fWave', 'dPred'])
             self.forwardGraph = self.systemsolver('forward', slice(len(self.srcs)))
 
     def backprop(self, dresid=None):
@@ -245,8 +235,7 @@ class SeisFDFDDispatcher(object):
         #     raise Exception('Data residuals not defined!')
 
         if not self.solvedB:
-            dview = self.remote.dview
-            dview['bWave'] = CommonReducer()
+            self.remote.dview.apply(Reference('endpoint.setupLocalFields'), ['bWave'])
             self.backpropGraph = self.systemsolver('backprop', slice(len(self.srcs)))
 
     def rebuildSystem(self, c = None):
@@ -267,8 +256,6 @@ class SeisFDFDDispatcher(object):
         self._misfit = None
 
         self._subConfigSettings['cmin'] = self.systemConfig['c'].min()
-        subConfigs = self._gen25DSubConfigs(**self._subConfigSettings)
-        nsp = len(subConfigs)
 
         #self.curModel = self.systemConfig['c'].ravel()
         self._handles = self._getHandles(self.systemConfig, self._subConfigSettings)
@@ -282,7 +269,7 @@ class SeisFDFDDispatcher(object):
     def srcs(self, value):
         self._srcs = value
         self.rebuildSystem()
-        self.remote['srcs'] = self._srcs
+        self.remote['%s.srcs'%self.endpointName] = self._srcs
 
     @property
     def solvedF(self):
@@ -306,24 +293,27 @@ class SeisFDFDDispatcher(object):
 
         return self._solvedB
 
+    def _getGlobalField(self, fieldName):
+        return self.remote.e0['%s.globalFields["%s"]'%(self.endpointName, fieldName)]
+
     @property
     def uF(self):
         if self.solvedF:
-            return self.remote.reduce('fWave').reshape(self.fieldDims)
+            return self._getGlobalField('fWave').reshape(self.fieldDims)
         else:
             return None
 
     @property
     def uB(self):
         if self.solvedB:
-            return self.remote.reduce('bWave').reshape(self.fieldDims)
+            return self._getGlobalField('bWave').reshape(self.fieldDims)
         else:
             return None
 
     @property
     def dPred(self):
         if self.solvedF:
-            return self.remote.reduce('dPred')
+            return self._getGlobalField('dPred')
         else:
             return None
 
