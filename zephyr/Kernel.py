@@ -518,21 +518,21 @@ class SeisFDFDKernel(object):
         self._invalidateMatrix()
     
     # What about @caching decorators?
-    def forward(self, tx, dOnly=True):
+    def forward(self, src, dOnly=True):
 
-        q = self.kyweight * tx.getq(self.mesh)
+        q = self.kyweight * src.getq(self.mesh)
         u = self.Ainv * q
 
-        d = numpy.array([numpy.dot(P,u) for P in tx.getP(self.mesh, self.ky)]).ravel()
+        d = numpy.array([numpy.dot(P,u) for P in src.getP(self.mesh, self.ky)]).ravel()
 
         if dOnly:
             return d
         else:
             return u, d
 
-    def backprop(self, tx, dresid=1.):
+    def backprop(self, src, dresid=1.):
 
-        qr = self.kyweight * tx.getqback(self.mesh, dresid, self.ky)
+        qr = self.kyweight * src.getqback(self.mesh, dresid, self.ky)
         u = self.Ainv * qr
 
         return u
