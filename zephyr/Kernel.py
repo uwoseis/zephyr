@@ -2,7 +2,7 @@
 Contains numerical kernel for Seismic FDFD class
 """
 
-import numpy
+import numpy as np
 import scipy
 import scipy.sparse
 import SimPEG
@@ -120,7 +120,7 @@ class SeisFDFDKernel(object):
     @property
     def Q(self):
         if getattr(self, '_Q', None) is None:
-            self._Q = numpy.inf
+            self._Q = np.inf
         return self._Q
     @Q.setter
     def Q(self, value):
@@ -137,14 +137,14 @@ class SeisFDFDKernel(object):
     
     @property
     def cI(self):
-        if self.Q is numpy.inf:
+        if self.Q is np.inf:
             return 0
         else:
             return 1j * self.cR / (2*self.Q)
     @cI.setter
     def cI(self, value):
         if (value == 0).all():
-            self._Q = numpy.inf
+            self._Q = np.inf
         else:
             self._Q = 1j * self.cR / (2*value)
         self._invalidateMatrix()
@@ -215,18 +215,18 @@ class SeisFDFDKernel(object):
     @property
     def dtypeReal(self):
         if self.dtype == 'float':
-            return numpy.float32
+            return np.float32
         elif self.dtype == 'double':
-            return numpy.float64
+            return np.float64
         else:
             raise NotImplementedError('Unknown dtype: %s'%self.dtype)
 
     @property
     def dtypeComplex(self):
         if self.dtype == 'float':
-            return numpy.complex64
+            return np.complex64
         elif self.dtype == 'double':
-            return numpy.complex128
+            return np.complex128
         else:
             raise NotImplementedError('Unknown dtype: %s'%self.dtype)
 
@@ -270,11 +270,11 @@ class SeisFDFDKernel(object):
         # fast --> slow is x --> y --> z as Fortran
 
         # Set up physical properties in matrices with padding
-        omega   = 2 * numpy.pi * self.freq 
-        cPad    = numpy.pad(c, pad_width=1, mode='edge')
-        rhoPad  = numpy.pad(rho, pad_width=1, mode='edge')
+        omega   = 2 * np.pi * self.freq 
+        cPad    = np.pad(c, pad_width=1, mode='edge')
+        rhoPad  = np.pad(rho, pad_width=1, mode='edge')
 
-        aky = 2*numpy.pi*self.ky
+        aky = 2*np.pi*self.ky
 
         # Model parameter M
         K = ((omega**2 / cPad**2) - aky**2) / rhoPad
@@ -285,7 +285,7 @@ class SeisFDFDKernel(object):
         dxx = dx**2
         dzz = dz**2
         dxz = dx*dz
-        dd  = numpy.sqrt(dxz)
+        dd  = np.sqrt(dxz)
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
@@ -296,13 +296,13 @@ class SeisFDFDKernel(object):
         pmldx   = dx*(nPML - 1)
         pmldz   = dz*(nPML - 1)
         pmlr    = 1e-3
-        pmlfx   = 3.0 * numpy.log(1/pmlr)/(2*pmldx**3)
-        pmlfz   = 3.0 * numpy.log(1/pmlr)/(2*pmldz**3)
+        pmlfx   = 3.0 * np.log(1/pmlr)/(2*pmldx**3)
+        pmlfz   = 3.0 * np.log(1/pmlr)/(2*pmldz**3)
 
-        dpmlx   = numpy.zeros(dims, dtype=self.dtypeComplex)
-        dpmlz   = numpy.zeros(dims, dtype=self.dtypeComplex)
-        isnx    = numpy.zeros(dims, dtype=self.dtypeReal)
-        isnz    = numpy.zeros(dims, dtype=self.dtypeReal)
+        dpmlx   = np.zeros(dims, dtype=self.dtypeComplex)
+        dpmlz   = np.zeros(dims, dtype=self.dtypeComplex)
+        isnx    = np.zeros(dims, dtype=self.dtypeReal)
+        isnz    = np.zeros(dims, dtype=self.dtypeReal)
 
         # Only enable PML if the free surface isn't set
 
@@ -320,8 +320,8 @@ class SeisFDFDKernel(object):
         if freeSurf[3]:
             isnx[:,:nPML] = 1 # Left side
 
-        dpmlx[:,:nPML] = (numpy.arange(nPML, 0, -1)*dx).reshape((1,nPML))
-        dpmlx[:,-nPML:] = (numpy.arange(1, nPML+1, 1)*dx).reshape((1,nPML))
+        dpmlx[:,:nPML] = (np.arange(nPML, 0, -1)*dx).reshape((1,nPML))
+        dpmlx[:,-nPML:] = (np.arange(1, nPML+1, 1)*dx).reshape((1,nPML))
         dnx     = pmlfx*c*dpmlx**2
         ddnx    = 2*pmlfx*c*dpmlx
         denx    = dnx + 1j*omega
@@ -329,8 +329,8 @@ class SeisFDFDKernel(object):
         r1xsq   = r1x**2
         r2x     = isnx*r1xsq*ddnx/denx
 
-        dpmlz[:nPML,:] = (numpy.arange(nPML, 0, -1)*dz).reshape((nPML,1))
-        dpmlz[-nPML:,:] = (numpy.arange(1, nPML+1, 1)*dz).reshape((nPML,1))
+        dpmlz[:nPML,:] = (np.arange(nPML, 0, -1)*dz).reshape((nPML,1))
+        dpmlz[-nPML:,:] = (np.arange(1, nPML+1, 1)*dz).reshape((nPML,1))
         dnz     = pmlfz*c*dpmlz**2
         ddnz    = 2*pmlfz*c*dpmlz
         denz    = dnz + 1j*omega
@@ -511,6 +511,14 @@ class SeisFDFDKernel(object):
     #         else:
     #             diagonals[key][-1,:] = 0.
 
+    @staticmethod
+    def _densify(inmat):
+
+        if getattr(inmat, 'todense', None) is not None:
+            inmat = inmat.todense()
+
+        return np.array(inmat)
+
     # ------------------------------------------------------------------------
     # Externally-callable functions
 
@@ -521,9 +529,9 @@ class SeisFDFDKernel(object):
     def forward(self, src, dOnly=True):
 
         q = self.kyweight * src.getq(self.mesh)
-        u = self.Ainv * q
+        u = self.Ainv * self._densify(q)
 
-        d = numpy.array([numpy.dot(P,u) for P in src.getP(self.mesh, self.ky)]).ravel()
+        d = src.getP(self.mesh)*u
 
         if dOnly:
             return d
@@ -533,7 +541,7 @@ class SeisFDFDKernel(object):
     def backprop(self, src, dresid=1.):
 
         qr = self.kyweight * src.getqback(self.mesh, dresid, self.ky)
-        u = self.Ainv * qr
+        u = self.Ainv * self._densify(qr)
 
         return u
 
