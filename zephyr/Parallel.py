@@ -9,6 +9,11 @@ def getChunks(problems, chunks=1):
     nproblems = len(problems)
     return (problems[i*nproblems // chunks: (i+1)*nproblems // chunks] for i in range(chunks))
 
+def subSlice(insl,  chunks=1):
+    start = insl.start or 0
+    nproblems = insl.stop - start
+    return [slice(start + i*nproblems/chunks, start + (i+1)*nproblems/chunks) for i in xrange(chunks)]
+
 @interactive
 def hasSystem(tag):
     global localSystem
@@ -178,17 +183,10 @@ class SystemSolver(object):
         # Parse sources
         nsrc = self.dispatcher.nsrc
         if isrcs is None:
-            isrcslist = range(nsrc)
+            isrcs = slice(None)
 
-        elif isinstance(isrcs, slice):
-            isrcslist = range(isrcs.start or 0, isrcs.stop or nsrc, isrcs.step or 1)
-
-        else:
-            try:
-                _ = isrcs[0]
-                isrcslist = isrcs
-            except TypeError:
-                isrcslist = [isrcs]
+        elif not isinstance(isrcs, slice):
+            raise Exception('Scheduler must run over slice or None!')
 
         systemsOnWorkers = dview['localSystem.keys()']
         ids = dview['rank']
@@ -220,7 +218,7 @@ class SystemSolver(object):
 
             with lview.temp_flags(block=False):
                 iworks = 0
-                for work in getChunks(isrcslist, int(round(chunksPerWorker*len(relIDs)))):
+                for work in subSlice(isrcs, int(round(chunksPerWorker*len(relIDs)))):
                     if work:
                         job = lview.apply(fnRef, tag, work)
                         systemJobs.append(job)

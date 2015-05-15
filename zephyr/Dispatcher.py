@@ -4,6 +4,7 @@ from SimPEG import Survey, Problem, Mesh, Solver as SimpegSolver
 from zephyr.Parallel import RemoteInterface, CommonReducer, SystemSolver
 from zephyr.Survey import SurveyHelm
 from zephyr.Problem import ProblemHelm
+from zephyr.Source import HelmGeneral
 import networkx
 
 DEFAULT_DTYPE = 'double'
@@ -12,7 +13,7 @@ MPI_BELLWETHERS = ['PMI_SIZE', 'OMPI_UNIVERSE_SIZE']
 
 
 @interactive
-def setupSystem(scu):
+def setupSystem(scu, srcObj=None):
 
     import os
     import zephyr.Kernel as Kernel
@@ -33,7 +34,7 @@ def setupSystem(scu):
     if 'cacheDir' in baseSystemConfig:
         subSystemConfig['cacheDir'] = os.path.join(baseSystemConfig['cacheDir'], 'cache', '%d-%d'%tag)
 
-    localSystem[tag] = Kernel.SeisFDFDKernel(subSystemConfig)
+    localSystem[tag] = Kernel.SeisFDFDKernel(subSystemConfig, srcObj)
 
     return tag
 
@@ -53,60 +54,48 @@ def clearFromTag(tag):
     return localSystem[tag].clear()
 
 @interactive
-# @blockOnTag
-def forwardFromTagAccumulate(tag, isrc, **kwargs):
+def forwardFromTagBatch(tag, isrcs, **kwargs):
 
-    from IPython.parallel.error import UnmetDependency
-    if not tag in localSystem:
+    from IPython.parallel import UnmetDependency
+    if tag not in localSystem:
         raise UnmetDependency
 
     key = tag[0]
+    system = localSystem[tag]
+    srcObj = system._srcObj
 
     if not key in dPred:
-        dims = (len(srcs), reduce(max, (src.nD for src in srcs)))
-        dPred[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
+        dims = (srcObj.nsrc, srcObj.nrec)
+        dPred[key] = np.zeros(dims, dtype=system.dtypeComplex)
 
     if not key in fWave:
-        dims = (len(srcs), localSystem[tag].mesh.nN)
-        fWave[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
+        dims = (srcObj.nsrc, system.mesh.nN)
+        fWave[key] = np.zeros(dims, dtype=system.dtypeComplex)
 
-    u, d = localSystem[tag].forward(srcs[isrc], dOnly=False, **kwargs)
-    fWave[key][isrc,:] += u
-    dPred[key][isrc,:] += d
-
-@interactive
-# @blockOnTag
-def forwardFromTagAccumulateAll(tag, isrcs, **kwargs):
-
-    for isrc in isrcs:
-        forwardFromTagAccumulate(tag, isrc, **kwargs)
+    uF, d = system.forward(isrcs, None)
+    fWave[key][isrcs, :] += uF.T
+    dPred[key][isrcs, :] += d.T
 
 @interactive
-# @blockOnTag
-def backpropFromTagAccumulate(tag, isrc, **kwargs):
+def backpropFromTagBatch(tag, isrcs, **kwargs):
 
-    from IPython.parallel.error import UnmetDependency
-    if not tag in localSystem:
+    from IPython.parallel import UnmetDependency
+    if tag not in localSystem:
         raise UnmetDependency
 
     key = tag[0]
+    system = localSystem[tag]
+    srcObj = system._srcObj
 
     if not key in bWave:
-        dims = (len(srcs), localSystem[tag].mesh.nN)
-        bWave[key] = np.zeros(dims, dtype=localSystem[tag].dtypeComplex)
+        dims = (srcObj.nsrc, system.mesh.nN)
+        bWave[key] = np.zeros(dims, dtype=system.dtypeComplex)
 
     dResid = globals().get('dResid', None)
     if dResid is not None and key in dResid:
-        resid = dResid[key][isrc,:]
-        u = localSystem[tag].backprop(srcs[isrc], np.conj(resid))
-        bWave[key][isrc,:] += u
-
-@interactive
-# @blockOnTag
-def backpropFromTagAccumulateAll(tag, isrcs, **kwargs):
-
-    for isrc in isrcs:
-        backpropFromTagAccumulate(tag, isrc, **kwargs) 
+        resid = dResid[key][isrcs,:]
+        uB = system.backprop(isrcs, np.conj(resid))
+        bWave[key][isrcs,:] += uB.T
 
 
 class SeisFDFDDispatcher(object):
@@ -178,21 +167,20 @@ class SeisFDFDDispatcher(object):
         # Set up dictionary for subproblem objects and push base configuration for the system
         dview['localSystem'] = {}
         self.remote['baseSystemConfig'] = systemConfig # Faster if MPI is available
+        self.remote['srcObj'] = HelmGeneral(systemConfig['geom'])
         dview['dPred'] = CommonReducer()
         dview['fWave'] = CommonReducer()
         dview['bWave'] = CommonReducer()
 
-        dview['forwardFromTagAccumulate'] = forwardFromTagAccumulate
-        dview['forwardFromTagAccumulateAll'] = forwardFromTagAccumulateAll
-        dview['backpropFromTagAccumulate'] = backpropFromTagAccumulate
-        dview['backpropFromTagAccumulateAll'] = backpropFromTagAccumulateAll
+        dview['forwardFromTagBatch'] = forwardFromTagBatch
+        dview['backpropFromTagBatch'] = backpropFromTagBatch
         dview['clearFromTag'] = clearFromTag
 
         dview.wait()
 
         schedule = {
-            'forward': {'solve': Reference('forwardFromTagAccumulateAll'), 'clear': Reference('clearFromTag'), 'reduce': ['dPred', 'fWave']},
-            'backprop': {'solve': Reference('backpropFromTagAccumulateAll'), 'clear': Reference('clearFromTag'), 'reduce': ['bWave']},
+            'forward': {'solve': Reference('forwardFromTagBatch'), 'clear': Reference('clearFromTag'), 'reduce': ['dPred', 'fWave']},
+            'backprop': {'solve': Reference('backpropFromTagBatch'), 'clear': Reference('clearFromTag'), 'reduce': ['bWave']},
         }
 
         self.systemsolver = SystemSolver(self, schedule)
@@ -203,7 +191,7 @@ class SeisFDFDDispatcher(object):
             parFac = 1
 
         while parFac > 0:
-            tags = lview.map_sync(setupSystem, subConfigs)
+            tags = lview.map_sync(setupSystem, subConfigs, (Reference('srcObj') for i in xrange(len(subConfigs))))
             parFac -= 1
 
 
@@ -226,27 +214,18 @@ class SeisFDFDDispatcher(object):
     # Fields
     def forward(self):
 
-        if self.srcs is None:
-            raise Exception('Transmitters not defined!')
-
         if not self.solvedF:
             dview = self.remote.dview
             dview['dPred'] = CommonReducer()
             dview['fWave'] = CommonReducer()
-            self.forwardGraph = self.systemsolver('forward', slice(len(self.srcs)))
+            self.forwardGraph = self.systemsolver('forward', slice(self.nsrc))
 
-    def backprop(self, dresid=None):
-
-        if self.srcs is None:
-            raise Exception('Transmitters not defined!')
-
-        # if not self.dresid:
-        #     raise Exception('Data residuals not defined!')
+    def backprop(self):
 
         if not self.solvedB:
             dview = self.remote.dview
             dview['bWave'] = CommonReducer()
-            self.backpropGraph = self.systemsolver('backprop', slice(len(self.srcs)))
+            self.backpropGraph = self.systemsolver('backprop', slice(self.nsrc))
 
     def rebuildSystem(self, c = None):
         if c is not None:
@@ -271,17 +250,6 @@ class SeisFDFDDispatcher(object):
 
         #self.curModel = self.systemConfig['c'].ravel()
         self._handles = self._getHandles(self.systemConfig, self._subConfigSettings)
-
-    @property
-    def srcs(self):
-        if getattr(self, '_srcs', None) is None:
-            self._srcs = None
-        return self._srcs
-    @srcs.setter
-    def srcs(self, value):
-        self._srcs = value
-        self.rebuildSystem()
-        self.remote['srcs'] = self._srcs
 
     @property
     def solvedF(self):
@@ -389,6 +357,10 @@ class SeisFDFDDispatcher(object):
     @property
     def nsrc(self):
         return len(self.systemConfig['geom']['src'])
+    
+    @property
+    def nrec(self):
+        return len(self.systemConfig['geom']['rec'])
     
     @property
     def modelDims(self):

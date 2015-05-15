@@ -31,7 +31,7 @@ class SeisFDFDKernel(object):
     Solver = lambda: None
 
 
-    def __init__(self, systemConfig, **kwargs):
+    def __init__(self, systemConfig, srcObj=None, **kwargs):
 
         if systemConfig.get('cache', False):
             try:
@@ -87,6 +87,13 @@ class SeisFDFDKernel(object):
                     setattr(self, key, systemConfig[key])
                 else:
                     setattr(self, initMap[key], systemConfig[key])
+
+        if srcObj is not None:
+            self._srcObj = srcObj
+        else:
+            from zephyr.Source import HelmGeneral
+            geom = systemConfig['geom']
+            self._srcObj = HelmGeneral(systemConfig['geom'])
 
     def __del__(self):
         if hasattr(self, '_mem'):
@@ -526,24 +533,46 @@ class SeisFDFDKernel(object):
         self._invalidateMatrix()
     
     # What about @caching decorators?
-    def forward(self, src, dOnly=True):
+    def forward(self, isrc=slice(None), coeffs=None):
 
-        q = self.kyweight * src.getq(self.mesh)
-        u = self.Ainv * self._densify(q)
 
-        d = src.getP(self.mesh)*u
+        q = self.kyweight * self._srcObj.getSrcP(self.mesh, coeffs)[isrc].T
+        uF = self.Ainv * self._densify(q)
 
-        if dOnly:
-            return d
+        mapf = lambda P, si: P*uF[:,si]
+        if self.ky != 0.:
+            d = np.array(map(mapf, self._srcObj.getRecPAll(self.mesh, None, self.ky, isrc), xrange(self._srcObj.nsrc)))
         else:
-            return u, d
+            d = self._srcObj.getRecP(self.mesh, 0, None, 0.) * uF
 
-    def backprop(self, src, dresid=1.):
+        return uF, d
 
-        qr = self.kyweight * src.getqback(self.mesh, dresid, self.ky)
-        u = self.Ainv * self._densify(qr)
+    def backprop(self, isrc=slice(None), dresid=None):
 
-        return u
+        qr = self.kyweight * np.array(np.concatenate([P.sum(axis=0) for P in self._srcObj.getRecPAll(self.mesh, dresid, self.ky, isrc)])).T
+        uB = self.Ainv * qr
+
+        return uB
+    
+    # # What about @caching decorators?
+    # def forward(self, src, dOnly=True):
+
+    #     q = self.kyweight * src.getq(self.mesh)
+    #     u = self.Ainv * self._densify(q)
+
+    #     d = src.getP(self.mesh)*u
+
+    #     if dOnly:
+    #         return d
+    #     else:
+    #         return u, d
+
+    # def backprop(self, src, dresid=1.):
+
+    #     qr = self.kyweight * src.getqback(self.mesh, dresid, self.ky)
+    #     u = self.Ainv * self._densify(qr)
+
+    #     return u 
 
     # def gradient(self, isrc, sterm, dresid):
 
