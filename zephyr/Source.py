@@ -198,6 +198,7 @@ class HelmGeneral(object):
                         sourceRegion[:,:index] -= lift
 
                 if Xi > nx-ireg-1:
+                    index = nx-ireg-1 - Xi
                     if freeSurf[1]:
                         lift = np.fliplr(sourceRegion[:,index:])
 
