@@ -167,8 +167,9 @@ class HelmSrc(SimPEG.Survey.BaseSrc):
         #       I feel like it actually makes more sense to have these as properties of the mesh.
         
         self.term = term
+        self.loc = loc.reshape((1,3))
 
-        SimPEG.Survey.BaseSrc.__init__(self, loc.reshape((1,3)), self.__class__.__name__, rxList, **kwargs)
+        SimPEG.Survey.BaseSrc.__init__(self, rxList, **kwargs)
 
     def getq(self, mesh):
 
