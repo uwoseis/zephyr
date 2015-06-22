@@ -47,15 +47,16 @@ class SeisFDFDDispatcher(object):
 
         self._subConfigSettings = subConfigSettings
 
-        code = '''
+        bootstrap = '''
         import numpy as np
         import scipy as scipy
         import scipy.sparse
         import SimPEG
         import zephyr.Kernel as Kernel
+        from zephyr.Dispatcher import SeisFDFDDispatcher
         '''
 
-        self.remote = RemoteInterface(systemConfig.get('profile', None), systemConfig.get('MPI', None), bootstrap=code)
+        self.remote = RemoteInterface(systemConfig.get('profile', None), systemConfig.get('MPI', None), bootstrap=bootstrap)
 
         localcache = ['chunksPerWorker', 'ensembleClear']
         for key in localcache:
@@ -65,11 +66,13 @@ class SeisFDFDDispatcher(object):
         self.rebuildSystem()
 
 
-    def _getHandles(self, systemConfig, subConfigSettings):
+    def _setupRemoteSystems(self, systemConfig, subConfigSettings):
 
         from IPython.parallel.client.remotefunction import ParallelFunction
         from SimPEG.Parallel import Endpoint
-        from Zephyr.Kernel import SeisFDFDKernel
+        from zephyr.Kernel import SeisFDFDKernel
+
+        funcRef = lambda name: Reference('%s.%s'%(self.__class__.__name__, name))
 
         # NB: The name of the Endpoint in the remote namespace should be propagated
         #     from this function. Everything else is adaptable, to allow for changing
@@ -79,13 +82,13 @@ class SeisFDFDDispatcher(object):
         # Begin construction of Endpoint object
         endpoint = Endpoint()
 
-        endpoint.functions = {
-            'forwardFromTagAccumulate':     self._forwardFromTagAccumulate,
-            'forwardFromTagAccumulateAll':  self._forwardFromTagAccumulateAll,
-            'backpropFromTagAccumulate':    self._backpropFromTagAccumulate,
-            'backpropFromTagAccumulateAll': self._backpropFromTagAccumulateAll,
-            'clearFromTag':                 self._clearFromTag,
-        }
+        # endpoint.functions = {
+        #     'forwardFromTagAccumulate':     SeisFDFDDispatcher._forwardFromTagAccumulate,     # funcRef('_forwardFromTagAccumulate'),
+        #     'forwardFromTagAccumulateAll':  SeisFDFDDispatcher._forwardFromTagAccumulateAll,  # funcRef('_forwardFromTagAccumulateAll'),
+        #     'backpropFromTagAccumulate':    SeisFDFDDispatcher._backpropFromTagAccumulate,    # funcRef('_backpropFromTagAccumulate'),
+        #     'backpropFromTagAccumulateAll': SeisFDFDDispatcher._backpropFromTagAccumulateAll, # funcRef('_backpropFromTagAccumulateAll'),
+        #     'clearFromTag':                 SeisFDFDDispatcher._clearFromTag,                 # funcRef('_clearFromTag'),
+        # }
 
         endpoint.fieldspec = {
             'dPred':    CommonReducer,
@@ -94,14 +97,26 @@ class SeisFDFDDispatcher(object):
             'bWave':    CommonReducer,
         }
 
-        endpoint.systemFactory = SeisFDFDKernel
+        endpoint.systemFactory = SeisFDFDKernel#Reference('Kernel.SeisFDFDKernel')#lambda sc: SeisFDFDKernel(sc)
         endpoint.baseSystemConfig = systemConfig
 
         # End local construction of Endpoint object and send to workers
-        self.remote[self.endpointName] = Endpoint()
+        self.remote[self.endpointName] = endpoint
+        #self.remote.dview['%s.systemFactory'%(self.endpointName,)] = Reference('Kernel.SeisFDFDKernel')
 
         # Begin remote update of Endpoint object
         dview = self.remote.dview
+
+        fnLoc = lambda fnName: '%s.functions["%s"]'%(self.endpointName, fnName)
+        dview[fnLoc('forwardFromTagAccumulate')]        = self._forwardFromTagAccumulate
+        dview[fnLoc('forwardFromTagAccumulateAll')]     = self._forwardFromTagAccumulateAll
+        dview[fnLoc('backpropFromTagAccumulate')]       = self._backpropFromTagAccumulate
+        dview[fnLoc('backpropFromTagAccumulateAll')]    = self._backpropFromTagAccumulateAll
+        dview[fnLoc('clearFromTag')]                    = self._clearFromTag
+
+        if getattr(self, '_srcs', None) is not None:
+            dview['%s.srcs'%(self.endpointName,)] = self._srcs
+
         dview.apply_sync(Reference('%s.setupLocalFields'%(self.endpointName,)))
 
         setupFunction = ParallelFunction(dview, Reference('%s.setupLocalSystem'%(self.endpointName,)), dist='r', block=True).map
@@ -127,11 +142,6 @@ class SeisFDFDDispatcher(object):
         self.systemsolver = SystemSolver(self, self.endpointName, schedule)
 
     @staticmethod
-    @interactive
-    def _clearFromTag(endpoint, tag):
-        return endpoint.localSystems[tag].clear()
-
-    @staticmethod
     def _gen25DSubConfigs(freqs, nky, cmin):
         result = []
         weightfac = 1./(2*nky - 1) if nky > 1 else 1.# alternatively, 1/dky
@@ -148,6 +158,11 @@ class SeisFDFDDispatcher(object):
                     'tag':      (ifreq, iky),
                 })
         return result
+
+    @staticmethod
+    @interactive
+    def _clearFromTag(endpoint, tag):
+        return endpoint.localSystems[tag].clear()
 
     @staticmethod
     @interactive
@@ -223,7 +238,7 @@ class SeisFDFDDispatcher(object):
             raise Exception('Transmitters not defined!')
 
         if not self.solvedF:
-            self.remote.dview.apply(Reference('endpoint.setupLocalFields'), ['fWave', 'dPred'])
+            self.remote.dview.apply(Reference('%s.setupLocalFields'%self.endpointName), ['fWave', 'dPred'])
             self.forwardGraph = self.systemsolver('forward', slice(len(self.srcs)))
 
     def backprop(self, dresid=None):
@@ -235,7 +250,7 @@ class SeisFDFDDispatcher(object):
         #     raise Exception('Data residuals not defined!')
 
         if not self.solvedB:
-            self.remote.dview.apply(Reference('endpoint.setupLocalFields'), ['bWave'])
+            self.remote.dview.apply(Reference('%s.setupLocalFields'%self.endpointName), ['bWave'])
             self.backpropGraph = self.systemsolver('backprop', slice(len(self.srcs)))
 
     def rebuildSystem(self, c = None):
@@ -258,7 +273,7 @@ class SeisFDFDDispatcher(object):
         self._subConfigSettings['cmin'] = self.systemConfig['c'].min()
 
         #self.curModel = self.systemConfig['c'].ravel()
-        self._handles = self._getHandles(self.systemConfig, self._subConfigSettings)
+        self._handles = self._setupRemoteSystems(self.systemConfig, self._subConfigSettings)
 
     @property
     def srcs(self):
@@ -320,7 +335,10 @@ class SeisFDFDDispatcher(object):
     @property
     def g(self):
         if self.solvedF and self.solvedB:
-            return self.remote.reduceMul('fWave', 'bWave', axis=0).reshape(self.modelDims)
+            return self.remote.remoteMulE0(
+                "%(endpoint)s.globalFields['fWave']"%{'endpoint': self.endpointName},
+                "%(endpoint)s.globalFields['bWave']"%{'endpoint': self.endpointName},
+                axis=0).reshape(self.modelDims)
         else:
             return None
 
@@ -330,7 +348,7 @@ class SeisFDFDDispatcher(object):
     @dObs.setter
     def dObs(self, value):
         self._dobs = CommonReducer(value)
-        self.remote['dObs'] = self._dobs
+        self.remote.dview["%(endpoint)s.globalFields['dObs']"%{'endpoint': self.endpointName}] = self._dobs
 
     def _computeResidual(self):
         if not self.solvedF:
@@ -339,19 +357,17 @@ class SeisFDFDDispatcher(object):
         if self.dObs is None:
             raise Exception('No observed data has been defined!')
 
-        if getattr(self, '_residualPrecomputed', None) is None:
-            self._residualPrecomputed = False
-
-        if not self._residualPrecomputed:
-            self.remote.remoteDifferenceGatherFirst('dPred', 'dObs', 'dResid')
-            #self.remote.dview.execute('dResid = CommonReducer({key: np.log(dResid[key]).real for key in dResid.keys()}')
+        if not getattr(self, '_residualPrecomputed', False):
+            # self.remote.remoteDifferenceGatherFirst('dPred', 'dObs', 'dResid')
+            # #self.remote.dview.execute('dResid = CommonReducer({key: np.log(dResid[key]).real for key in dResid.keys()}')
+            self.remote.e0.execute("%(endpoint)s.globalFields['dResid'] = %(endpoint)s.globalFields['dPred'] - %(endpoint)s.globalFields['dObs']"%{'endpoint': self.endpointName})
             self._residualPrecomputed = True
 
     @property
     def residual(self):
         if self.solvedF:
             self._computeResidual()
-            return self.remote.e0['dResid']
+            return self.remote.e0["%(endpoint)s.globalFields['dResid']"%{'endpoint': self.endpointName}]
         else:
             return None
     # A day may come when it may be useful to set this, or to set dPred; but it is not this day!
@@ -364,7 +380,7 @@ class SeisFDFDDispatcher(object):
         if self.solvedF:
             if getattr(self, '_misfit', None) is None:
                 self._computeResidual()
-                self._misfit = self.remote.normFromDifference('dResid')
+                self._misfit = self.remote.normFromDifference("%(endpoint)s.globalFields['dResid']"%{'endpoint': self.endpointName})
             return self._misfit
         else:
             return None
