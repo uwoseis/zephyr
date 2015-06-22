@@ -242,6 +242,7 @@ class SeisFDFDDispatcher(object):
         self._solvedF = False
         self._solvedB = False
         self._residualPrecomputed = False
+        self._srcEstimated = False
         self._misfit = None
 
         self._subConfigSettings['cmin'] = self.systemConfig['c'].min()
@@ -345,6 +346,16 @@ class SeisFDFDDispatcher(object):
             return self._misfit
         else:
             return None
+
+    def srcEst(self, individual=False):
+        if not getattr(self, '_srcEstimated', False):
+            if self.solvedF:
+                self._residualPrecomputed = False
+
+                self.remote.remoteSrcEstGatherFirst('dPred', 'dObs', 'srcTerm')
+                self.remote.remoteApplySrc('dPred', 'srcTerm')
+
+            self._srcEstimated = True
 
     @property
     def nx(self):
