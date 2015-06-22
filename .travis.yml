@@ -25,6 +25,7 @@ install:
 # Run test
 script:
   - ipcluster start -n4 --profile mpi --daemon
+  - sleep 10
   - nosetests --with-cov --cov zephyr --cov-config .coveragerc -v -s
   - ipcluster stop
 
