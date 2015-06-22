@@ -12,7 +12,9 @@ class TestZephyr(unittest.TestCase):
     def requireParallel(self):
         if not getattr(self, 'parallelActive', False):
             import os
+            import time
             os.system('ipcluster start --profile %(profile)s -n %(nworkers)d --daemon'%{'profile': IPYPROFILE, 'nworkers': PARNWORKERS})
+            time.sleep(10)
 
     def getBaseConfig(self):
         import numpy as np
