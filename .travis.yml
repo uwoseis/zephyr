@@ -24,7 +24,9 @@ install:
 
 # Run test
 script:
+  - ipcluster start -n4 --profile mpi --daemon
   - nosetests --with-cov --cov zephyr --cov-config .coveragerc -v -s
+  - ipcluster stop
 
 # Calculate coverage
 after_success:
