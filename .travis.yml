@@ -15,11 +15,18 @@ before_install:
 
 # Install packages
 install:
-  - conda install --yes pip python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib cython ipython pyzmq tornado networkx
+  - conda install --yes pip python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib cython ipython pyzmq tornado networkx mpi4py openmpi
   - pip install nose-cov python-coveralls
   - pip install git+https://github.com/simpeg/simpeg.git@parallel
   # - pip install -r requirements.txt
   - python setup.py install
+  - ipython profile create --parallel --profile mpi
+  - cat "c = get_config()" > $HOME/.ipython/profile_mpi/ipcluster_config.py
+  - cat "c.IPClusterEngines.engine_launcher_class = 'MPIEngineSetLauncher'" >> $HOME/.ipython/profile_mpi/ipcluster_config.py
+  - cat "c = get_config()" > $HOME/.ipython/profile_mpi/ipcontroller_config.py
+  - cat "c.HubFactory.ip = '127.0.0.1'" >> $HOME/.ipython/profile_mpi/ipcontroller_config.py
+  - cat "c = get_config()" > $HOME/.ipython/profile_mpi/ipengine_config.py
+  - cat "c.MPI.use = 'mpi4py'" >> $HOME/.ipython/profile_mpi/ipengine_config.py
 
 # Run test
 script:
