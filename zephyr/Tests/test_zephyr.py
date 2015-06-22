@@ -1,6 +1,8 @@
 import unittest
 import numpy as np
 
+IPYPROFILE = 'mpi'
+PARNWORKERS = 4
 
 class TestZephyr(unittest.TestCase):
 
@@ -10,11 +12,9 @@ class TestZephyr(unittest.TestCase):
     def requireParallel(self):
         if not getattr(self, 'parallelActive', False):
             import os
-            os.system('ipcluster start --profile mpi -n 4 --daemon')
+            os.system('ipcluster start --profile %(profile)s -n %(nworkers)d --daemon'%{'profile': IPYPROFILE, 'nworkers': PARNWORKERS})
 
-
-    def test_forwardModelling(self):
-
+    def getBaseConfig(self):
         import numpy as np
 
         cellSize = 1
@@ -24,8 +24,6 @@ class TestZephyr(unittest.TestCase):
 
         nsrc = 10
         nrec = 10
-
-        freq = 2e2
 
         dens = 2700
         Q = np.inf
@@ -57,19 +55,52 @@ class TestZephyr(unittest.TestCase):
             'freeSurf': freeSurf,   # t r b l
             'nPML':     nPML,
             'geom':     geom,
-            'freq':     freq,
-            'ky':       0,
         }
+
+        return systemConfig
+
+
+    def test_forwardModelling(self):
+
+        sc = self.getBaseConfig()
+        sc.update({
+            'freq': 2e2,
+            'ky':   0,
+        })
+        geom = sc['geom']
 
         from zephyr.Survey import HelmSrc, HelmRx
         rxs = [HelmRx(loc, 1.) for loc in geom['recs']]
         sx  = HelmSrc(geom['srcs'][0], 1., rxs)
 
         from zephyr.Kernel import SeisFDFDKernel
-        sp = SeisFDFDKernel(systemConfig)
+        sp = SeisFDFDKernel(sc)
 
         u, d = sp.forward(sx, False)
-        u.shape = (nz,nx)
+        u.shape = (sc['nz'],sc['nx'])
+
+    def test_parallelForwardModelling(self):
+
+        sc = self.getBaseConfig()
+        sc.update({
+            'freqs':    [1e2, 2e2, 3e2, 4e2],
+            'nky':      1,
+            'profile':  IPYPROFILE,
+        })
+
+        from zephyr.Dispatcher import SeisFDFDDispatcher
+
+        sp = SeisFDFDDispatcher(sc)
+        survey, problem = sp.spawnInterfaces()
+        srcs = survey.genSrc()
+        sp.srcs = srcs
+
+        sp.forward()
+        self.assertTrue(sp.solvedF)
+
+        for node in sp.forwardGraph:
+            for job in sp.forwardGraph.node[node].get('jobs', []):
+                self.assertTrue('error' not in job.status)
 
     def test_DoSomething(self):
         #self.requireParallel()
