@@ -41,8 +41,8 @@ class TestZephyr(unittest.TestCase):
         freeSurf = [False, False, False, False]
 
         geom = {
-            'srcs': np.array([np.ones(nsrc)*(nPML*cellSize), np.zeros(nsrc), np.linspace((nPML*cellSize), (nz-nPML)*cellSize, nsrc)]).T,
-            'recs': np.array([np.ones(nrec)*((nx-nPML)*cellSize), np.zeros(nrec), np.linspace((nPML*cellSize), (nz-nPML)*cellSize, nrec)]).T,
+            'src': np.array([np.ones(nsrc)*(nPML*cellSize), np.zeros(nsrc), np.linspace((nPML*cellSize), (nz-nPML)*cellSize, nsrc)]).T,
+            'rec': np.array([np.ones(nrec)*((nx-nPML)*cellSize), np.zeros(nrec), np.linspace((nPML*cellSize), (nz-nPML)*cellSize, nrec)]).T,
             'mode': 'fixed',
         }
 
@@ -72,8 +72,8 @@ class TestZephyr(unittest.TestCase):
         geom = sc['geom']
 
         from zephyr.Survey import HelmSrc, HelmRx
-        rxs = [HelmRx(loc, 1.) for loc in geom['recs']]
-        sx  = HelmSrc(geom['srcs'][0], 1., rxs)
+        rxs = [HelmRx(loc, 1.) for loc in geom['rec']]
+        sx  = HelmSrc(geom['src'][0], 1., rxs)
 
         from zephyr.Kernel import SeisFDFDKernel
         sp = SeisFDFDKernel(sc)
