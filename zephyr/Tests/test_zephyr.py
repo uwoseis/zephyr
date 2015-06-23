@@ -9,13 +9,6 @@ class TestZephyr(unittest.TestCase):
     def setUp(self):
         pass
 
-    # def requireParallel(self):
-    #     if not getattr(self, 'parallelActive', False):
-    #         import os
-    #         import time
-    #         os.system('ipcluster start --profile %(profile)s -n %(nworkers)d --daemon'%{'profile': IPYPROFILE, 'nworkers': PARNWORKERS})
-    #         time.sleep(10)
-
     def getBaseConfig(self):
         import numpy as np
 
@@ -69,17 +62,12 @@ class TestZephyr(unittest.TestCase):
             'freq': 2e2,
             'ky':   0,
         })
-        geom = sc['geom']
 
-        from zephyr.Survey import HelmSrc, HelmRx
-        rxs = [HelmRx(loc, 1.) for loc in geom['rec']]
-        sx  = HelmSrc(geom['src'][0], 1., rxs)
+        from zephyr.Problem import SeisFDFD25DProblem
+        problem = SeisFDFD25DProblem(sc)
+        survey = problem.survey
 
-        from zephyr.Kernel import SeisFDFDKernel
-        sp = SeisFDFDKernel(sc)
-
-        u, d = sp.forward(sx, False)
-        u.shape = (sc['nz'],sc['nx'])
+        u, d = problem.forward(sx)
 
     def test_parallelForwardModelling(self):
 
@@ -90,28 +78,23 @@ class TestZephyr(unittest.TestCase):
             'profile':  IPYPROFILE,
         })
 
-        from zephyr.Dispatcher import SeisFDFDDispatcher
+        from zephyr.Problem import SeisFDFD25DParallelProblem
+        from zephyr.Survey import SeisFDFD25DSurvey
 
-        sp = SeisFDFDDispatcher(sc)
-        survey, problem = sp.spawnInterfaces()
-        srcs = survey.genSrc()
-        sp.srcs = srcs
+        problem = SeisFDFD25DParallelProblem(sc)
+        survey = SeisFDFD25DSurvey(sc['geom'])
+        survey.pair(problem)
 
-        sp.forward()
-        self.assertTrue(sp.solvedF)
+        problem.forward()
+        self.assertTrue(problem.solvedF)
 
-        for node in sp.forwardGraph:
-            for job in sp.forwardGraph.node[node].get('jobs', []):
+        for node in problem.forwardGraph:
+            for job in problem.forwardGraph.node[node].get('jobs', []):
                 self.assertTrue('error' not in job.status)
 
     def test_DoSomething(self):
         #self.requireParallel()
         pass
-
-    # def __del__(self):
-    #     if getattr(self, 'parallelActive', False):
-    #         import os
-    #         os.system('ipcluster stop --profile mpi')
 
 if __name__ == '__main__':
     unittest.main()

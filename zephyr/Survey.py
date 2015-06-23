@@ -1,4 +1,5 @@
-import numpy
+import numpy as np
+import scipy.sparse as sp
 import SimPEG
 
 DEFAULT_FREESURF_BOUNDS = [False, False, False, False]
@@ -42,7 +43,7 @@ def KaiserWindowedSinc(ireg, offset):
     xOffset, zOffset = offset
 
     # Grid from 0 to freg-1
-    Zi, Xi = numpy.mgrid[:freg,:freg] 
+    Zi, Xi = np.mgrid[:freg,:freg] 
 
     # Distances from source point
     dZi = (zOffset + ireg - Zi)
@@ -51,238 +52,258 @@ def KaiserWindowedSinc(ireg, offset):
     # Taper terms for decay function
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        tZi = numpy.nan_to_num(numpy.sqrt(1 - (dZi / ireg)**2))
-        tXi = numpy.nan_to_num(numpy.sqrt(1 - (dXi / ireg)**2))
-        tZi[tZi == numpy.inf] = 0
-        tXi[tXi == numpy.inf] = 0
+        tZi = np.nan_to_num(np.sqrt(1 - (dZi / ireg)**2))
+        tXi = np.nan_to_num(np.sqrt(1 - (dXi / ireg)**2))
+        tZi[tZi == np.inf] = 0
+        tXi[tXi == np.inf] = 0
 
     # Actual tapers for Kaiser window
     taperZ = bessi0(b*tZi) / bessi0(b)
     taperX = bessi0(b*tXi) / bessi0(b)
 
     # Windowed sinc responses in Z and X
-    responseZ = numpy.sinc(dZi) * taperZ
-    responseX = numpy.sinc(dXi) * taperX
+    responseZ = np.sinc(dZi) * taperZ
+    responseX = np.sinc(dXi) * taperX
 
     # Combined 2D source response
     result = responseX * responseZ
 
     return result
 
-def srcVec(sLocs, terms, mesh, ireg, freeSurf):
-
-    q = numpy.zeros((mesh.nNy, mesh.nNx), dtype=numpy.complex128)
-    dx = mesh.hx[0]
-    dz = mesh.hy[0]
-
-    # Scale source based on the cellsize so that changing the grid doesn't
-    # change the overall source amplitude
-    srcScale = -mesh.hx[0]*mesh.hy[0]
-
-    if ireg == 0:
-        # Closest source point
-        q = q.ravel()
-
-        for i in xrange(len(sLocs)):
-            qI = SimPEG.Utils.closestPoints(mesh, sLocs[i], gridLoc='N')
-            q[qI] += terms[i]/srcScale
-
-    else:
-        # Kaiser windowed sinc function
-
-        freg = 2*ireg+1
-        q = numpy.pad(q, ireg, mode='constant')
-
-        for i in xrange(len(sLocs)):
-            qI = SimPEG.Utils.closestPoints(mesh, sLocs[i], gridLoc='N')
-            Zi, Xi = (qI / mesh.nNx, numpy.mod(qI, mesh.nNx))
-            offset = (sLocs[i][0] - Xi * dx, sLocs[i][1] - Zi * dz)
-            sourceRegion = KaiserWindowedSinc(ireg, offset)
-            q[Zi:Zi+freg,Xi:Xi+freg] += terms[i] * sourceRegion / srcScale
-
-        # Mirror and flip sign on terms that cross the free-surface boundary
-        if freeSurf[0]:
-            q[ireg:2*ireg,:]      -= numpy.flipud(q[:ireg,:])    # Top
-        if freeSurf[1]:
-            q[:,-2*ireg:-ireg]    -= numpy.fliplr(q[:,-ireg:])   # Right
-        if freeSurf[2]:
-            q[-2*ireg:-ireg,:]    -= numpy.flipud(q[-ireg:,:])   # Bottom
-        if freeSurf[3]:
-            q[:,ireg:2*ireg]      -= numpy.fliplr(q[:,:ireg])    # Left
-
-        # Cut off edges
-        q = q[ireg:-ireg,ireg:-ireg].ravel()
-
-    return q
-
-srcVecs = lambda sLocs, terms, mesh, ireg, freeSurf: [srcVec([sLocs[i] if hasattr(sLocs, '__contains__') else sLocs], [terms[i]] if hasattr(terms, '__contains__') else [terms], mesh, ireg, freeSurf) for i in xrange(len(sLocs))]
-
 assumeConditions = lambda mesh: (getattr(mesh, 'ireg', DEFAULT_IREG), getattr(mesh, 'freeSurf', DEFAULT_FREESURF_BOUNDS))
 
-class HelmRx(SimPEG.Survey.BaseRx):
+class SeisFDFD25DRx(SimPEG.Survey.BaseRx):
 
-    def __init__(self, locs, terms, **kwargs):
+    pass
 
-        self.terms = terms
+class SeisFDFD25DSrc(SimPEG.Survey.BaseSrc):
 
-        SimPEG.Survey.BaseRx.__init__(self, locs.reshape((1,3)) if locs.ndim == 1 else locs, self.__class__.__name__, **kwargs)
+    rxPair = SeisFDFD25DRx
 
-    def getP(self, mesh, coeffs=None):
+class SeisFDFD25DSurvey(SimPEG.Survey.BaseSurvey):
 
-        return [q.T for q in self.getq(mesh, coeffs)]
+    srcPair = SeisFDFD25DSrc
 
-    def getq(self, mesh, coeffs=None):
+    def __init__(self, arrayTerms): #slocs, sterms, rlocs, rterms, **kwargs):
+
+        mode = arrayTerms['mode'].lower() 
+
+        if mode not in ['fixed', 'relative']:
+            raise Exception('SurveyHelm25D objects only work with \'fixed\' or \'relative\' receiver arrays!')
+
+        self.rel = mode is 'relative'
+
+        slocs = arrayTerms['src']
+        rlocs = arrayTerms['rec']
+        sterms = arrayTerms.get('sterms', 1.)
+        rterms = arrayTerms.get('rterms', 1.)
+
+        self._nsrc = slocs.shape[0]
+        self._nrec = rlocs.shape[0]
+
+        if slocs.shape[1] == 3:
+            self.sxz = np.array([slocs[:,0], slocs[:,2]]).T
+            self.sy = slocs[:,1]
+        elif slocs.shape[1] == 2:
+            self.sxz = slocs
+            self.sy = np.ones((self._nsrc,))
+        else:
+            raise Exception('Src location array must have either 2 or 3 columns')
+
+        if rlocs.shape[1] == 3:
+            self.rxz = np.array([rlocs[:,0], rlocs[:,2]]).T
+            self.ry = rlocs[:,1]
+        elif rlocs.shape[1] == 2:
+            self.rxz = rlocs
+            self.ry = np.ones((self._nrec,))
+        else:
+            raise Exception('Rec location array must have either 3 or 4 columns')
+
+        if getattr(sterms, '__contains__', None) is not None:
+            self.sterms = sterms
+        else:
+            self.sterms = sterms * np.ones((self._nsrc,))
+
+        if getattr(rterms, '__contains__', None) is not None:
+            self.rterms = rterms
+        else:
+            self.rterms = rterms * np.ones((self._nrec,))
+
+    def getPGeneral(self, locs, terms):
+
+        ireg, freeSurf = assumeConditions(self.mesh)
+
+        dx = self.mesh.hx[0]
+        dz = self.mesh.hy[0]
+        nx = self.mesh.nNx
+        nz = self.mesh.nNy
+
+        # Scale source based on the cellsize so that changing the grid doesn't
+        # change the overall source amplitude
+        srcScale = -dx*dz
+
+        if getattr(terms, '__contains__', None) is None:
+            terms = np.array([terms]*locs.shape[0])
+
+        qI = SimPEG.Utils.closestPoints(self.mesh, locs, gridLoc='N')
+
+        if ireg == 0:
+            # Closest gridpoint
+
+            q = sp.coo_matrix((terms/srcScale, (np.arange(locs.shape[0]), qI)), shape=(locs.shape[0], self.mesh.nN))
+
+        else:
+
+            # Kaiser windowed sinc function
+
+            freg = 2*ireg+1
+            N = locs.shape[0]
+            M = nz * nx
+            nnz = N * freg**2
+            lShift, sShift = np.mgrid[-ireg:ireg+1,-ireg:ireg+1]
+            shift = lShift * nx + sShift
+
+            entries = np.zeros((nnz,), dtype=np.complex128)
+            columns =  np.zeros((nnz,))
+            rows = np.zeros((nnz,))
+            dptr = 0
+
+            for i in xrange(N):
+                Zi, Xi = (qI[i] / nx, np.mod(qI[i], nx))
+                offset = (locs[i][0] - Xi * dx, locs[i][1] - Zi * dz)
+                sourceRegion = KaiserWindowedSinc(ireg, offset)
+                qshift = shift.copy()
+
+                if Zi < ireg:
+                    index = ireg-Zi
+                    if freeSurf[2]:
+                        lift = np.flipud(sourceRegion[:index,:])
+                    
+                    sourceRegion = sourceRegion[index:,:]
+                    qshift = qshift[index:,:]
+
+                    if freeSurf[2]:
+                        sourceRegion[:index,:] -= lift
+
+                if Zi > nz-ireg-1:
+                    index = nz-ireg-1 - Zi
+                    if freeSurf[0]: 
+                        lift = np.flipud(sourceRegion[index:,:])
+
+                    sourceRegion = sourceRegion[:index,:]
+                    qshift = qshift[:index,:]
+
+                    if freeSurf[0]:
+                        sourceRegion[index:,:] -= lift
+
+                if Xi < ireg:
+                    index = ireg-Xi
+                    if freeSurf[3]:
+                        lift = np.fliplr(sourceRegion[:,:index])
+
+                    sourceRegion = sourceRegion[:,index:]
+                    qshift = qshift[:,index:]
+
+                    if freeSurf[3]:
+                        sourceRegion[:,:index] -= lift
+
+                if Xi > nx-ireg-1:
+                    index = nx-ireg-1 - Xi
+                    if freeSurf[1]:
+                        lift = np.fliplr(sourceRegion[:,index:])
+
+                    sourceRegion = sourceRegion[:,:index]
+                    qshift = qshift[:,:index]
+
+                    if freeSurf[1]:
+                        sourceRegion[:,index:] -= lift
+
+                data = sourceRegion.ravel() * terms[i] / srcScale
+                cols = qI[i] + qshift.ravel()
+                dlen = data.shape[0]
+
+                entries[dptr:dptr+dlen] = data
+                columns[dptr:dptr+dlen] = cols
+                rows[dptr:dptr+dlen] = i
+
+                dptr += dlen
+
+            q = sp.coo_matrix((entries[:dptr], (rows[:dptr],columns[:dptr])), shape=(N, M), dtype=np.complex128)
+
+        return q
+
+    def getRecP(self, src, coeffs=None, ky=0.):
 
         if coeffs is not None:
-            icoeffs = coeffs
+            icoeffs = sp.diags(coeffs, 0)
         else:
             icoeffs = 1.
 
-        if self.locs.shape[0] == 1:
-            locterms = self.locs[0, ::2].reshape((1,2))
+        # TODO: Should this be 2*pi?
+        if self.rel:
+            dy = self.ry
         else:
-            locterms = self.locs[:, ::2]
+            dy = self.ry - self.sy[src]
 
-        ireg, freeSurf = assumeConditions(mesh)
-        q = srcVecs(locterms, icoeffs*self.terms, mesh, ireg, freeSurf)
+        shift = sp.diags(np.cos(np.pi * dy * ky), 0)
+        icoeffs = shift * icoeffs
 
-        return q
+        if self.rel:
+            if getattr(self, '_RecP', None) is None:
+                self._RecP = {}
+            if src not in self._RecP:
+                self._RecP[src] = self.getPGeneral(self.rxz + self.sxz[src], self.rterms)
+            recP = self._RecP[src]
+
+        else:
+            if getattr(self, '_RecP', None) is None:
+                self._RecP = self.getPGeneral(self.rxz, self.rterms)
+            recP = self._RecP
+
+        return icoeffs * recP
+
+    def getRecPAll(self, isrc=slice(None), coeffs=None, ky=0.):
+
+        return (self.getRecP(isrc, coeffs[isrc] if coeffs is not None else None, ky) for isrc in range(self._nsrc)[isrc])
+
+    def getSrcP(self, coeffs=None):
+
+        if coeffs is not None:
+            icoeffs = sp.diags(coeffs, 0)
+        else:
+            icoeffs = 1.
+
+        if getattr(self, '_SrcP', None) is None:
+            self._SrcP = self.getPGeneral(self.sxz, self.sterms)
+
+        return (icoeffs * self._SrcP).tocsc()
 
     def __getstate__(self):
-        return {key: self.__dict__[key] for key in ['locs', 'terms', 'kwargs'] if key in self.__dict__}
+        return {key: self.__dict__[key] for key in ['nsrc', 'nrec', 'sxz', 'sy', 'rxz', 'ry', 'sterms', 'rterms', 'rel'] if key in self.__dict__}
 
     def __setstate__(self, d):
-        if 'kwargs' in d:
-            self.__init__(d['locs'], d['terms'], **d['kwargs'])
+        for key in d:
+            setattr(self, key, d[key])
+
+    @property
+    def vnD(self):
+        return np.ones((self._nsrc,)) * self._nrec
+
+    @property
+    def nD(self):
+        return self._nsrc * self._nrec
+
+    @property
+    def nSrc(self):
+        return self._nsrc
+
+    @SimPEG.Utils.count
+    def projectFields(self, u, ky=0.):
+
+        mapf = lambda P, si: P*u[:,si]
+        if ky != 0.:
+            d = np.array(map(mapf, self.getRecPAll(self.mesh, None, slice(None)), xrange(self._nsrc)))
         else:
-            self.__init__(d['locs'], d['terms'])
+            d = self.getRecP(0, None) * u
 
-class HelmSrc(SimPEG.Survey.BaseSrc):
-
-    rxPair = HelmRx
-
-    def __init__(self, loc, term, rxList, **kwargs):
-
-        # TODO: I would rather not store ireg and freeSurf in every single source and receiver!
-        #       I feel like it actually makes more sense to have these as properties of the mesh.
-        
-        self.term = term
-        self.loc = loc.reshape((1,3))
-
-        SimPEG.Survey.BaseSrc.__init__(self, rxList, **kwargs)
-
-    def getq(self, mesh):
-
-        ireg, freeSurf = assumeConditions(mesh)
-        q = srcVecs(self.loc[0, ::2].reshape((1,2)), self.term, mesh, ireg, freeSurf)[0]
-
-        return q
-
-    def _getcoeffs(self, ky):
-
-        coeffs = []
-
-        slocy = self.loc[0,1]
-        for rx in self.rxList:
-            rlocys = rx.locs[:, 1]
-            dy = abs(slocy - rlocys)
-            coeffs.append(numpy.cos(1*numpy.pi*ky*dy))
-
-        return coeffs
-
-    def getP(self, mesh, ky=None):
-
-        if ky is None:
-            inky = 0.
-        else:
-            inky = ky
-
-        result = []
-        coeffslist = self._getcoeffs(inky)
-
-        for ir in xrange(len(self.rxList)):
-            rx = self.rxList[ir]
-            coeffs = coeffslist[ir]
-            result.append(rx.getP(mesh, coeffs))
-
-        return result
-
-    def getqback(self, mesh, terms, ky=None):
-
-        if ky is None:
-            inky = 0.
-        else:
-            inky = ky
-
-        coeffs = self._getcoeffs(inky)
-
-        # Loop over all receivers in self.rxList
-        # Get the results, possibly for more than one component, times the appropriate term
-        # Add all of these together to produce a single RHS vector for backpropagation
-        q = reduce(numpy.add, (reduce(numpy.add, rx.getq(mesh, terms[i]*coeffs[i] if hasattr(terms, '__contains__') else coeffs[i])) for i, rx in enumerate(self.rxList)))
-
-        return q
-
-    def __getitem__(self, sl):
-        return self.rxList.__getitem__(sl)
-
-    def __getstate__(self):
-        return {key: self.__dict__[key] for key in ['loc', 'term', 'rxList', 'kwargs'] if key in self.__dict__}
-
-    def __setstate__(self, d):
-        if 'kwargs' in d:
-            self.__init__(d['loc'], d['term'], d['rxList'], **d['kwargs'])
-        else:
-            self.__init__(d['loc'], d['term'], d['rxList'])
-
-class SurveyHelm(SimPEG.Survey.BaseSurvey):
-
-    srcPair = HelmSrc
-
-    def __init__(self, dispatcher, **kwargs):
-
-        self.dispatcher = dispatcher
-        sc = self.dispatcher.systemConfig
-
-        self.geom = sc.get('geom', None)
-
-        if self.geom is not None:
-            self.srcList = self.genSrc()
-        else:
-            self.srcList = None
-        SimPEG.Survey.BaseSurvey.__init__(self, **kwargs)
-
-    def genSrc(self, srcTerms=None, rxTerms=None):
-
-        mode = self.geom['mode'].lower()
-
-        if mode == 'relative':
-            # Streamer relative to source location
-            srcs = []
-            for i, sloc in enumerate(self.geom['src']):
-                rxs = [HelmRx(sloc + rloc, rxTerms[j] if rxTerms is not None else 1.) for j, rloc in enumerate(self.geom['rec'])]
-                srcs.append(HelmSrc(sloc, srcTerms[i] if srcTerms is not None else 1., rxs))
-
-        elif mode == 'absolute':
-            # Separate array in absolute coordinates for each source
-            srcs = []
-            for i, sloc in enumerate(self.geom['src']):
-                rxs = [HelmRx(rloc, rxTerms[i][j] if rxTerms is not None else 1.) for j, rloc in enumerate(self.geom['rec'][i])]
-                srcs.append(HelmSrc(sloc, srcTerms[i] if srcTerms is not None else 1., rxs))
-
-        else:
-            # Fixed array common for all sources
-            rxs = [HelmRx(loc, rxTerms[j] if rxTerms is not None else 1.) for j, loc in enumerate(self.geom['rec'])]
-            srcs = [HelmSrc(loc, srcTerms[i] if srcTerms is not None else 1., rxs) for i, loc in enumerate(self.geom['src'])]
-
-        return srcs
-
-    def projectFields(self, u=None):
-
-        self.dispatcher.forward()
-
-        return self.dispatcher.d
-
-
-
-
+        return d
