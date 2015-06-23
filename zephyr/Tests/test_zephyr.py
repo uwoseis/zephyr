@@ -67,7 +67,7 @@ class TestZephyr(unittest.TestCase):
         problem = SeisFDFD25DProblem(sc)
         survey = problem.survey
 
-        u, d = problem.forward(sx)
+        u, d = problem.forward()
 
     def test_parallelForwardModelling(self):
 
