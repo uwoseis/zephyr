@@ -645,7 +645,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
         self.remote = RemoteInterface(systemConfig.get('profile', None), systemConfig.get('MPI', None), bootstrap=bootstrap)
 
-        localcache = ['chunksPerWorker', 'ensembleClear']
+        localcache = ['chunksPerWorker', 'ensembleClear', 'estimateSource']
         for key in localcache:
             if key in self.systemConfig:
                 setattr(self, '_%s'%(key,), systemConfig[key])
@@ -831,6 +831,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
         self._solvedF = False
         self._solvedB = False
         self._residualPrecomputed = False
+        self._srcEstimated = False
         self._misfit = None
 
         self._subConfigSettings['cmin'] = self.systemConfig['c'].min()
@@ -947,9 +948,16 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
             raise Exception('No observed data has been defined!')
 
         if not getattr(self, '_residualPrecomputed', False):
+
+            if self.estimateSource:
+                self.srcEst()
+            else:
+                code = "if 'srcTerm' not in %(endpoint)s.globalFields:\n    %(endpoint)s.globalFields['srcTerm'] = {key: 1. for key in %(endpoint)s.globalFields['dPred']}"
+                self.remote.e0.execute(code%{'endpoint': self.endpointName})
             # self.remote.remoteDifferenceGatherFirst('dPred', 'dObs', 'dResid')
             # #self.remote.dview.execute('dResid = CommonReducer({key: np.log(dResid[key]).real for key in dResid.keys()}')
-            self.remote.e0.execute("%(endpoint)s.globalFields['dResid'] = %(endpoint)s.globalFields['dPred'] - %(endpoint)s.globalFields['dObs']"%{'endpoint': self.endpointName})
+            code = "%(endpoint)s.globalFields['dResid'] = %(endpoint)s.globalFields['srcTerm']*%(endpoint)s.globalFields['dPred'] - %(endpoint)s.globalFields['dObs']"
+            self.remote.e0.execute(code%{'endpoint': self.endpointName})
             parallelcode = "if rank != %(root)d:\n    %(endpoint)s.globalFields['dResid'] = None\n%(endpoint)s.globalFields['dResid'] = comm.bcast(%(endpoint)s.globalFields['dResid'], 0)"
             self.remote.dview.execute(parallelcode%{'endpoint': self.endpointName, 'root': 0})
             self._residualPrecomputed = True
@@ -975,6 +983,19 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
             return self._misfit
         else:
             return None
+
+    def srcEst(self, individual=False):
+        if not getattr(self, '_srcEstimated', False):
+            if self.solvedF:
+                self._residualPrecomputed = False
+
+                dPred = "%(endpoint)s.globalFields['dPred']"%{'endpoint': self.endpointName}
+                dObs = "%(endpoint)s.globalFields['dObs']"%{'endpoint': self.endpointName}
+                srcTerm = "%(endpoint)s.globalFields['srcTerm']"%{'endpoint': self.endpointName}
+
+                self.remote.remoteSrcEstGatherFirst(srcTerm, dPred, dObs, individual)
+
+                self._srcEstimated = True
 
     @property
     def nx(self):
@@ -1020,6 +1041,10 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
     @property
     def ensembleClear(self):
         return getattr(self, '_ensembleClear', False)
+
+    @property
+    def estimateSource(self):
+        return getattr(self, '_estimateSource', True)
 
     @property
     def curModel(self):
