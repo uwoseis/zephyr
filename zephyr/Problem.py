@@ -669,14 +669,6 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
         # Begin construction of Endpoint object
         endpoint = Endpoint()
 
-        # endpoint.functions = {
-        #     'forwardFromTagAccumulate':     SeisFDFDDispatcher._forwardFromTagAccumulate,     # funcRef('_forwardFromTagAccumulate'),
-        #     'forwardFromTagAccumulateAll':  SeisFDFDDispatcher._forwardFromTagAccumulateAll,  # funcRef('_forwardFromTagAccumulateAll'),
-        #     'backpropFromTagAccumulate':    SeisFDFDDispatcher._backpropFromTagAccumulate,    # funcRef('_backpropFromTagAccumulate'),
-        #     'backpropFromTagAccumulateAll': SeisFDFDDispatcher._backpropFromTagAccumulateAll, # funcRef('_backpropFromTagAccumulateAll'),
-        #     'clearFromTag':                 SeisFDFDDispatcher._clearFromTag,                 # funcRef('_clearFromTag'),
-        # }
-
         endpoint.fieldspec = {
             'dPred':    CommonReducer,
             'dResid':   CommonReducer,
@@ -684,7 +676,8 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
             'bWave':    CommonReducer,
         }
 
-        endpoint.systemFactory = SeisFDFD25DProblem#Reference('Kernel.SeisFDFDKernel')#lambda sc: SeisFDFDKernel(sc)
+        endpoint.problemFactory = SeisFDFD25DProblem
+        endpoint.surveyFactory = SeisFDFD25DSurvey
         endpoint.baseSystemConfig = systemConfig
 
         # End local construction of Endpoint object and send to workers
@@ -696,9 +689,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
         fnLoc = lambda fnName: '%s.functions["%s"]'%(self.endpointName, fnName)
         dview[fnLoc('forwardFromTagAccumulate')]        = self._forwardFromTagAccumulate
-        dview[fnLoc('forwardFromTagAccumulateAll')]     = self._forwardFromTagAccumulateAll
         dview[fnLoc('backpropFromTagAccumulate')]       = self._backpropFromTagAccumulate
-        dview[fnLoc('backpropFromTagAccumulateAll')]    = self._backpropFromTagAccumulateAll
         dview[fnLoc('clearFromTag')]                    = self._clearFromTag
 
         if getattr(self, '_srcs', None) is not None:
@@ -706,8 +697,8 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
         dview.apply_sync(Reference('%s.setupLocalFields'%(self.endpointName,)))
 
-        surveySubConfigs = {ifreq: {} for ifreq in xrange(subConfigSettings['freqs'])}
-        dview.apply_sync(Reference('%s.setupLocalSurveys'), surveySubConfigs)
+        surveySubConfigs = {ifreq: {} for ifreq in xrange(len(subConfigSettings['freqs']))}
+        dview.apply_sync(Reference('%s.setupLocalSurveys'%(self.endpointName,)), surveySubConfigs)
 
         problemSetupFunction = ParallelFunction(dview, Reference('%s.setupLocalProblem'%(self.endpointName,)), dist='r', block=True).map
         rotate = lambda vec: vec[-1:] + vec[:-1]
@@ -723,8 +714,8 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
         # End remote update of Endpoint object
 
         schedule = {
-            'forward': {'solve': 'forwardFromTagAccumulateAll', 'clear': 'clearFromTag', 'reduce': ['dPred', 'fWave']},
-            'backprop': {'solve': 'backpropFromTagAccumulateAll', 'clear': 'clearFromTag', 'reduce': ['bWave']},
+            'forward': {'solve': 'forwardFromTagAccumulate', 'clear': 'clearFromTag', 'reduce': ['dPred', 'fWave']},
+            'backprop': {'solve': 'backpropFromTagAccumulate', 'clear': 'clearFromTag', 'reduce': ['bWave']},
         }
 
         self.systemsolver = SystemSolver(self, self.endpointName, schedule)
@@ -749,96 +740,81 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
     @staticmethod
     @interactive
     def _clearFromTag(endpoint, tag):
-        return endpoint.localSystems[tag].clear()
+        return endpoint.localProblems[tag].clear()
 
     @staticmethod
     @interactive
-    def _forwardFromTagAccumulate(endpoint, tag, isrc, **kwargs):
+    def _forwardFromTagAccumulate(endpoint, tag, isrcs, **kwargs):
 
-        locS = endpoint.localSystems
+        locP = endpoint.localProblems
         locF = endpoint.localFields
 
         from IPython.parallel.error import UnmetDependency
-        if not tag in locS:
+        if not tag in locP:
             raise UnmetDependency
 
         key = tag[0]
 
         dPred = locF['dPred']
         if not key in dPred:
-            dims = (len(endpoint.srcs), reduce(max, (src.nD for src in endpoint.srcs)))
-            dPred[key] = np.zeros(dims, dtype=locS[tag].dtypeComplex)
+            dims = locP[tag].dataDims
+            dPred[key] = np.zeros(dims, dtype=locP[tag].dtypeComplex)
 
         fWave = locF['fWave']
         if not key in fWave:
-            dims = (len(endpoint.srcs), locS[tag].mesh.nN)
-            fWave[key] = np.zeros(dims, dtype=locS[tag].dtypeComplex)
+            dims = locP[tag].fieldDims
+            fWave[key] = np.zeros(dims, dtype=locP[tag].dtypeComplex)
 
-        u, d = locS[tag].forward(endpoint.srcs[isrc], dOnly=False, **kwargs)
-        fWave[key][isrc,:] += u
-        dPred[key][isrc,:] += d
-
-    @staticmethod
-    @interactive
-    def _forwardFromTagAccumulateAll(endpoint, tag, isrcs, **kwargs):
-
-        for isrc in isrcs:
-            endpoint.functions['forwardFromTagAccumulate'](endpoint, tag, isrc, **kwargs)
+        u, d = locP[tag].forward(isrcs, **kwargs)
+        fWave[key][isrcs,:] += u
+        dPred[key][isrcs,:] += d
 
     @staticmethod
     @interactive
-    def _backpropFromTagAccumulate(endpoint, tag, isrc, **kwargs):
+    def _backpropFromTagAccumulate(endpoint, tag, isrcs, **kwargs):
 
-        locS = endpoint.localSystems
+        locP = endpoint.localProblems
         locF = endpoint.localFields
         gloF = endpoint.globalFields
 
         from IPython.parallel.error import UnmetDependency
-        if not tag in locS:
+        if not tag in locP:
             raise UnmetDependency
 
         key = tag[0]
 
         bWave = locF['bWave']
         if not key in bWave:
-            dims = (len(endpoint.srcs), locS[tag].mesh.nN)
-            bWave[key] = np.zeros(dims, dtype=locS[tag].dtypeComplex)
+            dims = locP[tag].fieldDims
+            bWave[key] = np.zeros(dims, dtype=locP[tag].dtypeComplex)
 
         dResid = gloF.get('dResid', None)
         if dResid is not None and key in dResid:
-            resid = dResid[key][isrc,:]
-            u = locS[tag].backprop(endpoint.srcs[isrc], np.conj(resid))
-            bWave[key][isrc,:] += u
-
-    @staticmethod
-    @interactive
-    # @blockOnTag
-    def _backpropFromTagAccumulateAll(endpoint, tag, isrcs, **kwargs):
-
-        for isrc in isrcs:
-            endpoint.functions['backpropFromTagAccumulate'](endpoint, tag, isrc, **kwargs) 
+            resid = dResid[key][isrcs,:]
+            u = locP[tag].backprop(isrcs, np.conj(resid)) # TODO: Check if this should be conj...?
+            bWave[key][isrcs,:] += u
 
     # Fields
     def forward(self):
 
-        if self.srcs is None:
-            raise Exception('Sources not defined!')
+        # if self.srcs is None:
+        #     raise Exception('Sources not defined!')
 
         if not self.solvedF:
             self.remote.dview.apply(Reference('%s.setupLocalFields'%self.endpointName), ['fWave', 'dPred'])
-            self.forwardGraph = self.systemsolver('forward', slice(len(self.srcs)))
+            self.forwardGraph = self.systemsolver('forward', slice(None))
 
     def backprop(self, dresid=None):
 
-        if self.srcs is None:
-            raise Exception('Sources not defined!')
+        # if self.srcs is None:
+        #     raise Exception('Sources not defined!')
 
         # if not self.dresid:
         #     raise Exception('Data residuals not defined!')
 
         if not self.solvedB:
             self.remote.dview.apply(Reference('%s.setupLocalFields'%self.endpointName), ['bWave'])
-            self.backpropGraph = self.systemsolver('backprop', slice(len(self.srcs)))
+            self.backpropGraph = self.systemsolver('backprop', slice(None))
 
     def rebuildSystem(self, c = None):
         if c is not None:
