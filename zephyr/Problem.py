@@ -802,7 +802,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
         if not self.solvedF:
             self.remote.dview.apply(Reference('%s.setupLocalFields'%self.endpointName), ['fWave', 'dPred'])
-            self.forwardGraph = self.systemsolver('forward', slice(None))
+            self.forwardGraph = self.systemsolver('forward', slice(self.nsrc))
 
     def backprop(self, dresid=None):
 
@@ -814,7 +814,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
         if not self.solvedB:
             self.remote.dview.apply(Reference('%s.setupLocalFields'%self.endpointName), ['bWave'])
-            self.backpropGraph = self.systemsolver('backprop', slice(None))
+            self.backpropGraph = self.systemsolver('backprop', slice(self.nsrc))
 
     def rebuildSystem(self, c = None):
         if c is not None:
@@ -877,14 +877,14 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
     @property
     def uF(self):
         if self.solvedF:
-            return self._getGlobalField('fWave').reshape(self.fieldDims)
+            return self._getGlobalField('fWave')
         else:
             return None
 
     @property
     def uB(self):
         if self.solvedB:
-            return self._getGlobalField('bWave').reshape(self.fieldDims)
+            return self._getGlobalField('bWave')
         else:
             return None
 
@@ -940,7 +940,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
     def _computeResidual(self):
         if not self.solvedF:
-            #raise Exception('Forward problem has not been solved yet!')
+            raise Exception('Forward problem has not been solved yet!')
             pass
 
         if self.dObs is None:
@@ -950,7 +950,8 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
             # self.remote.remoteDifferenceGatherFirst('dPred', 'dObs', 'dResid')
             # #self.remote.dview.execute('dResid = CommonReducer({key: np.log(dResid[key]).real for key in dResid.keys()}')
             self.remote.e0.execute("%(endpoint)s.globalFields['dResid'] = %(endpoint)s.globalFields['dPred'] - %(endpoint)s.globalFields['dObs']"%{'endpoint': self.endpointName})
-            self.remote.dview.execute("%(endpoint)s.globalFields['dResid'] = comm.bcast(%(endpoint)s.globalFields['dResid'], 0)"%{'endpoint': self.endpointName})
+            parallelcode = "if rank != %(root)d:\n    %(endpoint)s.globalFields['dResid'] = None\n%(endpoint)s.globalFields['dResid'] = comm.bcast(%(endpoint)s.globalFields['dResid'], 0)"
+            self.remote.dview.execute(parallelcode%{'endpoint': self.endpointName, 'root': 0})
             self._residualPrecomputed = True
 
     @property

@@ -262,9 +262,9 @@ class SeisFDFD25DSurvey(SimPEG.Survey.BaseSurvey):
 
         return icoeffs * recP
 
-    def getRecPAll(self, isrc=slice(None), coeffs=None, ky=0.):
+    def getRecPAll(self, isrcs=slice(None), coeffs=None, ky=0.):
 
-        return (self.getRecP(isrc, coeffs[isrc] if coeffs is not None else None, ky) for isrc in range(self._nsrc)[isrc])
+        return (self.getRecP(isrc, coeffs[isrc] if coeffs is not None else None, ky) for isrc in range(self._nsrc)[isrcs])
 
     def getSrcP(self, coeffs=None):
 
