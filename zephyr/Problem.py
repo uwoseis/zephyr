@@ -577,20 +577,26 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         q = self.kyweight * self.survey.getSrcP(coeffs)[isrc].T
         uF = self.Ainv * self._densify(q)
 
+        indices = isrc.indices(self.survey.nSrc)
+
         mapf = lambda P, si: P*uF[:,si]
         if self.ky != 0.:
-            d = np.array(map(mapf, self.survey.getRecPAll(isrc, None, self.ky), xrange(self.survey.nsrc)))
+            d = np.array(map(mapf, self.survey.getRecPAll(isrc, None, self.ky), xrange(*indices)))
         else:
             d = self.survey.getRecP(0, None, 0.) * uF
 
-        return uF.T.reshape(self.fieldDims), d.T.reshape(self.dataDims)
+        subFieldDims = (indices[1] - indices[0], self.remoteFieldDims[1])
+        subDataDims =  (indices[1] - indices[0], self.dataDims[1])
+        return uF.T.reshape(subFieldDims), d.T.reshape(subDataDims)
 
     def backprop(self, isrc=slice(None), dresid=None):
 
         qr = self.kyweight * np.array(np.concatenate([P.sum(axis=0) for P in self.survey.getRecPAll(isrc, dresid, self.ky)])).T
         uB = self.Ainv * qr
 
-        return uB.T.reshape(self.fieldDims)
+        indices = isrc.indices(self.survey.nSrc)
+        subFieldDims = (indices[1] - indices[0], self.remoteFieldDims[1])
+        return uB.T.reshape(subFieldDims)
 
     def pair(self, d):
         """Bind a survey to this problem instance using pointers."""
@@ -671,7 +677,6 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
         endpoint.fieldspec = {
             'dPred':    CommonReducer,
-            'dResid':   CommonReducer,
             'fWave':    CommonReducer,
             'bWave':    CommonReducer,
         }
@@ -762,7 +767,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
         fWave = locF['fWave']
         if not key in fWave:
-            dims = locP[tag].fieldDims
+            dims = locP[tag].remoteFieldDims
             fWave[key] = np.zeros(dims, dtype=locP[tag].dtypeComplex)
 
         u, d = locP[tag].forward(isrcs, **kwargs)
@@ -785,7 +790,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
         bWave = locF['bWave']
         if not key in bWave:
-            dims = locP[tag].fieldDims
+            dims = locP[tag].remoteFieldDims
             bWave[key] = np.zeros(dims, dtype=locP[tag].dtypeComplex)
 
         dResid = gloF.get('dResid', None)
@@ -878,14 +883,14 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
     @property
     def uF(self):
         if self.solvedF:
-            return self._getGlobalField('fWave')
+            return self._getGlobalField('fWave').reshape(self.fieldDims)
         else:
             return None
 
     @property
     def uB(self):
         if self.solvedB:
-            return self._getGlobalField('bWave')
+            return self._getGlobalField('bWave').reshape(self.fieldDims)
         else:
             return None
 
@@ -937,7 +942,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
     @dObs.setter
     def dObs(self, value):
         self._dobs = CommonReducer(value)
-        self.remote.dview["%(endpoint)s.globalFields['dObs']"%{'endpoint': self.endpointName}] = self._dobs
+        self.remote.e0["%(endpoint)s.globalFields['dObs']"%{'endpoint': self.endpointName}] = self._dobs
 
     def _computeResidual(self):
         if not self.solvedF:
