@@ -692,29 +692,41 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
         # Begin remote update of Endpoint object
         dview = self.remote.dview
 
+        # Determine number of subproblems
+        parFac = systemConfig.get('parFac', 1)
+        nSubProblems = self._subConfigSettings['nky'] * len(self._subConfigSettings['freqs'])
+        nWorkers = len(dview)
+        nSetupMin = max(nWorkers, nSubProblems)
+        setupCycles = np.ceil(parFac * (1. * nSetupMin) / nSubProblems)
+
         fnLoc = lambda fnName: '%s.functions["%s"]'%(self.endpointName, fnName)
         dview[fnLoc('forwardFromTagAccumulate')]        = self._forwardFromTagAccumulate
         dview[fnLoc('backpropFromTagAccumulate')]       = self._backpropFromTagAccumulate
         dview[fnLoc('clearFromTag')]                    = self._clearFromTag
-
-        if getattr(self, '_srcs', None) is not None:
-            dview['%s.srcs'%(self.endpointName,)] = self._srcs
 
         dview.apply_sync(Reference('%s.setupLocalFields'%(self.endpointName,)))
 
         surveySubConfigs = {ifreq: {} for ifreq in xrange(len(subConfigSettings['freqs']))}
         dview.apply_sync(Reference('%s.setupLocalSurveys'%(self.endpointName,)), surveySubConfigs)
 
-        problemSetupFunction = ParallelFunction(dview, Reference('%s.setupLocalProblem'%(self.endpointName,)), dist='r', block=True).map
+        psfkwargs = {
+            'dist': 'r',
+            #'chunksize': 1,
+            'block': True,
+        }
+            
+        problemSetupFunction = ParallelFunction(dview, Reference('%s.setupLocalProblem'%(self.endpointName,)), **psfkwargs).map
         rotate = lambda vec: vec[-1:] + vec[:-1]
 
         # TODO: This is non-optimal if there are fewer subproblems than workers
         subConfigs = self._gen25DSubConfigs(**subConfigSettings)
-        parFac = systemConfig.get('parFac', 1)
-        while parFac > 0:
-            problemSetupFunction(subConfigs)
+        activeSubConfigs = []
+        while setupCycles > 0:
             subConfigs = rotate(subConfigs)
-            parFac -= 1
+            activeSubConfigs += subConfigs
+            setupCycles -= 1
+        
+        problemSetupFunction(activeSubConfigs)
 
         # End remote update of Endpoint object
 
@@ -723,7 +735,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
             'backprop': {'solve': 'backpropFromTagAccumulate', 'clear': 'clearFromTag', 'reduce': ['bWave']},
         }
 
-        self.systemsolver = SystemSolver(self, self.endpointName, schedule)
+        self.systemsolver = SystemSolver(self, schedule)
 
     @staticmethod
     def _gen25DSubConfigs(freqs, nky, cmin):
@@ -744,7 +756,12 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
     @staticmethod
     @interactive
-    def _clearFromTag(endpoint, tag):
+    def _clearFromTag(endpoint, tag, reqrank=None):
+        if reqrank is not None:
+            if reqrank != rank:
+                from IPython.parallel.error import UnmetDependency
+                raise UnmetDependency
+
         return endpoint.localProblems[tag].clear()
 
     @staticmethod
