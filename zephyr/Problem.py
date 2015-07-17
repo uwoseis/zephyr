@@ -323,9 +323,6 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
 
         aky = 2*np.pi*self.ky
 
-        # Model parameter M
-        K = ((omega**2 / cPad**2) - aky**2) / rhoPad
-
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.mesh.hx[0]
         dz  = self.mesh.hy[0]
@@ -355,16 +352,16 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
 
         freeSurf = self.mesh.freeSurf
 
-        if freeSurf[0]:    
+        if not freeSurf[2]:
             isnz[-nPML:,:] = -1 # Top
 
-        if freeSurf[1]:
+        if not freeSurf[1]:
             isnx[:,-nPML:] = -1 # Right Side
 
-        if freeSurf[2]:
+        if not freeSurf[0]:
             isnz[:nPML,:] = 1 # Bottom
 
-        if freeSurf[3]:
+        if not freeSurf[3]:
             isnx[:,:nPML] = 1 # Left side
 
         dpmlx[:,:nPML] = (np.arange(nPML, 0, -1)*dx).reshape((1,nPML))
@@ -445,16 +442,19 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         # bPP[-1, :] = bEE[-1, :]
         # bPP[ :,-1] = bEE[ :,-1]
 
+        # Model parameter M
+        Krho = ((omega**2 / cPad**2) - aky**2)
+
         # K = omega^2/(c^2 . rho)
-        kMM = K[0:-2,0:-2] # bottom left
-        kME = K[0:-2,1:-1] # bottom centre
-        kMP = K[0:-2,2:  ] # bottom centre
-        kEM = K[1:-1,0:-2] # middle left
-        kEE = K[1:-1,1:-1] # middle centre
-        kEP = K[1:-1,2:  ] # middle right
-        kPM = K[2:  ,0:-2] # top    left
-        kPE = K[2:  ,1:-1] # top    centre
-        kPP = K[2:  ,2:  ] # top    right
+        kMM = Krho[0:-2,0:-2] * bMM # bottom left
+        kME = Krho[0:-2,1:-1] * bME # bottom centre
+        kMP = Krho[0:-2,2:  ] * bMP # bottom centre
+        kEM = Krho[1:-1,0:-2] * bEM # middle left
+        kEE = Krho[1:-1,1:-1] * bEE # middle centre
+        kEP = Krho[1:-1,2:  ] * bEP # middle right
+        kPM = Krho[2:  ,0:-2] * bPM # top    left
+        kPE = Krho[2:  ,1:-1] * bPE # top    centre
+        kPP = Krho[2:  ,2:  ] * bPP # top    right
 
         # 9-point fd star
         acoef   = 0.5461
@@ -497,6 +497,8 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
                     + bcoef*bPP*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
         }
 
+        self._setupBoundary(diagonals, freeSurf)
+
         diagonals['AD'] = diagonals['AD'].ravel()[dims[1]+1:          ]
         diagonals['DD'] = diagonals['DD'].ravel()[dims[1]  :          ]
         diagonals['CD'] = diagonals['CD'].ravel()[dims[1]-1:          ]
@@ -507,9 +509,8 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         diagonals['FF'] = diagonals['FF'].ravel()[         :-dims[1]  ]
         diagonals['CF'] = diagonals['CF'].ravel()[         :-dims[1]-1]
 
-        # self._setupBoundary(diagonals, freeSurf)
-        if any(freeSurf):
-            raise NotImplementedError('Free surface not implemented!')
+        # if any(freeSurf):
+        #     raise NotImplementedError('Free surface not implemented!')
 
         # for key in diagonals.keys():
         #     print('%s:\t%d\t%d'%(key, diagonals[key].size, offsets[key]))
@@ -521,42 +522,42 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
 
         return A
 
-    # def _setupBoundary(self, diagonals, freeSurf):
-    #     """
-    #     Function to set up boundary regions for the Seismic FDFD problem
-    #     using the 9-point finite-difference stencil from OMEGA/FULLWV.
-    #     """
+    def _setupBoundary(self, diagonals, freeSurf):
+        """
+        Function to set up boundary regions for the Seismic FDFD problem
+        using the 9-point finite-difference stencil from OMEGA/FULLWV.
+        """
 
-    #     keys = diagonals.keys()
-    #     pickDiag = lambda x: -1. if freeSurf[x] else 1.
+        keys = diagonals.keys()
+        pickDiag = lambda x: -1. if freeSurf[x] else 1.
 
-    #     # Left
-    #     for key in keys:
-    #         if key is 'BE':
-    #             diagonals[key][:,0] = pickDiag(3)
-    #         else:
-    #             diagonals[key][:,0] = 0.
+        # Left
+        for key in keys:
+            if key is 'BE':
+                diagonals[key][:,0] = pickDiag(3)
+            else:
+                diagonals[key][:,0] = 0.
 
-    #     # Right
-    #     for key in keys:
-    #         if key is 'BE':
-    #             diagonals[key][:,-1] = pickDiag(1)
-    #         else:
-    #             diagonals[key][:,-1] = 0.
+        # Right
+        for key in keys:
+            if key is 'BE':
+                diagonals[key][:,-1] = pickDiag(1)
+            else:
+                diagonals[key][:,-1] = 0.
 
-    #     # Bottom
-    #     for key in keys:
-    #         if key is 'BE':
-    #             diagonals[key][0,:] = pickDiag(2)
-    #         else:
-    #             diagonals[key][0,:] = 0.
+        # Bottom
+        for key in keys:
+            if key is 'BE':
+                diagonals[key][0,:] = pickDiag(0)
+            else:
+                diagonals[key][0,:] = 0.
 
-    #     # Top
-    #     for key in keys:
-    #         if key is 'BE':
-    #             diagonals[key][-1,:] = pickDiag(0)
-    #         else:
-    #             diagonals[key][-1,:] = 0.
+        # Top
+        for key in keys:
+            if key is 'BE':
+                diagonals[key][-1,:] = pickDiag(2)
+            else:
+                diagonals[key][-1,:] = 0.
 
     @staticmethod
     def _densify(inmat):
