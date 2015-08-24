@@ -31,7 +31,8 @@ setup(
     packages = find_packages(),
     install_requires = ['numpy>=1.7',
                         'scipy>=0.13',
-                        'IPython>=2.3',
+                        'IPython>=4.0',
+                        'ipyparallel>=4.0'
                        ],
     author = 'Brendan Smithyman',
     author_email = 'brendan@bitsmithy.net',
