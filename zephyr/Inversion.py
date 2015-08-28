@@ -91,7 +91,7 @@ class SeisInverseProblem(object):
 
 def doInversion(problem, x0, solverChoice='lbfgs', maxiter=10, outfile='result.hdf5'):
 
-    import h5py
+    import hickle
 
     solvermap = {
         'lbfgs':    fmin_l_bfgs_b,
@@ -104,13 +104,23 @@ def doInversion(problem, x0, solverChoice='lbfgs', maxiter=10, outfile='result.h
     sim = SeisInverseProblem(problem, x0)
     res = sim(solver=solver, maxiter=maxiter)
 
-    with h5py.File(outfile) as f:
+    final = 1./(res[0] if type(res) is tuple else res).reshape(sim.arrdims)
 
-        mainGroup = f.create_group('zephyr')
-        mainGroup['initial_model'] = x0
-        mainGroup['solver'] = solverChoice
-        mainGroup['misfit'] = sim.misfits
-        mainGroup['models'] = sim.models
-        mainGroup['final_model']  = res
+    resStructure = {
+        'initial_model':    x0,
+        'solver':           solverChoice,
+        'misfits':          sim.misfits,
+        'models':           sim.models,
+        'final_model':      final,
+    }
+
+    if type(res) is tuple:
+        resStructure.update({
+            'final_misfit': res[1],
+            'status':       res[2],
+        })
+
+    hickle.dump(resStructure, outfile, compression='gzip')
 
     return sim
+    
