@@ -12,6 +12,7 @@ class SeisInverseProblem(object):
         self.freqs = self.problem._subConfigSettings['freqs']
         self._misfits = {}
         self.models = []
+        self.misfits = []
         self.gradfac = -1./(len(self.freqs) * self.problem.mesh.nN * problem.survey.nD)
 
     @staticmethod
@@ -45,7 +46,6 @@ class SeisInverseProblem(object):
         if not(key in self._misfits):
             self.printNow('\t\t\t%8.2e'%(fmisfit,))
         self._misfits[key] = fmisfit
-        self.models.append(1./x.reshape(self.arrdims))
         
         return fmisfit
     
@@ -64,7 +64,10 @@ class SeisInverseProblem(object):
 
     def progress(self, xk):
         self.iter += 1
-        self.printNow('%3d\t%8.2e'%(self.iter, self._misfits[hash(xk.tostring())])) 
+        misfit = self._misfits[hash(xk.tostring())]
+        self.printNow('%3d\t%8.2e'%(self.iter, misfit))
+        self.misfits.append(misfit)
+        self.models.append(1./xk.reshape(self.arrdims))
 
     def __call__(self, solver=None, **kwargs):
 
@@ -85,3 +88,29 @@ class SeisInverseProblem(object):
         self.printNow('  0\t%8.2e'%(fmisfit,))
         res = solver(self.f, self.x0, fprime=self.g, callback=self.progress, **kwargs)
         return res
+
+def doInversion(problem, x0, solverChoice='lbfgs', maxiter=10, outfile='result.hdf5'):
+
+    import h5py
+
+    solvermap = {
+        'lbfgs':    fmin_l_bfgs_b,
+        'ncg':      fmin_ncg,
+        'cg':       fmin_cg,
+    }
+
+    solver = solvermap.get(solverChoice, fmin_l_bfgs_b)
+
+    sim = SeisInverseProblem(problem, x0)
+    res = sim(solver=solver, maxiter=maxiter)
+
+    with h5py.File(outfile) as f:
+
+        mainGroup = f.create_group('zephyr')
+        mainGroup['initial_model'] = x0
+        mainGroup['solver'] = solverChoice
+        mainGroup['misfit'] = sim.misfits
+        mainGroup['models'] = sim.models
+        mainGroup['final_model']  = res
+
+    return sim
