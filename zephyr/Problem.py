@@ -317,19 +317,20 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         # fast --> slow is x --> y --> z as Fortran
 
         # Set up physical properties in matrices with padding
-        omega   = 2 * np.pi * self.freq 
+        omega   = 2*np.pi * self.freq 
         cPad    = np.pad(c, pad_width=1, mode='edge')
         rhoPad  = np.pad(rho, pad_width=1, mode='edge')
 
-        aky = 2*np.pi*self.ky
+        aky = 2*np.pi * self.ky
 
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.mesh.hx[0]
         dz  = self.mesh.hy[0]
         dxx = dx**2
         dzz = dz**2
-        dxz = dx*dz
+        dxz = (dxx+dzz)/2
         dd  = np.sqrt(dxz)
+        iom = 1j * omega
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
@@ -368,8 +369,8 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         dpmlx[:,-nPML:] = (np.arange(1, nPML+1, 1)*dx).reshape((1,nPML))
         dnx     = pmlfx*c*dpmlx**2
         ddnx    = 2*pmlfx*c*dpmlx
-        denx    = dnx + 1j*omega
-        r1x     = 1j*omega / denx
+        denx    = dnx + iom 
+        r1x     = iom / denx
         r1xsq   = r1x**2
         r2x     = isnx*r1xsq*ddnx/denx
 
@@ -377,8 +378,8 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         dpmlz[-nPML:,:] = (np.arange(1, nPML+1, 1)*dz).reshape((nPML,1))
         dnz     = pmlfz*c*dpmlz**2
         ddnz    = 2*pmlfz*c*dpmlz
-        denz    = dnz + 1j*omega
-        r1z     = 1j*omega / denz
+        denz    = dnz + iom
+        r1z     = iom / denz
         r1zsq   = r1z**2
         r2z     = isnz*r1zsq*ddnz/denz
 
@@ -428,33 +429,19 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         bPE = (bEE + bPE) / 2 # f1
         bPP = (bEE + bPP) / 2 # c2
 
-        # Reset the buoyancies on the outside edges
-        # bMM[ 0, :] = bEE[ 0, :]
-        # bMM[ :, 0] = bEE[ :, 0]
-        # bME[ 0, :] = bEE[ 0, :]
-        # bMP[ 0, :] = bEE[ 0, :]
-        # bMP[ :,-1] = bEE[ :,-1]
-        # bEM[ :, 0] = bEE[ :, 0]
-        # bEP[ :,-1] = bEE[ :,-1]
-        # bPM[-1, :] = bEE[-1, :]
-        # bPM[ :, 0] = bEE[ :, 0]
-        # bPE[-1, :] = bEE[-1, :]
-        # bPP[-1, :] = bEE[-1, :]
-        # bPP[ :,-1] = bEE[ :,-1]
-
         # Model parameter M
-        Krho = ((omega**2 / cPad**2) - aky**2)
+        K = ((omega**2 / cPad**2) - aky**2) / rhoPad
 
         # K = omega^2/(c^2 . rho)
-        kMM = Krho[0:-2,0:-2] * bMM # bottom left
-        kME = Krho[0:-2,1:-1] * bME # bottom centre
-        kMP = Krho[0:-2,2:  ] * bMP # bottom centre
-        kEM = Krho[1:-1,0:-2] * bEM # middle left
-        kEE = Krho[1:-1,1:-1] * bEE # middle centre
-        kEP = Krho[1:-1,2:  ] * bEP # middle right
-        kPM = Krho[2:  ,0:-2] * bPM # top    left
-        kPE = Krho[2:  ,1:-1] * bPE # top    centre
-        kPP = Krho[2:  ,2:  ] * bPP # top    right
+        kMM = K[0:-2,0:-2] # bottom left
+        kME = K[0:-2,1:-1] # bottom centre
+        kMP = K[0:-2,2:  ] # bottom centre
+        kEM = K[1:-1,0:-2] # middle left
+        kEE = K[1:-1,1:-1] # middle centre
+        kEP = K[1:-1,2:  ] # middle right
+        kPM = K[2:  ,0:-2] # top    left
+        kPE = K[2:  ,1:-1] # top    centre
+        kPP = K[2:  ,2:  ] # top    right
 
         # 9-point fd star
         acoef   = 0.5461
@@ -478,7 +465,7 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
                     + acoef*bME*(r1zsq/dz - r2z/2)/dz
                     + bcoef*(r1zsq-r1xsq)*(bMP+bMM)/(4*dxz),
             'CD':   ecoef*kMP
-                    + bcoef*bMP*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
+                    + bcoef*bMP*((r1zsq+r1xsq)/(4*dxz) - (r2z-r2x)/(4*dd)),
             'AA':   dcoef*kEM
                     + acoef*bEM*(r1xsq/dx - r2x/2)/dx
                     + bcoef*(r1xsq-r1zsq)*(bPM+bMM)/(4*dxz),
@@ -489,12 +476,12 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
                     + acoef*bEP*(r1xsq/dx + r2x/2)/dx
                     + bcoef*(r1xsq-r1zsq)*(bMP+bPP)/(4*dxz),
             'AF':   ecoef*kPM
-                    + bcoef*bPM*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
+                    + bcoef*bPM*((r1zsq+r1xsq)/(4*dxz) + (r2z-r2x)/(4*dd)),
             'FF':   dcoef*kPE
-                    + acoef*bPE*(r1zsq/dz - r2z/2)/dz
+                    + acoef*bPE*(r1zsq/dz + r2z/2)/dz
                     + bcoef*(r1zsq-r1xsq)*(bPM+bPP)/(4*dxz),
             'CF':   ecoef*kPP
-                    + bcoef*bPP*((r1zsq+r1xsq)/(4*dxz) - (r2z+r2x)/(4*dd)),
+                    + bcoef*bPP*((r1zsq+r1xsq)/(4*dxz) + (r2z+r2x)/(4*dd)),
         }
 
         self._setupBoundary(diagonals, freeSurf)
@@ -508,12 +495,6 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         diagonals['AF'] = diagonals['AF'].ravel()[         :-dims[1]+1]
         diagonals['FF'] = diagonals['FF'].ravel()[         :-dims[1]  ]
         diagonals['CF'] = diagonals['CF'].ravel()[         :-dims[1]-1]
-
-        # if any(freeSurf):
-        #     raise NotImplementedError('Free surface not implemented!')
-
-        # for key in diagonals.keys():
-        #     print('%s:\t%d\t%d'%(key, diagonals[key].size, offsets[key]))
 
         diagonals = [diagonals[key] for key in keys]
         offsets = [offsets[key] for key in keys]
