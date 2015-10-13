@@ -57,6 +57,9 @@ class Eurus(object):
             'nx':           None,
             'nz':           None,
             'freeSurf':     None,
+            'theta':        '_theta',
+            'eps':          '_eps',
+            'delta':        '_delta',
         }
 
         for key in initMap.keys():
@@ -356,14 +359,11 @@ class Eurus(object):
 
 	# For now, set eps and delta to be constant
 
+        theta	= self.theta
+	    eps    	= self.eps
+	    delta   = self.delta
 
-	    theta_val = np.pi/2
-	    eps_val = 0.2
-	    delta_val = 0.2
 
-        theta	= theta_val* np.ones(dims)
-	    eps	= eps_val* np.ones(dims)
-	    delta   = delta_val* np.ones(dims)
 
 	# Need to define Anisotropic Matrix coeffs as in OPerto et al. (2009)
 
@@ -974,6 +974,24 @@ class Eurus(object):
             A = self.A.tocsc()
             self._Solver = scipy.sparse.linalg.splu(A)
         return self._Solver
+
+    @property
+    def theta(self):
+        if getattr(self, '_theta', None) is None:
+            self._theta = 0.5 * np.pi * np.ones((self.nz, self.nx))
+        return self._theta
+
+    @property
+    def eps(self):
+        if getattr(self, '_eps', None) is None:
+            self._eps = np.zeros((self.nz, self.nx))
+        return self._eps
+
+    @property
+    def delta(self):
+        if getattr(self, '_delta', None) is None:
+            self._delta = np.zeros((self.nz, self.nx))
+        return self._delta
 
     def __mul__(self, value):
         u = self.Solver.solve(value)
