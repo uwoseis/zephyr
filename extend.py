@@ -192,52 +192,16 @@ class Eurus(object):
 
         # Diagonal offsets for the sparse matrix formation
 
-        M1_offsets = {
-                'M1_GG':   (-1) * dims[1] + (-1),
-                'M1_HH':   (-1) * dims[1] + ( 0),
-                'M1_II':   (-1) * dims[1] + (+1),
-                'M1_DD':   ( 0) * dims[1] + (-1),
-                'M1_EE':   ( 0) * dims[1] + ( 0),
-                'M1_FF':   ( 0) * dims[1] + (+1),
-                'M1_AA':   (+1) * dims[1] + (-1),
-                'M1_BB':   (+1) * dims[1] + ( 0),
-                'M1_CC':   (+1) * dims[1] + (+1),
-        }
-
-        M2_offsets = {
-                'M2_GG':   (-1) * dims[1] + (-1),
-                'M2_HH':   (-1) * dims[1] + ( 0),
-                'M2_II':   (-1) * dims[1] + (+1),
-                'M2_DD':   ( 0) * dims[1] + (-1),
-                'M2_EE':   ( 0) * dims[1] + ( 0),
-                'M2_FF':   ( 0) * dims[1] + (+1),
-                'M2_AA':   (+1) * dims[1] + (-1),
-                'M2_BB':   (+1) * dims[1] + ( 0),
-                'M2_CC':   (+1) * dims[1] + (+1),
-        }
-
-        M3_offsets = {
-                'M3_GG':   (-1) * dims[1] + (-1),
-                'M3_HH':   (-1) * dims[1] + ( 0),
-                'M3_II':   (-1) * dims[1] + (+1),
-                'M3_DD':   ( 0) * dims[1] + (-1),
-                'M3_EE':   ( 0) * dims[1] + ( 0),
-                'M3_FF':   ( 0) * dims[1] + (+1),
-                'M3_AA':   (+1) * dims[1] + (-1),
-                'M3_BB':   (+1) * dims[1] + ( 0),
-                'M3_CC':   (+1) * dims[1] + (+1),
-        }
-
-        M4_offsets = {
-                'M4_GG':   (-1) * dims[1] + (-1),
-                'M4_HH':   (-1) * dims[1] + ( 0),
-                'M4_II':   (-1) * dims[1] + (+1),
-                'M4_DD':   ( 0) * dims[1] + (-1),
-                'M4_EE':   ( 0) * dims[1] + ( 0),
-                'M4_FF':   ( 0) * dims[1] + (+1),
-                'M4_AA':   (+1) * dims[1] + (-1),
-                'M4_BB':   (+1) * dims[1] + ( 0),
-                'M4_CC':   (+1) * dims[1] + (+1),
+        offsets = {
+                'GG':   (-1) * nx + (-1),
+                'HH':   (-1) * nx + ( 0),
+                'II':   (-1) * nx + (+1),
+                'DD':   ( 0) * nx + (-1),
+                'EE':   ( 0) * nx + ( 0),
+                'FF':   ( 0) * nx + (+1),
+                'AA':   (+1) * nx + (-1),
+                'BB':   (+1) * nx + ( 0),
+                'CC':   (+1) * nx + (+1),
         }
 
         # Need to initialize the PML values
@@ -384,9 +348,10 @@ class Eurus(object):
         Gz = Fx
         Hz = Fz
 
+        keys = ['GG', 'HH', 'II', 'DD', 'EE', 'FF', 'AA', 'BB', 'CC']
 
         M1_diagonals = {
-            'M1_GG':  w1
+            'GG':  w1
                     * (
                       (((     L_x4) * Ax) * (   b_SQ3_x))
                     + (((-1 * L_x4) * Bx) * (   b_SQ3_z))
@@ -398,7 +363,7 @@ class Eurus(object):
                       (((-1 * L_x4) * Bx) * (   b_LN2_C))
                     + (((     L_z4) * Az) * (   b_LN4_C))
                     ),
-            'M1_HH':  w1
+            'HH':  w1
                     * (
                       (((     L_x4) * Ax) * ( - b_SQ3_x - b_SQ4_x))
                     + (((     L_x4) * Bx) * ( - b_SQ3_z + b_SQ4_z))
@@ -410,7 +375,7 @@ class Eurus(object):
                       (((     L_x4) * Bx) * ( - b_LN2_C + b_LN3_C))
                     + (((      L_z) * Bz) * (   b_LN4))
                     ),
-            'M1_II':  w1
+            'II':  w1
                     * (
                       (((     L_x4) * Ax) * (   b_SQ4_x))
                     + (((     L_x4) * Bx) * (   b_SQ4_z))
@@ -422,7 +387,7 @@ class Eurus(object):
                       (((     L_x4) * Bx) * (   b_LN3_C))
                     + (((     L_z4) * Az) * (   b_LN4_C))
                     ),
-            'M1_DD':  w1
+            'DD':  w1
                     * (
                       (((     L_x4) * Ax) * (   b_SQ3_x + b_SQ1_x))
                     + (((     L_x4) * Bx) * (   b_SQ3_z - b_SQ1_z))
@@ -434,7 +399,7 @@ class Eurus(object):
                       (((      L_x) * Ax) * (   b_LN2))
                     + (((     L_z4) * Az) * ( - b_LN4_C +  b_LN1_C))
                     ),
-            'M1_EE':  K_avg
+            'EE':  K_avg
                     + w1
                     * (
                       (((-1 * L_x4) * Ax) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
@@ -447,7 +412,7 @@ class Eurus(object):
                       (((      L_x) * Ax) * ( - b_LN2 - b_LN3))
                     + (((      L_z) * Bz) * ( - b_LN1 - b_LN4))
                       ),
-            'M1_FF':  w1
+            'FF':  w1
                     * (
                       (((     L_x4) * Ax) * (   b_SQ2_x + b_SQ4_x))
                     + (((     L_x4) * Bx) * (   b_SQ2_z - b_SQ4_z))
@@ -459,7 +424,7 @@ class Eurus(object):
                       (((      L_x) * Ax) * (   b_LN3))
                     + (((     L_z4) * Az) * (   b_LN4_C - b_LN1_C))
                     ),
-            'M1_AA':  w1
+            'AA':  w1
                     * (
                       (((     L_x4) * Ax) * (   b_SQ1_x))
                     + (((     L_x4) * Bx) * (   b_SQ1_z))
@@ -471,7 +436,7 @@ class Eurus(object):
                       (((-1 * L_x4) * Bx) * (   b_LN2_C))
                     + (((     L_z4) * Az) * (   b_LN1_C))
                     ),
-            'M1_BB':  w1
+            'BB':  w1
                     * (
                       (((     L_x4) * Ax) * ( - b_SQ2_x - b_SQ1_x))
                     + (((     L_x4) * Bx) * ( - b_SQ2_z + b_SQ1_z))
@@ -483,7 +448,7 @@ class Eurus(object):
                       (((     L_x4) * Bx) * ( - b_LN3_C + b_LN2_C))
                     + (((      L_z) * Bz) * (   b_LN1))
                     ),
-            'M1_CC': w1
+            'CC': w1
                     * (
                       (((     L_x4) * Ax) * (   b_SQ2_x))
                     + (((-1 * L_x4) * Bx) * (   b_SQ2_z))
@@ -498,7 +463,7 @@ class Eurus(object):
         }
 
         M2_diagonals = {
-            'M2_GG':  w1
+            'GG':  w1
                     * (
                       (((     L_x4) * Cx) * (   b_SQ3_x))
                     + (((-1 * L_x4) * Dx) * (   b_SQ3_z))
@@ -510,7 +475,7 @@ class Eurus(object):
                       (((-1 * L_x4) * Dx) * (   b_LN2_C))
                     + (((     L_z4) * Cz) * (   b_LN4_C))
                     ),
-            'M2_HH':  w1
+            'HH':  w1
                     * (
                       (((     L_x4) * Cx) * ( - b_SQ3_x - b_SQ4_x))
                     + (((     L_x4) * Dx) * ( - b_SQ3_z + b_SQ4_z))
@@ -522,7 +487,7 @@ class Eurus(object):
                       (((     L_x4) * Dx) * ( - b_LN2_C + b_LN3_C))
                     + (((      L_z) * Dz) * (   b_LN4))
                     ),
-            'M2_II':  w1
+            'II':  w1
                     * (
                       (((     L_x4) * Cx) * (   b_SQ4_x))
                     + (((     L_x4) * Dx) * (   b_SQ4_z))
@@ -534,7 +499,7 @@ class Eurus(object):
                       (((     L_x4) * Dx) * (   b_LN3_C))
                     + (((     L_z4) * Cz) * (   b_LN4_C))
                     ),
-            'M2_DD':  w1
+            'DD':  w1
                     * (
                       (((     L_x4) * Cx) * (   b_SQ3_x + b_SQ1_x))
                     + (((     L_x4) * Dx) * (   b_SQ3_z - b_SQ1_z))
@@ -546,7 +511,7 @@ class Eurus(object):
                       (((      L_x) * Cx) * (   b_LN2))
                     + (((     L_z4) * Cz) * ( - b_LN4_C +  b_LN1_C))
                     ),
-            'M2_EE':
+            'EE':
                     + w1
                     * (
                       (((-1 * L_x4) * Cx) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
@@ -559,7 +524,7 @@ class Eurus(object):
                       (((      L_x) * Cx) * ( - b_LN2 - b_LN3))
                     + (((      L_z) * Dz) * ( - b_LN1 - b_LN4))
                       ),
-            'M2_FF':  w1
+            'FF':  w1
                     * (
                       (((     L_x4) * Cx) * (   b_SQ2_x + b_SQ4_x))
                     + (((     L_x4) * Dx) * (   b_SQ2_z - b_SQ4_z))
@@ -571,7 +536,7 @@ class Eurus(object):
                       (((      L_x) * Cx) * (   b_LN3))
                     + (((     L_z4) * Cz) * (   b_LN4_C - b_LN1_C))
                     ),
-            'M2_AA':  w1
+            'AA':  w1
                     * (
                       (((     L_x4) * Cx) * (   b_SQ1_x))
                     + (((     L_x4) * Dx) * (   b_SQ1_z))
@@ -583,7 +548,7 @@ class Eurus(object):
                       (((-1 * L_x4) * Dx) * (   b_LN2_C))
                     + (((     L_z4) * Cz) * (   b_LN1_C))
                     ),
-            'M2_BB':  w1
+            'BB':  w1
                     * (
                       (((     L_x4) * Cx) * ( - b_SQ2_x - b_SQ1_x))
                     + (((     L_x4) * Dx) * ( - b_SQ2_z + b_SQ1_z))
@@ -595,7 +560,7 @@ class Eurus(object):
                       (((     L_x4) * Dx) * ( - b_LN3_C + b_LN2_C))
                     + (((      L_z) * Dz) * (   b_LN1))
                     ),
-            'M2_CC': w1
+            'CC': w1
                     * (
                       (((     L_x4) * Cx) * (   b_SQ2_x))
                     + (((-1 * L_x4) * Dx) * (   b_SQ2_z))
@@ -610,7 +575,7 @@ class Eurus(object):
         }
 
         M3_diagonals = {
-            'M3_GG':  w1
+            'GG':  w1
                     * (
                       (((     L_x4) * Ex) * (   b_SQ3_x))
                     + (((-1 * L_x4) * Fx) * (   b_SQ3_z))
@@ -622,7 +587,7 @@ class Eurus(object):
                       (((-1 * L_x4) * Fx) * (   b_LN2_C))
                     + (((     L_z4) * Ez) * (   b_LN4_C))
                     ),
-            'M3_HH':  w1
+            'HH':  w1
                     * (
                       (((     L_x4) * Ex) * ( - b_SQ3_x - b_SQ4_x))
                     + (((     L_x4) * Fx) * ( - b_SQ3_z + b_SQ4_z))
@@ -634,7 +599,7 @@ class Eurus(object):
                       (((     L_x4) * Fx) * ( - b_LN2_C + b_LN3_C))
                     + (((      L_z) * Fz) * (   b_LN4))
                     ),
-            'M3_II':  w1
+            'II':  w1
                     * (
                       (((     L_x4) * Ex) * (   b_SQ4_x))
                     + (((     L_x4) * Fx) * (   b_SQ4_z))
@@ -646,7 +611,7 @@ class Eurus(object):
                       (((     L_x4) * Fx) * (   b_LN3_C))
                     + (((     L_z4) * Ez) * (   b_LN4_C))
                     ),
-            'M3_DD':  w1
+            'DD':  w1
                     * (
                       (((     L_x4) * Ex) * (   b_SQ3_x + b_SQ1_x))
                     + (((     L_x4) * Fx) * (   b_SQ3_z - b_SQ1_z))
@@ -658,7 +623,7 @@ class Eurus(object):
                       (((      L_x) * Ex) * (   b_LN2))
                     + (((     L_z4) * Ez) * ( - b_LN4_C +  b_LN1_C))
                     ),
-            'M3_EE':
+            'EE':
                     + w1
                     * (
                       (((-1 * L_x4) * Ex) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
@@ -671,7 +636,7 @@ class Eurus(object):
                       (((      L_x) * Ex) * ( - b_LN2 - b_LN3))
                     + (((      L_z) * Fz) * ( - b_LN1 - b_LN4))
                       ),
-            'M3_FF':  w1
+            'FF':  w1
                     * (
                       (((     L_x4) * Ex) * (   b_SQ2_x + b_SQ4_x))
                     + (((     L_x4) * Fx) * (   b_SQ2_z - b_SQ4_z))
@@ -683,7 +648,7 @@ class Eurus(object):
                       (((      L_x) * Ex) * (   b_LN3))
                     + (((     L_z4) * Ez) * (   b_LN4_C - b_LN1_C))
                     ),
-            'M3_AA':  w1
+            'AA':  w1
                     * (
                       (((     L_x4) * Ex) * (   b_SQ1_x))
                     + (((     L_x4) * Fx) * (   b_SQ1_z))
@@ -695,7 +660,7 @@ class Eurus(object):
                       (((-1 * L_x4) * Fx) * (   b_LN2_C))
                     + (((     L_z4) * Ez) * (   b_LN1_C))
                     ),
-            'M3_BB':  w1
+            'BB':  w1
                     * (
                       (((     L_x4) * Ex) * ( - b_SQ2_x - b_SQ1_x))
                     + (((     L_x4) * Fx) * ( - b_SQ2_z + b_SQ1_z))
@@ -707,7 +672,7 @@ class Eurus(object):
                       (((     L_x4) * Fx) * ( - b_LN3_C + b_LN2_C))
                     + (((      L_z) * Fz) * (   b_LN1))
                     ),
-            'M3_CC': w1
+            'CC': w1
                     * (
                       (((     L_x4) * Ex) * (   b_SQ2_x))
                     + (((-1 * L_x4) * Fx) * (   b_SQ2_z))
@@ -722,7 +687,7 @@ class Eurus(object):
         }
 
         M4_diagonals = {
-            'M4_GG':  w1
+            'GG':  w1
                     * (
                       (((     L_x4) * Gx) * (   b_SQ3_x))
                     + (((-1 * L_x4) * Hx) * (   b_SQ3_z))
@@ -734,7 +699,7 @@ class Eurus(object):
                       (((-1 * L_x4) * Hx) * (   b_LN2_C))
                     + (((     L_z4) * Gz) * (   b_LN4_C))
                     ),
-            'M4_HH':  w1
+            'HH':  w1
                     * (
                       (((     L_x4) * Gx) * ( - b_SQ3_x - b_SQ4_x))
                     + (((     L_x4) * Hx) * ( - b_SQ3_z + b_SQ4_z))
@@ -746,7 +711,7 @@ class Eurus(object):
                       (((     L_x4) * Hx) * ( - b_LN2_C + b_LN3_C))
                     + (((      L_z) * Hz) * (   b_LN4))
                     ),
-            'M4_II':  w1
+            'II':  w1
                     * (
                       (((     L_x4) * Gx) * (   b_SQ4_x))
                     + (((     L_x4) * Hx) * (   b_SQ4_z))
@@ -758,7 +723,7 @@ class Eurus(object):
                       (((     L_x4) * Hx) * (   b_LN3_C))
                     + (((     L_z4) * Gz) * (   b_LN4_C))
                     ),
-            'M4_DD':  w1
+            'DD':  w1
                     * (
                       (((     L_x4) * Gx) * (   b_SQ3_x + b_SQ1_x))
                     + (((     L_x4) * Hx) * (   b_SQ3_z - b_SQ1_z))
@@ -770,7 +735,7 @@ class Eurus(object):
                       (((      L_x) * Gx) * (   b_LN2))
                     + (((     L_z4) * Gz) * ( - b_LN4_C +  b_LN1_C))
                     ),
-            'M4_EE':
+            'EE':
                     + w1
                     * (
                       (((-1 * L_x4) * Gx) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
@@ -783,7 +748,7 @@ class Eurus(object):
                       (((      L_x) * Gx) * ( - b_LN2 - b_LN3))
                     + (((      L_z) * Hz) * ( - b_LN1 - b_LN4))
                       ),
-            'M4_FF':  w1
+            'FF':  w1
                     * (
                       (((     L_x4) * Gx) * (   b_SQ2_x + b_SQ4_x))
                     + (((     L_x4) * Hx) * (   b_SQ2_z - b_SQ4_z))
@@ -795,7 +760,7 @@ class Eurus(object):
                       (((      L_x) * Gx) * (   b_LN3))
                     + (((     L_z4) * Gz) * (   b_LN4_C - b_LN1_C))
                     ),
-            'M4_AA':  w1
+            'AA':  w1
                     * (
                       (((     L_x4) * Gx) * (   b_SQ1_x))
                     + (((     L_x4) * Hx) * (   b_SQ1_z))
@@ -807,7 +772,7 @@ class Eurus(object):
                       (((-1 * L_x4) * Hx) * (   b_LN2_C))
                     + (((     L_z4) * Gz) * (   b_LN1_C))
                     ),
-            'M4_BB':  w1
+            'BB':  w1
                     * (
                       (((     L_x4) * Gx) * ( - b_SQ2_x - b_SQ1_x))
                     + (((     L_x4) * Hx) * ( - b_SQ2_z + b_SQ1_z))
@@ -819,7 +784,7 @@ class Eurus(object):
                       (((     L_x4) * Hx) * ( - b_LN3_C + b_LN2_C))
                     + (((      L_z) * Hz) * (   b_LN1))
                     ),
-            'M4_CC': w1
+            'CC': w1
                     * (
                       (((     L_x4) * Gx) * (   b_SQ2_x))
                     + (((-1 * L_x4) * Hx) * (   b_SQ2_z))
@@ -833,67 +798,64 @@ class Eurus(object):
                     ),
         }
 
-        self._setupBoundary(diagonals, freeSurf)
+        # self._setupBoundary(diagonals, freeSurf)
+        offsets = [offsets[key] for key in keys]
 
-        M1_diagonals['M1_GG'] = M1_diagonals['M1_GG'].ravel()[dims[1]+1:          ]
-        M1_diagonals['M1_HH'] = M1_diagonals['M1_HH'].ravel()[dims[1]  :          ]
-        M1_diagonals['M1_II'] = M1_diagonals['M1_II'].ravel()[dims[1]-1:          ]
-        M1_diagonals['M1_DD'] = M1_diagonals['M1_DD'].ravel()[        1:          ]
-        M1_diagonals['M1_EE'] = M1_diagonals['M1_EE'].ravel()[         :          ]
-        M1_diagonals['M1_FF'] = M1_diagonals['M1_FF'].ravel()[         :-1        ]
-        M1_diagonals['M1_AA'] = M1_diagonals['M1_AA'].ravel()[         :-dims[1]+1]
-        M1_diagonals['M1_BB'] = M1_diagonals['M1_BB'].ravel()[         :-dims[1]  ]
-        M1_diagonals['M1_CC'] = M1_diagonals['M1_CC'].ravel()[         :-dims[1]-1]
+        M1_diagonals['GG'] = M1_diagonals['GG'].ravel()[nx+1:     ]
+        M1_diagonals['HH'] = M1_diagonals['HH'].ravel()[nx  :     ]
+        M1_diagonals['II'] = M1_diagonals['II'].ravel()[nx-1:     ]
+        M1_diagonals['DD'] = M1_diagonals['DD'].ravel()[   1:     ]
+        M1_diagonals['EE'] = M1_diagonals['EE'].ravel()[    :     ]
+        M1_diagonals['FF'] = M1_diagonals['FF'].ravel()[    :-1   ]
+        M1_diagonals['AA'] = M1_diagonals['AA'].ravel()[    :-nx+1]
+        M1_diagonals['BB'] = M1_diagonals['BB'].ravel()[    :-nx  ]
+        M1_diagonals['CC'] = M1_diagonals['CC'].ravel()[    :-nx-1]
 
         M1_diagonals = [M1_diagonals[key] for key in keys]
-        M1_offsets = [M1_offsets[key] for key in keys]
 
-        M1_A = scipy.sparse.diags(M1_diagonals, M1_offsets, shape=(self.mesh.nN, self.mesh.nN),     format='csr', dtype=self.dtypeComplex)
+        M1_A = scipy.sparse.diags(M1_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
-        M2_diagonals['M2_GG'] = M2_diagonals['M2_GG'].ravel()[dims[1]+1:          ]
-        M2_diagonals['M2_HH'] = M2_diagonals['M2_HH'].ravel()[dims[1]  :          ]
-        M2_diagonals['M2_II'] = M2_diagonals['M2_II'].ravel()[dims[1]-1:          ]
-        M2_diagonals['M2_DD'] = M2_diagonals['M2_DD'].ravel()[        1:          ]
-        M2_diagonals['M2_EE'] = M2_diagonals['M2_EE'].ravel()[         :          ]
-        M2_diagonals['M2_FF'] = M2_diagonals['M2_FF'].ravel()[         :-1        ]
-        M2_diagonals['M2_AA'] = M2_diagonals['M2_AA'].ravel()[         :-dims[1]+1]
-        M2_diagonals['M2_BB'] = M2_diagonals['M2_BB'].ravel()[         :-dims[1]  ]
-        M2_diagonals['M2_CC'] = M2_diagonals['M2_CC'].ravel()[         :-dims[1]-1]
+        M2_diagonals['GG'] = M2_diagonals['GG'].ravel()[nx+1:     ]
+        M2_diagonals['HH'] = M2_diagonals['HH'].ravel()[nx  :     ]
+        M2_diagonals['II'] = M2_diagonals['II'].ravel()[nx-1:     ]
+        M2_diagonals['DD'] = M2_diagonals['DD'].ravel()[   1:     ]
+        M2_diagonals['EE'] = M2_diagonals['EE'].ravel()[    :     ]
+        M2_diagonals['FF'] = M2_diagonals['FF'].ravel()[    :-1   ]
+        M2_diagonals['AA'] = M2_diagonals['AA'].ravel()[    :-nx+1]
+        M2_diagonals['BB'] = M2_diagonals['BB'].ravel()[    :-nx  ]
+        M2_diagonals['CC'] = M2_diagonals['CC'].ravel()[    :-nx-1]
 
         M2_diagonals = [M2_diagonals[key] for key in keys]
-        M2_offsets = [M2_offsets[key] for key in keys]
 
-        M2_A = scipy.sparse.diags(M2_diagonals, M2_offsets, shape=(self.mesh.nN, self.mesh.nN),     format='csr', dtype=self.dtypeComplex)
+        M2_A = scipy.sparse.diags(M2_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
-        M3_diagonals['M3_GG'] = M3_diagonals['M3_GG'].ravel()[dims[1]+1:          ]
-        M3_diagonals['M3_HH'] = M3_diagonals['M3_HH'].ravel()[dims[1]  :          ]
-        M3_diagonals['M3_II'] = M3_diagonals['M3_II'].ravel()[dims[1]-1:          ]
-        M3_diagonals['M3_DD'] = M3_diagonals['M3_DD'].ravel()[        1:          ]
-        M3_diagonals['M3_EE'] = M3_diagonals['M3_EE'].ravel()[         :          ]
-        M3_diagonals['M3_FF'] = M3_diagonals['M3_FF'].ravel()[         :-1        ]
-        M3_diagonals['M3_AA'] = M3_diagonals['M3_AA'].ravel()[         :-dims[1]+1]
-        M3_diagonals['M3_BB'] = M3_diagonals['M3_BB'].ravel()[         :-dims[1]  ]
-        M3_diagonals['M3_CC'] = M3_diagonals['M3_CC'].ravel()[         :-dims[1]-1]
+        M3_diagonals['GG'] = M3_diagonals['GG'].ravel()[nx+1:     ]
+        M3_diagonals['HH'] = M3_diagonals['HH'].ravel()[nx  :     ]
+        M3_diagonals['II'] = M3_diagonals['II'].ravel()[nx-1:     ]
+        M3_diagonals['DD'] = M3_diagonals['DD'].ravel()[   1:     ]
+        M3_diagonals['EE'] = M3_diagonals['EE'].ravel()[    :     ]
+        M3_diagonals['FF'] = M3_diagonals['FF'].ravel()[    :-1   ]
+        M3_diagonals['AA'] = M3_diagonals['AA'].ravel()[    :-nx+1]
+        M3_diagonals['BB'] = M3_diagonals['BB'].ravel()[    :-nx  ]
+        M3_diagonals['CC'] = M3_diagonals['CC'].ravel()[    :-nx-1]
 
         M3_diagonals = [M3_diagonals[key] for key in keys]
-        M3_offsets = [M3_offsets[key] for key in keys]
 
-        M3_A = scipy.sparse.diags(M3_diagonals, M3_offsets, shape=(self.mesh.nN, self.mesh.nN),     format='csr', dtype=self.dtypeComplex)
+        M3_A = scipy.sparse.diags(M3_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
-        M4_diagonals['M4_GG'] = M4_diagonals['M4_GG'].ravel()[dims[1]+1:          ]
-        M4_diagonals['M4_HH'] = M4_diagonals['M4_HH'].ravel()[dims[1]  :          ]
-        M4_diagonals['M4_II'] = M4_diagonals['M4_II'].ravel()[dims[1]-1:          ]
-        M4_diagonals['M4_DD'] = M4_diagonals['M4_DD'].ravel()[        1:          ]
-        M4_diagonals['M4_EE'] = M4_diagonals['M4_EE'].ravel()[         :          ]
-        M4_diagonals['M4_FF'] = M4_diagonals['M4_FF'].ravel()[         :-1        ]
-        M4_diagonals['M4_AA'] = M4_diagonals['M4_AA'].ravel()[         :-dims[1]+1]
-        M4_diagonals['M4_BB'] = M4_diagonals['M4_BB'].ravel()[         :-dims[1]  ]
-        M4_diagonals['M4_CC'] = M4_diagonals['M4_CC'].ravel()[         :-dims[1]-1]
+        M4_diagonals['GG'] = M4_diagonals['GG'].ravel()[nx+1:     ]
+        M4_diagonals['HH'] = M4_diagonals['HH'].ravel()[nx  :     ]
+        M4_diagonals['II'] = M4_diagonals['II'].ravel()[nx-1:     ]
+        M4_diagonals['DD'] = M4_diagonals['DD'].ravel()[   1:     ]
+        M4_diagonals['EE'] = M4_diagonals['EE'].ravel()[    :     ]
+        M4_diagonals['FF'] = M4_diagonals['FF'].ravel()[    :-1   ]
+        M4_diagonals['AA'] = M4_diagonals['AA'].ravel()[    :-nx+1]
+        M4_diagonals['BB'] = M4_diagonals['BB'].ravel()[    :-nx  ]
+        M4_diagonals['CC'] = M4_diagonals['CC'].ravel()[    :-nx-1]
 
         M4_diagonals = [M4_diagonals[key] for key in keys]
-        M4_offsets = [M4_offsets[key] for key in keys]
 
-        M4_A = scipy.sparse.diags(M4_diagonals, M4_offsets, shape=(self.mesh.nN, self.mesh.nN),     format='csr', dtype=self.dtypeComplex)
+        M4_A = scipy.sparse.diags(M4_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
         # Need to switch these matrices together
         # A = [M1_A M2_A
