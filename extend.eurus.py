@@ -158,8 +158,8 @@ class Eurus(object):
 
 	#For now, assume r1x and r1z are the same as xi_x and xi_z from operto et al. (2009)
 
-	    Xi_x 	= 1. / r1x[0]
-	    Xi_z 	= 1. / r1z[0]
+	    Xi_x 	= 1. / r1x[0,:]
+	    Xi_z 	= 1. / r1z[:,0]
 
 	#pad edges
 
