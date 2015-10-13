@@ -861,10 +861,10 @@ class Eurus(object):
         # A = [M1_A M2_A
         #      M3_A M4_A]
 
-        top = np.hstack((M1,M2))
-        bottom = np.hstack((M3,M4))
+        top = scipy.sparse.hstack((M1_A,M2_A))
+        bottom = scipy.sparse.hstack((M3_A,M4_A))
 
-        A = np.vstack((top,bottom))
+        A = scipy.sparse.vstack((top,bottom))
         return A
 
     def _setupBoundary(self, diagonals, freeSurf):
