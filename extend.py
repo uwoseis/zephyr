@@ -735,7 +735,7 @@ class Eurus(object):
                       (((      L_x) * Gx) * (   b_LN2))
                     + (((     L_z4) * Gz) * ( - b_LN4_C +  b_LN1_C))
                     ),
-            'EE':
+            'EE':  K_avg
                     + w1
                     * (
                       (((-1 * L_x4) * Gx) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
