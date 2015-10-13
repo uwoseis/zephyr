@@ -1,7 +1,11 @@
 
 # ------------------------------------------------------------------------
 # Imports
-import fullwv
+try:
+    import fullwv
+except ImportError:
+    print('Cannot import \'fullwv\'; callback functions will not work!')
+
 import time
 
 # ------------------------------------------------------------------------
