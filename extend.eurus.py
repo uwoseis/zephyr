@@ -367,42 +367,24 @@ class Eurus(object):
 
 	# Need to define Anisotropic Matrix coeffs as in OPerto et al. (2009)
 
-	    Ax_vals = 1 + ((2*delta)*((np.cos(theta))**2)
-	    Bx_vals = (-1*delta)*np.sin(2*theta)
-	    Cx_vals = (1+(2*delta))*(np.cos(theta)**2)
-	    Dx_vals = (-1*(1+(2*delta)))*((np.sin(2*theta))/2)
-	    Ex_vals = (2*(eps-delta))*(np.cos(theta)**2)
-	    Fx_vals = (-1*(eps-delta))*(np.sin(2*theta))
-	    Gx_vals = Ex_vals
-	    Hx_vals = Fx_vals
+	    Ax = 1 + ((2*delta)*((np.cos(theta))**2)
+	    Bx = (-1*delta)*np.sin(2*theta)
+	    Cx = (1+(2*delta))*(np.cos(theta)**2)
+	    Dx = (-1*(1+(2*delta)))*((np.sin(2*theta))/2)
+	    Ex = (2*(eps-delta))*(np.cos(theta)**2)
+	    Fx = (-1*(eps-delta))*(np.sin(2*theta))
+	    Gx = Ex_vals
+	    Hx = Fx_vals
 
-	    Az_vals = Bx_vals
-	    Bz_vals = 1 + ((2*delta)*(np.sin(theta)**2))
-	    Cz_vals = Dx_vals
-	    Dz_vals = (1+(2*delta))*(np.sin(theta))
-	    Ez_vals = Fx_vals
-	    Fz_vals = (2*(eps-delta))*(np.sin(theta)**2)
-	    Gz_vals = Fx_vals
-	    Hz_vals = Fz_vals
+	    Az = Bx_vals
+	    Bz = 1 + ((2*delta)*(np.sin(theta)**2))
+	    Cz = Dx_vals
+	    Dz = (1+(2*delta))*(np.sin(theta))
+	    Ez = Fx_vals
+	    Fz = (2*(eps-delta))*(np.sin(theta)**2)
+	    Gz = Fx_vals
+	    Hz = Fz_vals
 
-
-	    Ax = Ax_vals[1:-1,1:-1]
-	    Bx = Bx_vals[1:-1,1:-1]
-	    Cx = Cx_vals[1:-1,1:-1]
-	    Dx = Dx_vals[1:-1,1:-1]
-	    Ex = Ex_vals[1:-1,1:-1]
-	    Fx = Fx_vals[1:-1,1:-1]
-	    Gx = Gx_vals[1:-1,1:-1]
-	    Hx = Hx_vals[1:-1,1:-1]
-
-	    Az = Az_vals[1:-1,1:-1]
-	    Bz = Bz_vals[1:-1,1:-1]
-	    Cz = Cz_vals[1:-1,1:-1]
-	    Dz = Dz_vals[1:-1,1:-1]
-	    Ez = Ez_vals[1:-1,1:-1]
-	    Fz = Fz_vals[1:-1,1:-1]
-	    Gz = Gz_vals[1:-1,1:-1]
-	    Hz = Hz_vals[1:-1,1:-1]
 
 
         M1_diagonals = {
