@@ -86,8 +86,8 @@ class Eurus(object):
 
         """
 
-        nx = self.nx[0]
-        nz = self.nz[0]
+        nx = self.nx
+        nz = self.nz
         dims = (nz, nx)
         nrows = nx*nz
 
@@ -100,8 +100,6 @@ class Eurus(object):
         omega   = 2*np.pi * self.freq
         cPad    = np.pad(c, pad_width=1, mode='edge')
         rhoPad  = np.pad(rho, pad_width=1, mode='edge')
-
-        #aky = 2*np.pi * self.ky
 
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.dx
@@ -165,13 +163,12 @@ class Eurus(object):
 
         #For now, assume r1x and r1z are the same as xi_x and xi_z from operto et al. (2009)
 
-        Xi_x     = 1. / r1x[0,:]
-        Xi_z     = 1. / r1z[:,0]
-
         #pad edges
+        r1x     = np.pad(r1x, pad_width=1, mode='edge')
+        r1z     = np.pad(r1z, pad_width=1, mode='edge')
 
-        Xi_x    = np.pad(Xi_x, pad_width=1, mode='edge')
-        Xi_z     = np.pad(Xi_z pad_width=1, mode='edge')
+        Xi_x     = 1. / r1x[1,:].reshape((1,nx+2))
+        Xi_z     = 1. / r1z[:,1].reshape((nz+2,1))
 
         # Visual key for finite-difference terms
         # (per Pratt and Worthington, 1990)
@@ -245,13 +242,13 @@ class Eurus(object):
 
         # Need to initialize the PML values
 
-        Xi_x1 = Xi_x[0:-2] #left
-        Xi_x2 = Xi_x[1:-1] #middle
-        Xi_x3 = Xi_x[2:]   #right
+        Xi_x1 = Xi_x[:,0:-2] #left
+        Xi_x2 = Xi_x[:,1:-1] #middle
+        Xi_x3 = Xi_x[:,2:  ]   #right
 
-        Xi_z1= Xi_z[0:-2] #left
-        Xi_z2= Xi_z[1:-1] #middle
-        Xi_z3= Xi_z[2:] #right
+        Xi_z1= Xi_z[0:-2,:] #left
+        Xi_z2= Xi_z[1:-1,:] #middle
+        Xi_z3= Xi_z[2:  ,:] #right
 
         # Here we will use the following notation
         #
@@ -325,16 +322,16 @@ class Eurus(object):
         b_LN1 = ((b_BB + b_EE) / 2) / Xi_z_M
         b_LN2 = ((b_DD + b_EE) / 2) / Xi_x_M
         b_LN3 = ((b_EE + b_FF) / 2) / Xi_x_P
-        b_LN4 = ((B_EE + b_HH) / 2) / Xi_z_P
+        b_LN4 = ((b_EE + b_HH) / 2) / Xi_z_P
 
         b_LN1_C = ((b_BB + b_EE) / 2) / Xi_x_C
         b_LN2_C = ((b_DD + b_EE) / 2) / Xi_z_C
         b_LN3_C = ((b_EE + b_FF) / 2) / Xi_z_C
-        b_LN4_C = ((B_EE + b_HH) / 2) / Xi_x_C
+        b_LN4_C = ((b_EE + b_HH) / 2) / Xi_x_C
 
 
         # Model parameter M
-        K = ((omega*omega.conjugate() / cPad**2) - aky**2) / rhoPad
+        K = omega*omega.conjugate() / (rhoPad * cPad**2)
 
         # K = omega^2/(c^2 . rho)
 
@@ -363,32 +360,29 @@ class Eurus(object):
 
         # For now, set eps and delta to be constant
 
-        theta    = self.theta
-        eps        = self.eps
+        theta   = self.theta
+        eps     = self.eps
         delta   = self.delta
-
-
 
         # Need to define Anisotropic Matrix coeffs as in OPerto et al. (2009)
 
-        Ax = 1 + ((2*delta)*((np.cos(theta))**2)
+        Ax = 1 + (2*delta)*((np.cos(theta))**2)
         Bx = (-1*delta)*np.sin(2*theta)
         Cx = (1+(2*delta))*(np.cos(theta)**2)
         Dx = (-1*(1+(2*delta)))*((np.sin(2*theta))/2)
         Ex = (2*(eps-delta))*(np.cos(theta)**2)
         Fx = (-1*(eps-delta))*(np.sin(2*theta))
-        Gx = Ex_vals
-        Hx = Fx_vals
+        Gx = Ex
+        Hx = Fx
 
-        Az = Bx_vals
+        Az = Bx
         Bz = 1 + ((2*delta)*(np.sin(theta)**2))
-        Cz = Dx_vals
+        Cz = Dx
         Dz = (1+(2*delta))*(np.sin(theta))
-        Ez = Fx_vals
+        Ez = Fx
         Fz = (2*(eps-delta))*(np.sin(theta)**2)
-        Gz = Fx_vals
-        Hz = Fz_vals
-
+        Gz = Fx
+        Hz = Fz
 
 
         M1_diagonals = {
