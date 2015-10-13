@@ -159,15 +159,15 @@ class Eurus(object):
         r1zsq   = r1z**2
         r2z     = isnz*r1zsq*ddnz/denz
 
-	#For now, assume r1x and r1z are the same as xi_x and xi_z from operto et al. (2009)
+        #For now, assume r1x and r1z are the same as xi_x and xi_z from operto et al. (2009)
 
-	    Xi_x 	= 1. / r1x[0,:]
-	    Xi_z 	= 1. / r1z[:,0]
+        Xi_x     = 1. / r1x[0,:]
+        Xi_z     = 1. / r1z[:,0]
 
-	#pad edges
+        #pad edges
 
-	    Xi_x    = np.pad(Xi_x, pad_width=1, mode='edge')
-  	    Xi_z 	= np.pad(Xi_z pad_width=1, mode='edge')
+        Xi_x    = np.pad(Xi_x, pad_width=1, mode='edge')
+        Xi_z     = np.pad(Xi_z pad_width=1, mode='edge')
 
         # Visual key for finite-difference terms
         # (per Pratt and Worthington, 1990)
@@ -189,18 +189,18 @@ class Eurus(object):
         M3_keys = ['M3_GG', 'M3_HH', 'M3_II', 'M3_DD', 'M3_EE', 'M3_FF', 'M3_AA', 'M3_BB', 'M3_CC']
         M4_keys = ['M4_GG', 'M4_HH', 'M4_II', 'M4_DD', 'M4_EE', 'M4_FF', 'M4_AA', 'M4_BB', 'M4_CC']
 
-	# Diagonal offsets for the sparse matrix formation
+        # Diagonal offsets for the sparse matrix formation
 
-	    M1_offsets = {
-            	'M1_GG':   (-1) * dims[1] + (-1),
-            	'M1_HH':   (-1) * dims[1] + ( 0),
-            	'M1_II':   (-1) * dims[1] + (+1),
-            	'M1_DD':   ( 0) * dims[1] + (-1),
-            	'M1_EE':   ( 0) * dims[1] + ( 0),
-            	'M1_FF':   ( 0) * dims[1] + (+1),
-            	'M1_AA':   (+1) * dims[1] + (-1),
-            	'M1_BB':   (+1) * dims[1] + ( 0),
-            	'M1_CC':   (+1) * dims[1] + (+1),
+        M1_offsets = {
+                'M1_GG':   (-1) * dims[1] + (-1),
+                'M1_HH':   (-1) * dims[1] + ( 0),
+                'M1_II':   (-1) * dims[1] + (+1),
+                'M1_DD':   ( 0) * dims[1] + (-1),
+                'M1_EE':   ( 0) * dims[1] + ( 0),
+                'M1_FF':   ( 0) * dims[1] + (+1),
+                'M1_AA':   (+1) * dims[1] + (-1),
+                'M1_BB':   (+1) * dims[1] + ( 0),
+                'M1_CC':   (+1) * dims[1] + (+1),
         }
 
         M2_offsets = {
@@ -286,21 +286,21 @@ class Eurus(object):
 
         # Initialize averaged buoyancies on most of the grid
 
-	# Here we will use the convention of 'sq' to represent the averaged bouyancy over 4 grid points,
-	# and 'ln' to represent the bouyancy over 2 grid points:
+        # Here we will use the convention of 'sq' to represent the averaged bouyancy over 4 grid points,
+        # and 'ln' to represent the bouyancy over 2 grid points:
 
-	# SQ1 = AA BB		SQ2 =     BB CC		SQ3 = DD EE		SQ4 = EE FF
-	#       DD EE         	      EE FF		      GG HH		      HH II
+        # SQ1 = AA BB        SQ2 =     BB CC        SQ3 = DD EE        SQ4 = EE FF
+        #       DD EE                   EE FF              GG HH              HH II
 
-	# LN1 = BB		LN2 = DD EE		LN3 = EE FF		LN4 = EE
-	#       EE         	      		      	      	 		      HH
+        # LN1 = BB        LN2 = DD EE        LN3 = EE FF        LN4 = EE
+        #       EE                                                              HH
 
-    # We also introduce the suffixes 'x' and 'z' to
-    # the averaged bouyancy squares to distinguish between
-    # the x and z components with repsect to the PML decay
-    # This is done, as before, to decrease the length of the stencil terms
+        # We also introduce the suffixes 'x' and 'z' to
+        # the averaged bouyancy squares to distinguish between
+        # the x and z components with repsect to the PML decay
+        # This is done, as before, to decrease the length of the stencil terms
 
-	# Squares
+        # Squares
 
         b_SQ1_x = ((b_AA + b_BB + b_DD + b_EE) / 4) / Xi_x_M
         b_SQ2_x = ((b_BB + b_CC + b_EE + b_FF) / 4) / Xi_x_P
@@ -312,7 +312,7 @@ class Eurus(object):
         b_SQ3_z = ((b_DD + b_EE + b_GG + b_HH) / 4) / Xi_z_P
         b_SQ4_z = ((b_EE + b_FF + b_HH + b_II) / 4) / Xi_z_P
 
-	# Lines
+        # Lines
 
         # Lines are in 1D, so no PML dim required
         # We use the Suffix 'C' for those terms where PML is not
@@ -350,40 +350,40 @@ class Eurus(object):
         wm2 = 0.3708126;
         w1 = 0.4258673;
 
-	# Mass Averaging Term
+        # Mass Averaging Term
 
-	# From Operto et al.(2009), anti-limped mass is calculted from 9 ponts and applied
-	# ONLY to the diagonal terms
+        # From Operto et al.(2009), anti-limped mass is calculted from 9 ponts and applied
+        # ONLY to the diagonal terms
 
-	    K_avg = (wm1*K_EE) + ((wm2/4)*(K_BB + K_DD + K_FF + K_HH)) + (((1-wm1-wm2)/4)*(K_AA + K_CC + K_GG + K_II))
+        K_avg = (wm1*K_EE) + ((wm2/4)*(K_BB + K_DD + K_FF + K_HH)) + (((1-wm1-wm2)/4)*(K_AA + K_CC + K_GG + K_II))
 
-	# For now, set eps and delta to be constant
+        # For now, set eps and delta to be constant
 
-        theta	= self.theta
-	    eps    	= self.eps
-	    delta   = self.delta
+        theta    = self.theta
+        eps        = self.eps
+        delta   = self.delta
 
 
 
-	# Need to define Anisotropic Matrix coeffs as in OPerto et al. (2009)
+        # Need to define Anisotropic Matrix coeffs as in OPerto et al. (2009)
 
-	    Ax = 1 + ((2*delta)*((np.cos(theta))**2)
-	    Bx = (-1*delta)*np.sin(2*theta)
-	    Cx = (1+(2*delta))*(np.cos(theta)**2)
-	    Dx = (-1*(1+(2*delta)))*((np.sin(2*theta))/2)
-	    Ex = (2*(eps-delta))*(np.cos(theta)**2)
-	    Fx = (-1*(eps-delta))*(np.sin(2*theta))
-	    Gx = Ex_vals
-	    Hx = Fx_vals
+        Ax = 1 + ((2*delta)*((np.cos(theta))**2)
+        Bx = (-1*delta)*np.sin(2*theta)
+        Cx = (1+(2*delta))*(np.cos(theta)**2)
+        Dx = (-1*(1+(2*delta)))*((np.sin(2*theta))/2)
+        Ex = (2*(eps-delta))*(np.cos(theta)**2)
+        Fx = (-1*(eps-delta))*(np.sin(2*theta))
+        Gx = Ex_vals
+        Hx = Fx_vals
 
-	    Az = Bx_vals
-	    Bz = 1 + ((2*delta)*(np.sin(theta)**2))
-	    Cz = Dx_vals
-	    Dz = (1+(2*delta))*(np.sin(theta))
-	    Ez = Fx_vals
-	    Fz = (2*(eps-delta))*(np.sin(theta)**2)
-	    Gz = Fx_vals
-	    Hz = Fz_vals
+        Az = Bx_vals
+        Bz = 1 + ((2*delta)*(np.sin(theta)**2))
+        Cz = Dx_vals
+        Dz = (1+(2*delta))*(np.sin(theta))
+        Ez = Fx_vals
+        Fz = (2*(eps-delta))*(np.sin(theta)**2)
+        Gz = Fx_vals
+        Hz = Fz_vals
 
 
 
@@ -850,7 +850,7 @@ class Eurus(object):
         M1_diagonals = [M1_diagonals[key] for key in keys]
         M1_offsets = [M1_offsets[key] for key in keys]
 
-        M1_A = scipy.sparse.diags(M1_diagonals, M1_offsets, shape=(self.mesh.nN, self.mesh.nN), 	format='csr', dtype=self.dtypeComplex)
+        M1_A = scipy.sparse.diags(M1_diagonals, M1_offsets, shape=(self.mesh.nN, self.mesh.nN),     format='csr', dtype=self.dtypeComplex)
 
         M2_diagonals['M2_GG'] = M2_diagonals['M2_GG'].ravel()[dims[1]+1:          ]
         M2_diagonals['M2_HH'] = M2_diagonals['M2_HH'].ravel()[dims[1]  :          ]
@@ -865,7 +865,7 @@ class Eurus(object):
         M2_diagonals = [M2_diagonals[key] for key in keys]
         M2_offsets = [M2_offsets[key] for key in keys]
 
-        M2_A = scipy.sparse.diags(M2_diagonals, M2_offsets, shape=(self.mesh.nN, self.mesh.nN), 	format='csr', dtype=self.dtypeComplex)
+        M2_A = scipy.sparse.diags(M2_diagonals, M2_offsets, shape=(self.mesh.nN, self.mesh.nN),     format='csr', dtype=self.dtypeComplex)
 
         M3_diagonals['M3_GG'] = M3_diagonals['M3_GG'].ravel()[dims[1]+1:          ]
         M3_diagonals['M3_HH'] = M3_diagonals['M3_HH'].ravel()[dims[1]  :          ]
@@ -880,7 +880,7 @@ class Eurus(object):
         M3_diagonals = [M3_diagonals[key] for key in keys]
         M3_offsets = [M3_offsets[key] for key in keys]
 
-        M3_A = scipy.sparse.diags(M3_diagonals, M3_offsets, shape=(self.mesh.nN, self.mesh.nN), 	format='csr', dtype=self.dtypeComplex)
+        M3_A = scipy.sparse.diags(M3_diagonals, M3_offsets, shape=(self.mesh.nN, self.mesh.nN),     format='csr', dtype=self.dtypeComplex)
 
         M4_diagonals['M4_GG'] = M4_diagonals['M4_GG'].ravel()[dims[1]+1:          ]
         M4_diagonals['M4_HH'] = M4_diagonals['M4_HH'].ravel()[dims[1]  :          ]
@@ -895,7 +895,7 @@ class Eurus(object):
         M4_diagonals = [M4_diagonals[key] for key in keys]
         M4_offsets = [M4_offsets[key] for key in keys]
 
-        M4_A = scipy.sparse.diags(M4_diagonals, M4_offsets, shape=(self.mesh.nN, self.mesh.nN), 	format='csr', dtype=self.dtypeComplex)
+        M4_A = scipy.sparse.diags(M4_diagonals, M4_offsets, shape=(self.mesh.nN, self.mesh.nN),     format='csr', dtype=self.dtypeComplex)
 
         # Need to switch these matrices together
         # A = [M1_A M2_A
