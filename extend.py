@@ -116,59 +116,28 @@ class Eurus(object):
 
         nPML    = self.nPML
 
+        #Operto et al.(2009) PML implementation taken from Hudstedt et al.(2004)
         pmldx   = dx*(nPML - 1)
         pmldz   = dz*(nPML - 1)
-        pmlr    = 1e-3
-        pmlfx   = 3.0 * np.log(1/pmlr)/(2*pmldx**3)
-        pmlfz   = 3.0 * np.log(1/pmlr)/(2*pmldz**3)
+        c_PML   = 100
 
-        dpmlx   = np.zeros(dims, dtype=np.complex128)
-        dpmlz   = np.zeros(dims, dtype=np.complex128)
-        isnx    = np.zeros(dims, dtype=np.float64)
-        isnz    = np.zeros(dims, dtype=np.float64)
+        gamma_x = np.zeros(nx, dtype=np.complex128)
+        gamma_z = np.zeros(nx, dtype=np.complex128)
 
-        # Only enable PML if the free surface isn't set
+        x_vals  = np.arange(0,pmldx+dx,dx)
+        z_vals  = np.arange(0,pmldz+dz,dz)
 
-        freeSurf = self.freeSurf
+        gamma_x[:nPML]= c_PML * (np.cos(np.pi/2))* x_vals/pmldx
+        gamma_x[nx-nPML:]= c_PML * (np.cos(np.pi/2))* x_vals[::-1]/pmldx
 
-        if not freeSurf[2]:
-            isnz[-nPML:,:] = -1 # Top
+        gamma_z[:nPML]= c_PML * (np.cos(np.pi/2))* z_vals/pmldz
+        gamma_z[nz-nPML:]= c_PML * (np.cos(np.pi/2))* z_vals[::-1]/pmldz
 
-        if not freeSurf[1]:
-            isnx[:,-nPML:] = -1 # Right Side
+        gamma_x = np.pad(gamma_x, pad_width=1, mode='edge')
+        gamma_z = np.pad(gamma_z, pad_width=1, mode='edge')
 
-        if not freeSurf[0]:
-            isnz[:nPML,:] = 1 # Bottom
-
-        if not freeSurf[3]:
-            isnx[:,:nPML] = 1 # Left side
-
-        dpmlx[:,:nPML] = (np.arange(nPML, 0, -1)*dx).reshape((1,nPML))
-        dpmlx[:,-nPML:] = (np.arange(1, nPML+1, 1)*dx).reshape((1,nPML))
-        dnx     = pmlfx*c*dpmlx**2
-        ddnx    = 2*pmlfx*c*dpmlx
-        denx    = dnx + iom
-        r1x     = iom / denx
-        r1xsq   = r1x**2
-        r2x     = isnx*r1xsq*ddnx/denx
-
-        dpmlz[:nPML,:] = (np.arange(nPML, 0, -1)*dz).reshape((nPML,1))
-        dpmlz[-nPML:,:] = (np.arange(1, nPML+1, 1)*dz).reshape((nPML,1))
-        dnz     = pmlfz*c*dpmlz**2
-        ddnz    = 2*pmlfz*c*dpmlz
-        denz    = dnz + iom
-        r1z     = iom / denz
-        r1zsq   = r1z**2
-        r2z     = isnz*r1zsq*ddnz/denz
-
-        #For now, assume r1x and r1z are the same as xi_x and xi_z from operto et al. (2009)
-
-        #pad edges
-        r1x     = np.pad(r1x, pad_width=1, mode='edge')
-        r1z     = np.pad(r1z, pad_width=1, mode='edge')
-
-        Xi_x     = 1. / r1x[1,:].reshape((1,nx+2))
-        Xi_z     = 1. / r1z[:,1].reshape((nz+2,1))
+        Xi_x     = 1+ ((1j *gamma_x.reshape((1,nx+2)))/omega)
+        Xi_z     = 1+ ((1j *gamma_z.reshape((nz+2,1)))/omega)
 
         # Visual key for finite-difference terms
         # (per Pratt and Worthington, 1990)
