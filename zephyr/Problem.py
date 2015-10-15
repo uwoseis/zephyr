@@ -10,7 +10,7 @@ import scipy
 import scipy.sparse
 import SimPEG
 import shutil, os, errno
-from IPython.parallel import require, interactive, Reference
+from ipyparallel import require, interactive, Reference
 from SimPEG.Parallel import RemoteInterface, SystemSolver
 from SimPEG.Utils import CommonReducer
 import networkx
@@ -646,7 +646,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
 
     def _setupRemoteSystems(self, systemConfig, subConfigSettings):
 
-        from IPython.parallel.client.remotefunction import ParallelFunction
+        from ipyparallel.client.remotefunction import ParallelFunction
         from SimPEG.Parallel import Endpoint
         from zephyr.Problem import SeisFDFD25DProblem
 
@@ -744,7 +744,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
     def _clearFromTag(endpoint, tag, reqrank=None):
         if reqrank is not None:
             if reqrank != rank:
-                from IPython.parallel.error import UnmetDependency
+                from ipyparallel.error import UnmetDependency
                 raise UnmetDependency
 
         return endpoint.localProblems[tag].clear()
@@ -756,7 +756,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
         locP = endpoint.localProblems
         locF = endpoint.localFields
 
-        from IPython.parallel.error import UnmetDependency
+        from ipyparallel.error import UnmetDependency
         if not tag in locP:
             raise UnmetDependency
 
@@ -784,7 +784,7 @@ class SeisFDFD25DParallelProblem(SimPEG.Problem.BaseProblem):
         locF = endpoint.localFields
         gloF = endpoint.globalFields
 
-        from IPython.parallel.error import UnmetDependency
+        from ipyparallel.error import UnmetDependency
         if not tag in locP:
             raise UnmetDependency
 
