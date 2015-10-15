@@ -304,12 +304,15 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         implementation by Steve Roecker in fdfdpml.f.
         """
 
+        dtypeComplex = self.dtypeComplex
+        dtypeReal = self.dtypeReal
+
         # Set up SimPEG mesh
         dims = (self.mesh.nNy, self.mesh.nNx)
-        # mAve = self.mesh.aveN2CC
-
-        # c = (mAve.T * self.c.ravel()).reshape(dims)
-        # rho = (mAve.T * self.rho.ravel()).reshape(dims)
+        nx = self.mesh.nNx
+        nz = self.mesh.nNy
+        dims = (nz, nx)
+        nrows = nx*nz
 
         c = self.c
         rho = self.rho
@@ -326,6 +329,8 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.mesh.hx[0]
         dz  = self.mesh.hy[0]
+        freeSurf = self.mesh.freeSurf
+
         dxx = dx**2
         dzz = dz**2
         dxz = (dxx+dzz)/2
@@ -344,14 +349,12 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
         pmlfx   = 3.0 * np.log(1/pmlr)/(2*pmldx**3)
         pmlfz   = 3.0 * np.log(1/pmlr)/(2*pmldz**3)
 
-        dpmlx   = np.zeros(dims, dtype=self.dtypeComplex)
-        dpmlz   = np.zeros(dims, dtype=self.dtypeComplex)
-        isnx    = np.zeros(dims, dtype=self.dtypeReal)
-        isnz    = np.zeros(dims, dtype=self.dtypeReal)
+        dpmlx   = np.zeros(dims, dtype=dtypeComplex)
+        dpmlz   = np.zeros(dims, dtype=dtypeComplex)
+        isnx    = np.zeros(dims, dtype=dtypeReal)
+        isnz    = np.zeros(dims, dtype=dtypeReal)
 
         # Only enable PML if the free surface isn't set
-
-        freeSurf = self.mesh.freeSurf
 
         if not freeSurf[2]:
             isnz[-nPML:,:] = -1 # Top
@@ -396,15 +399,15 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
 
         # Diagonal offsets for the sparse matrix formation
         offsets = {
-            'AD':   (-1) * dims[1] + (-1), 
-            'DD':   (-1) * dims[1] + ( 0),
-            'CD':   (-1) * dims[1] + (+1),
-            'AA':   ( 0) * dims[1] + (-1),
-            'BE':   ( 0) * dims[1] + ( 0),
-            'CC':   ( 0) * dims[1] + (+1),
-            'AF':   (+1) * dims[1] + (-1),
-            'FF':   (+1) * dims[1] + ( 0),
-            'CF':   (+1) * dims[1] + (+1),
+            'AD':   (-1) * nx + (-1), 
+            'DD':   (-1) * nx + ( 0),
+            'CD':   (-1) * nx + (+1),
+            'AA':   ( 0) * nx + (-1),
+            'BE':   ( 0) * nx + ( 0),
+            'CC':   ( 0) * nx + (+1),
+            'AF':   (+1) * nx + (-1),
+            'FF':   (+1) * nx + ( 0),
+            'CF':   (+1) * nx + (+1),
         }
 
         # Buoyancies
@@ -486,20 +489,20 @@ class SeisFDFD25DProblem(SimPEG.Problem.BaseProblem):
 
         self._setupBoundary(diagonals, freeSurf)
 
-        diagonals['AD'] = diagonals['AD'].ravel()[dims[1]+1:          ]
-        diagonals['DD'] = diagonals['DD'].ravel()[dims[1]  :          ]
-        diagonals['CD'] = diagonals['CD'].ravel()[dims[1]-1:          ]
-        diagonals['AA'] = diagonals['AA'].ravel()[        1:          ]
-        diagonals['BE'] = diagonals['BE'].ravel()[         :          ]
-        diagonals['CC'] = diagonals['CC'].ravel()[         :-1        ]
-        diagonals['AF'] = diagonals['AF'].ravel()[         :-dims[1]+1]
-        diagonals['FF'] = diagonals['FF'].ravel()[         :-dims[1]  ]
-        diagonals['CF'] = diagonals['CF'].ravel()[         :-dims[1]-1]
+        diagonals['AD'] = diagonals['AD'].ravel()[nx+1:     ]
+        diagonals['DD'] = diagonals['DD'].ravel()[nx  :     ]
+        diagonals['CD'] = diagonals['CD'].ravel()[nx-1:     ]
+        diagonals['AA'] = diagonals['AA'].ravel()[   1:     ]
+        diagonals['BE'] = diagonals['BE'].ravel()[    :     ]
+        diagonals['CC'] = diagonals['CC'].ravel()[    :   -1]
+        diagonals['AF'] = diagonals['AF'].ravel()[    :-nx+1]
+        diagonals['FF'] = diagonals['FF'].ravel()[    :-nx  ]
+        diagonals['CF'] = diagonals['CF'].ravel()[    :-nx-1]
 
         diagonals = [diagonals[key] for key in keys]
         offsets = [offsets[key] for key in keys]
 
-        A = scipy.sparse.diags(diagonals, offsets, shape=(self.mesh.nN, self.mesh.nN), format='csr', dtype=self.dtypeComplex)#, shape=(self.mesh.nN, self.mesh.nN))#, self.mesh.nN, self.mesh.nN, format='csr')
+        A = scipy.sparse.diags(diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=dtypeComplex)
 
         return A
 
