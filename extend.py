@@ -61,6 +61,7 @@ class Eurus(object):
             'nx':           None,
             'nz':           None,
             'freeSurf':     None,
+            'mord':         '_mord',
             'theta':        '_theta',
             'eps':          '_eps',
             'delta':        '_delta',
@@ -93,6 +94,9 @@ class Eurus(object):
 
         c = self.c
         rho = self.rho
+
+        exec 'nf = %s'%self.mord[0] in locals()
+        exec 'ns = %s'%self.mord[1] in locals()        
 
         # fast --> slow is x --> y --> z as Fortran
 
@@ -188,16 +192,25 @@ class Eurus(object):
         # Diagonal offsets for the sparse matrix formation
 
         offsets = {
-                'GG':   (-1) * nx + (-1),
-                'HH':   (-1) * nx + ( 0),
-                'II':   (-1) * nx + (+1),
-                'DD':   ( 0) * nx + (-1),
-                'EE':   ( 0) * nx + ( 0),
-                'FF':   ( 0) * nx + (+1),
-                'AA':   (+1) * nx + (-1),
-                'BB':   (+1) * nx + ( 0),
-                'CC':   (+1) * nx + (+1),
+            'GG':   -nf -ns,
+            'HH':   -nf    ,
+            'II':   -nf +ns,
+            'DD':       -ns,
+            'EE':         0,
+            'FF':       +ns,
+            'AA':   +nf -ns,
+            'BB':   +nf    ,
+            'CC':   +nf +ns,
         }
+
+        def prepareDiagonals(diagonals):
+            for key in diagonals:
+                diagonals[key] = diagonals[key].ravel()
+                if offsets[key] < 0:
+                    diagonals[key] = diagonals[key][-offsets[key]:]
+                elif offsets[key] > 0:
+                    diagonals[key] = diagonals[key][:-offsets[key]]
+                diagonals[key] = diagonals[key].ravel()
 
         # Need to initialize the PML values
 
@@ -456,6 +469,7 @@ class Eurus(object):
                     + (((-1 * L_z4) * Az) * (   b_LN1_C))
                     ),
         }
+        prepareDiagonals(M1_diagonals)
 
         M2_diagonals = {
             'GG':  w1
@@ -568,6 +582,7 @@ class Eurus(object):
                     + (((-1 * L_z4) * Cz) * (   b_LN1_C))
                     ),
         }
+        prepareDiagonals(M2_diagonals)
 
         M3_diagonals = {
             'GG':  w1
@@ -680,6 +695,7 @@ class Eurus(object):
                     + (((-1 * L_z4) * Ez) * (   b_LN1_C))
                     ),
         }
+        prepareDiagonals(M3_diagonals)
 
         M4_diagonals = {
             'GG':  w1
@@ -792,64 +808,21 @@ class Eurus(object):
                     + (((-1 * L_z4) * Gz) * (   b_LN1_C))
                     ),
         }
+        prepareDiagonals(M4_diagonals)
 
         # self._setupBoundary(diagonals, freeSurf)
         offsets = [offsets[key] for key in keys]
 
-        M1_diagonals['GG'] = M1_diagonals['GG'].ravel()[nx+1:     ]
-        M1_diagonals['HH'] = M1_diagonals['HH'].ravel()[nx  :     ]
-        M1_diagonals['II'] = M1_diagonals['II'].ravel()[nx-1:     ]
-        M1_diagonals['DD'] = M1_diagonals['DD'].ravel()[   1:     ]
-        M1_diagonals['EE'] = M1_diagonals['EE'].ravel()[    :     ]
-        M1_diagonals['FF'] = M1_diagonals['FF'].ravel()[    :-1   ]
-        M1_diagonals['AA'] = M1_diagonals['AA'].ravel()[    :-nx+1]
-        M1_diagonals['BB'] = M1_diagonals['BB'].ravel()[    :-nx  ]
-        M1_diagonals['CC'] = M1_diagonals['CC'].ravel()[    :-nx-1]
-
         M1_diagonals = [M1_diagonals[key] for key in keys]
-
         M1_A = scipy.sparse.diags(M1_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
-        M2_diagonals['GG'] = M2_diagonals['GG'].ravel()[nx+1:     ]
-        M2_diagonals['HH'] = M2_diagonals['HH'].ravel()[nx  :     ]
-        M2_diagonals['II'] = M2_diagonals['II'].ravel()[nx-1:     ]
-        M2_diagonals['DD'] = M2_diagonals['DD'].ravel()[   1:     ]
-        M2_diagonals['EE'] = M2_diagonals['EE'].ravel()[    :     ]
-        M2_diagonals['FF'] = M2_diagonals['FF'].ravel()[    :-1   ]
-        M2_diagonals['AA'] = M2_diagonals['AA'].ravel()[    :-nx+1]
-        M2_diagonals['BB'] = M2_diagonals['BB'].ravel()[    :-nx  ]
-        M2_diagonals['CC'] = M2_diagonals['CC'].ravel()[    :-nx-1]
-
         M2_diagonals = [M2_diagonals[key] for key in keys]
-
         M2_A = scipy.sparse.diags(M2_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
-        M3_diagonals['GG'] = M3_diagonals['GG'].ravel()[nx+1:     ]
-        M3_diagonals['HH'] = M3_diagonals['HH'].ravel()[nx  :     ]
-        M3_diagonals['II'] = M3_diagonals['II'].ravel()[nx-1:     ]
-        M3_diagonals['DD'] = M3_diagonals['DD'].ravel()[   1:     ]
-        M3_diagonals['EE'] = M3_diagonals['EE'].ravel()[    :     ]
-        M3_diagonals['FF'] = M3_diagonals['FF'].ravel()[    :-1   ]
-        M3_diagonals['AA'] = M3_diagonals['AA'].ravel()[    :-nx+1]
-        M3_diagonals['BB'] = M3_diagonals['BB'].ravel()[    :-nx  ]
-        M3_diagonals['CC'] = M3_diagonals['CC'].ravel()[    :-nx-1]
-
         M3_diagonals = [M3_diagonals[key] for key in keys]
-
         M3_A = scipy.sparse.diags(M3_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
-        M4_diagonals['GG'] = M4_diagonals['GG'].ravel()[nx+1:     ]
-        M4_diagonals['HH'] = M4_diagonals['HH'].ravel()[nx  :     ]
-        M4_diagonals['II'] = M4_diagonals['II'].ravel()[nx-1:     ]
-        M4_diagonals['DD'] = M4_diagonals['DD'].ravel()[   1:     ]
-        M4_diagonals['EE'] = M4_diagonals['EE'].ravel()[    :     ]
-        M4_diagonals['FF'] = M4_diagonals['FF'].ravel()[    :-1   ]
-        M4_diagonals['AA'] = M4_diagonals['AA'].ravel()[    :-nx+1]
-        M4_diagonals['BB'] = M4_diagonals['BB'].ravel()[    :-nx  ]
-        M4_diagonals['CC'] = M4_diagonals['CC'].ravel()[    :-nx-1]
-
         M4_diagonals = [M4_diagonals[key] for key in keys]
-
         M4_A = scipy.sparse.diags(M4_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
         # Need to switch these matrices together
@@ -911,6 +884,12 @@ class Eurus(object):
             A = self.A.tocsc()
             self._Solver = scipy.sparse.linalg.splu(A)
         return self._Solver
+
+    @property
+    def mord(self):
+        if getattr(self, '_mord', None) is None:
+            self._mord = ('+nx', '+1')
+        return self._mord
 
     @property
     def theta(self):
