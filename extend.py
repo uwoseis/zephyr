@@ -185,11 +185,6 @@ class Eurus(object):
         # A =  M1 M2
         #      M3 M4
 
-        M1_keys = ['M1_GG', 'M1_HH', 'M1_II', 'M1_DD', 'M1_EE', 'M1_FF', 'M1_AA', 'M1_BB', 'M1_CC']
-        M2_keys = ['M2_GG', 'M2_HH', 'M2_II', 'M2_DD', 'M2_EE', 'M2_FF', 'M2_AA', 'M2_BB', 'M2_CC']
-        M3_keys = ['M3_GG', 'M3_HH', 'M3_II', 'M3_DD', 'M3_EE', 'M3_FF', 'M3_AA', 'M3_BB', 'M3_CC']
-        M4_keys = ['M4_GG', 'M4_HH', 'M4_II', 'M4_DD', 'M4_EE', 'M4_FF', 'M4_AA', 'M4_BB', 'M4_CC']
-
         # Diagonal offsets for the sparse matrix formation
 
         offsets = {
