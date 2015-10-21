@@ -358,456 +358,132 @@ class Eurus(object):
 
         keys = ['GG', 'HH', 'II', 'DD', 'EE', 'FF', 'AA', 'BB', 'CC']
 
-        M1_diagonals = {
-            'GG':  w1
-                    * (
-                      (((     L_x4) * Ax) * (   b_SQ3_x))
-                    + (((-1 * L_x4) * Bx) * (   b_SQ3_z))
-                    + (((-1 * L_z4) * Az) * (   b_SQ3_x))
-                    + (((     L_z4) * Bz) * (   b_SQ3_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Bx) * (   b_LN2_C))
-                    + (((     L_z4) * Az) * (   b_LN4_C))
-                    ),
-            'HH':  w1
-                    * (
-                      (((     L_x4) * Ax) * ( - b_SQ3_x - b_SQ4_x))
-                    + (((     L_x4) * Bx) * ( - b_SQ3_z + b_SQ4_z))
-                    + (((     L_z4) * Az) * (   b_SQ3_x - b_SQ4_x))
-                    + (((     L_z4) * Bz) * (   b_SQ3_z + b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Bx) * ( - b_LN2_C + b_LN3_C))
-                    + (((      L_z) * Bz) * (   b_LN4))
-                    ),
-            'II':  w1
-                    * (
-                      (((     L_x4) * Ax) * (   b_SQ4_x))
-                    + (((     L_x4) * Bx) * (   b_SQ4_z))
-                    + (((     L_z4) * Az) * (   b_SQ4_x))
-                    + (((     L_z4) * Bz) * (   b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Bx) * (   b_LN3_C))
-                    + (((     L_z4) * Az) * (   b_LN4_C))
-                    ),
-            'DD':  w1
-                    * (
-                      (((     L_x4) * Ax) * (   b_SQ3_x + b_SQ1_x))
-                    + (((     L_x4) * Bx) * (   b_SQ3_z - b_SQ1_z))
-                    + (((     L_z4) * Az) * ( - b_SQ3_x + b_SQ1_x))
-                    + (((     L_z4) * Bz) * ( - b_SQ3_z - b_SQ1_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Ax) * (   b_LN2))
-                    + (((     L_z4) * Az) * ( - b_LN4_C +  b_LN1_C))
-                    ),
-            'EE':  K_avg
-                    + w1
-                    * (
-                      (((-1 * L_x4) * Ax) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
-                    + (((     L_x4) * Bx) * (   b_SQ2_z + b_SQ3_z - b_SQ1_z - b_SQ4_z))
-                    + (((     L_z4) * Az) * (   b_SQ2_x + b_SQ3_x - b_SQ1_x - b_SQ4_x))
-                    + (((-1 * L_z4) * Bz) * (   b_SQ1_z + b_SQ2_z + b_SQ3_z + b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Ax) * ( - b_LN2 - b_LN3))
-                    + (((      L_z) * Bz) * ( - b_LN1 - b_LN4))
-                      ),
-            'FF':  w1
-                    * (
-                      (((     L_x4) * Ax) * (   b_SQ2_x + b_SQ4_x))
-                    + (((     L_x4) * Bx) * (   b_SQ2_z - b_SQ4_z))
-                    + (((     L_z4) * Az) * ( - b_SQ2_x + b_SQ4_x))
-                    + (((     L_z4) * Bz) * ( - b_SQ2_z - b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Ax) * (   b_LN3))
-                    + (((     L_z4) * Az) * (   b_LN4_C - b_LN1_C))
-                    ),
-            'AA':  w1
-                    * (
-                      (((     L_x4) * Ax) * (   b_SQ1_x))
-                    + (((     L_x4) * Bx) * (   b_SQ1_z))
-                    + (((     L_z4) * Az) * (   b_SQ1_x))
-                    + (((     L_z4) * Bz) * (   b_SQ1_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Bx) * (   b_LN2_C))
-                    + (((     L_z4) * Az) * (   b_LN1_C))
-                    ),
-            'BB':  w1
-                    * (
-                      (((     L_x4) * Ax) * ( - b_SQ2_x - b_SQ1_x))
-                    + (((     L_x4) * Bx) * ( - b_SQ2_z + b_SQ1_z))
-                    + (((     L_z4) * Az) * (   b_SQ2_x - b_SQ1_x))
-                    + (((     L_z4) * Bz) * (   b_SQ2_z + b_SQ2_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Bx) * ( - b_LN3_C + b_LN2_C))
-                    + (((      L_z) * Bz) * (   b_LN1))
-                    ),
-            'CC': w1
-                    * (
-                      (((     L_x4) * Ax) * (   b_SQ2_x))
-                    + (((-1 * L_x4) * Bx) * (   b_SQ2_z))
-                    + (((-1 * L_z4) * Az) * (   b_SQ2_x))
-                    + (((     L_z4) * Bz) * (   b_SQ2_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Bx) * (   b_LN3_C))
-                    + (((-1 * L_z4) * Az) * (   b_LN1_C))
-                    ),
-        }
+        def generateDiagonals(massTerm, coeff1x, coeff1z, coeff2x, coeff2z):
+
+            diagonals = {
+                'GG':  w1
+                        * (
+                          (((     L_x4) * coeff1x) * (   b_SQ3_x))
+                        + (((-1 * L_x4) * coeff2x) * (   b_SQ3_z))
+                        + (((-1 * L_z4) * coeff1z) * (   b_SQ3_x))
+                        + (((     L_z4) * coeff2z) * (   b_SQ3_z))
+                          )
+                        + (1-w1)
+                        * (
+                          (((-1 * L_x4) * coeff2x) * (   b_LN2_C))
+                        + (((     L_z4) * coeff1z) * (   b_LN4_C))
+                        ),
+                'HH':  w1
+                        * (
+                          (((     L_x4) * coeff1x) * ( - b_SQ3_x - b_SQ4_x))
+                        + (((     L_x4) * coeff2x) * ( - b_SQ3_z + b_SQ4_z))
+                        + (((     L_z4) * coeff1z) * (   b_SQ3_x - b_SQ4_x))
+                        + (((     L_z4) * coeff2z) * (   b_SQ3_z + b_SQ4_z))
+                          )
+                        + (1-w1)
+                        * (
+                          (((     L_x4) * coeff2x) * ( - b_LN2_C + b_LN3_C))
+                        + (((      L_z) * coeff2z) * (   b_LN4))
+                        ),
+                'II':  w1
+                        * (
+                          (((     L_x4) * coeff1x) * (   b_SQ4_x))
+                        + (((     L_x4) * coeff2x) * (   b_SQ4_z))
+                        + (((     L_z4) * coeff1z) * (   b_SQ4_x))
+                        + (((     L_z4) * coeff2z) * (   b_SQ4_z))
+                          )
+                        + (1-w1)
+                        * (
+                          (((     L_x4) * coeff2x) * (   b_LN3_C))
+                        + (((     L_z4) * coeff1z) * (   b_LN4_C))
+                        ),
+                'DD':  w1
+                        * (
+                          (((     L_x4) * coeff1x) * (   b_SQ3_x + b_SQ1_x))
+                        + (((     L_x4) * coeff2x) * (   b_SQ3_z - b_SQ1_z))
+                        + (((     L_z4) * coeff1z) * ( - b_SQ3_x + b_SQ1_x))
+                        + (((     L_z4) * coeff2z) * ( - b_SQ3_z - b_SQ1_z))
+                          )
+                        + (1-w1)
+                        * (
+                          (((      L_x) * coeff1x) * (   b_LN2))
+                        + (((     L_z4) * coeff1z) * ( - b_LN4_C +  b_LN1_C))
+                        ),
+                'EE':  massTerm
+                        + w1
+                        * (
+                          (((-1 * L_x4) * coeff1x) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
+                        + (((     L_x4) * coeff2x) * (   b_SQ2_z + b_SQ3_z - b_SQ1_z - b_SQ4_z))
+                        + (((     L_z4) * coeff1z) * (   b_SQ2_x + b_SQ3_x - b_SQ1_x - b_SQ4_x))
+                        + (((-1 * L_z4) * coeff2z) * (   b_SQ1_z + b_SQ2_z + b_SQ3_z + b_SQ4_z))
+                          )
+                        + (1-w1)
+                        * (
+                          (((      L_x) * coeff1x) * ( - b_LN2 - b_LN3))
+                        + (((      L_z) * coeff2z) * ( - b_LN1 - b_LN4))
+                          ),
+                'FF':  w1
+                        * (
+                          (((     L_x4) * coeff1x) * (   b_SQ2_x + b_SQ4_x))
+                        + (((     L_x4) * coeff2x) * (   b_SQ2_z - b_SQ4_z))
+                        + (((     L_z4) * coeff1z) * ( - b_SQ2_x + b_SQ4_x))
+                        + (((     L_z4) * coeff2z) * ( - b_SQ2_z - b_SQ4_z))
+                          )
+                        + (1-w1)
+                        * (
+                          (((      L_x) * coeff1x) * (   b_LN3))
+                        + (((     L_z4) * coeff1z) * (   b_LN4_C - b_LN1_C))
+                        ),
+                'AA':  w1
+                        * (
+                          (((     L_x4) * coeff1x) * (   b_SQ1_x))
+                        + (((     L_x4) * coeff2x) * (   b_SQ1_z))
+                        + (((     L_z4) * coeff1z) * (   b_SQ1_x))
+                        + (((     L_z4) * coeff2z) * (   b_SQ1_z))
+                          )
+                        + (1-w1)
+                        * (
+                          (((-1 * L_x4) * coeff2x) * (   b_LN2_C))
+                        + (((     L_z4) * coeff1z) * (   b_LN1_C))
+                        ),
+                'BB':  w1
+                        * (
+                          (((     L_x4) * coeff1x) * ( - b_SQ2_x - b_SQ1_x))
+                        + (((     L_x4) * coeff2x) * ( - b_SQ2_z + b_SQ1_z))
+                        + (((     L_z4) * coeff1z) * (   b_SQ2_x - b_SQ1_x))
+                        + (((     L_z4) * coeff2z) * (   b_SQ2_z + b_SQ2_z))
+                          )
+                        + (1-w1)
+                        * (
+                          (((     L_x4) * coeff2x) * ( - b_LN3_C + b_LN2_C))
+                        + (((      L_z) * coeff2z) * (   b_LN1))
+                        ),
+                'CC': w1
+                        * (
+                          (((     L_x4) * coeff1x) * (   b_SQ2_x))
+                        + (((-1 * L_x4) * coeff2x) * (   b_SQ2_z))
+                        + (((-1 * L_z4) * coeff1z) * (   b_SQ2_x))
+                        + (((     L_z4) * coeff2z) * (   b_SQ2_z))
+                          )
+                        + (1-w1)
+                        * (
+                          (((-1 * L_x4) * coeff2x) * (   b_LN3_C))
+                        + (((-1 * L_z4) * coeff1z) * (   b_LN1_C))
+                        ),
+            }
+
+            return diagonals
+
+        M1_diagonals = generateDiagonals(K_avg, Ax, Az, Bx, Bz)
         prepareDiagonals(M1_diagonals)
 
-        M2_diagonals = {
-            'GG':  w1
-                    * (
-                      (((     L_x4) * Cx) * (   b_SQ3_x))
-                    + (((-1 * L_x4) * Dx) * (   b_SQ3_z))
-                    + (((-1 * L_z4) * Cz) * (   b_SQ3_x))
-                    + (((     L_z4) * Dz) * (   b_SQ3_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Dx) * (   b_LN2_C))
-                    + (((     L_z4) * Cz) * (   b_LN4_C))
-                    ),
-            'HH':  w1
-                    * (
-                      (((     L_x4) * Cx) * ( - b_SQ3_x - b_SQ4_x))
-                    + (((     L_x4) * Dx) * ( - b_SQ3_z + b_SQ4_z))
-                    + (((     L_z4) * Cz) * (   b_SQ3_x - b_SQ4_x))
-                    + (((     L_z4) * Dz) * (   b_SQ3_z + b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Dx) * ( - b_LN2_C + b_LN3_C))
-                    + (((      L_z) * Dz) * (   b_LN4))
-                    ),
-            'II':  w1
-                    * (
-                      (((     L_x4) * Cx) * (   b_SQ4_x))
-                    + (((     L_x4) * Dx) * (   b_SQ4_z))
-                    + (((     L_z4) * Cz) * (   b_SQ4_x))
-                    + (((     L_z4) * Dz) * (   b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Dx) * (   b_LN3_C))
-                    + (((     L_z4) * Cz) * (   b_LN4_C))
-                    ),
-            'DD':  w1
-                    * (
-                      (((     L_x4) * Cx) * (   b_SQ3_x + b_SQ1_x))
-                    + (((     L_x4) * Dx) * (   b_SQ3_z - b_SQ1_z))
-                    + (((     L_z4) * Cz) * ( - b_SQ3_x + b_SQ1_x))
-                    + (((     L_z4) * Dz) * ( - b_SQ3_z - b_SQ1_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Cx) * (   b_LN2))
-                    + (((     L_z4) * Cz) * ( - b_LN4_C +  b_LN1_C))
-                    ),
-            'EE':
-                    + w1
-                    * (
-                      (((-1 * L_x4) * Cx) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
-                    + (((     L_x4) * Dx) * (   b_SQ2_z + b_SQ3_z - b_SQ1_z - b_SQ4_z))
-                    + (((     L_z4) * Cz) * (   b_SQ2_x + b_SQ3_x - b_SQ1_x - b_SQ4_x))
-                    + (((-1 * L_z4) * Dz) * (   b_SQ1_z + b_SQ2_z + b_SQ3_z + b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Cx) * ( - b_LN2 - b_LN3))
-                    + (((      L_z) * Dz) * ( - b_LN1 - b_LN4))
-                      ),
-            'FF':  w1
-                    * (
-                      (((     L_x4) * Cx) * (   b_SQ2_x + b_SQ4_x))
-                    + (((     L_x4) * Dx) * (   b_SQ2_z - b_SQ4_z))
-                    + (((     L_z4) * Cz) * ( - b_SQ2_x + b_SQ4_x))
-                    + (((     L_z4) * Dz) * ( - b_SQ2_z - b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Cx) * (   b_LN3))
-                    + (((     L_z4) * Cz) * (   b_LN4_C - b_LN1_C))
-                    ),
-            'AA':  w1
-                    * (
-                      (((     L_x4) * Cx) * (   b_SQ1_x))
-                    + (((     L_x4) * Dx) * (   b_SQ1_z))
-                    + (((     L_z4) * Cz) * (   b_SQ1_x))
-                    + (((     L_z4) * Dz) * (   b_SQ1_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Dx) * (   b_LN2_C))
-                    + (((     L_z4) * Cz) * (   b_LN1_C))
-                    ),
-            'BB':  w1
-                    * (
-                      (((     L_x4) * Cx) * ( - b_SQ2_x - b_SQ1_x))
-                    + (((     L_x4) * Dx) * ( - b_SQ2_z + b_SQ1_z))
-                    + (((     L_z4) * Cz) * (   b_SQ2_x - b_SQ1_x))
-                    + (((     L_z4) * Dz) * (   b_SQ2_z + b_SQ2_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Dx) * ( - b_LN3_C + b_LN2_C))
-                    + (((      L_z) * Dz) * (   b_LN1))
-                    ),
-            'CC': w1
-                    * (
-                      (((     L_x4) * Cx) * (   b_SQ2_x))
-                    + (((-1 * L_x4) * Dx) * (   b_SQ2_z))
-                    + (((-1 * L_z4) * Cz) * (   b_SQ2_x))
-                    + (((     L_z4) * Dz) * (   b_SQ2_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Dx) * (   b_LN3_C))
-                    + (((-1 * L_z4) * Cz) * (   b_LN1_C))
-                    ),
-        }
+        M2_diagonals = generateDiagonals(0.   , Gx, Gz, Hx, Hz)
         prepareDiagonals(M2_diagonals)
 
-        M3_diagonals = {
-            'GG':  w1
-                    * (
-                      (((     L_x4) * Ex) * (   b_SQ3_x))
-                    + (((-1 * L_x4) * Fx) * (   b_SQ3_z))
-                    + (((-1 * L_z4) * Ez) * (   b_SQ3_x))
-                    + (((     L_z4) * Fz) * (   b_SQ3_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Fx) * (   b_LN2_C))
-                    + (((     L_z4) * Ez) * (   b_LN4_C))
-                    ),
-            'HH':  w1
-                    * (
-                      (((     L_x4) * Ex) * ( - b_SQ3_x - b_SQ4_x))
-                    + (((     L_x4) * Fx) * ( - b_SQ3_z + b_SQ4_z))
-                    + (((     L_z4) * Ez) * (   b_SQ3_x - b_SQ4_x))
-                    + (((     L_z4) * Fz) * (   b_SQ3_z + b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Fx) * ( - b_LN2_C + b_LN3_C))
-                    + (((      L_z) * Fz) * (   b_LN4))
-                    ),
-            'II':  w1
-                    * (
-                      (((     L_x4) * Ex) * (   b_SQ4_x))
-                    + (((     L_x4) * Fx) * (   b_SQ4_z))
-                    + (((     L_z4) * Ez) * (   b_SQ4_x))
-                    + (((     L_z4) * Fz) * (   b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Fx) * (   b_LN3_C))
-                    + (((     L_z4) * Ez) * (   b_LN4_C))
-                    ),
-            'DD':  w1
-                    * (
-                      (((     L_x4) * Ex) * (   b_SQ3_x + b_SQ1_x))
-                    + (((     L_x4) * Fx) * (   b_SQ3_z - b_SQ1_z))
-                    + (((     L_z4) * Ez) * ( - b_SQ3_x + b_SQ1_x))
-                    + (((     L_z4) * Fz) * ( - b_SQ3_z - b_SQ1_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Ex) * (   b_LN2))
-                    + (((     L_z4) * Ez) * ( - b_LN4_C +  b_LN1_C))
-                    ),
-            'EE':
-                    + w1
-                    * (
-                      (((-1 * L_x4) * Ex) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
-                    + (((     L_x4) * Fx) * (   b_SQ2_z + b_SQ3_z - b_SQ1_z - b_SQ4_z))
-                    + (((     L_z4) * Ez) * (   b_SQ2_x + b_SQ3_x - b_SQ1_x - b_SQ4_x))
-                    + (((-1 * L_z4) * Fz) * (   b_SQ1_z + b_SQ2_z + b_SQ3_z + b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Ex) * ( - b_LN2 - b_LN3))
-                    + (((      L_z) * Fz) * ( - b_LN1 - b_LN4))
-                      ),
-            'FF':  w1
-                    * (
-                      (((     L_x4) * Ex) * (   b_SQ2_x + b_SQ4_x))
-                    + (((     L_x4) * Fx) * (   b_SQ2_z - b_SQ4_z))
-                    + (((     L_z4) * Ez) * ( - b_SQ2_x + b_SQ4_x))
-                    + (((     L_z4) * Fz) * ( - b_SQ2_z - b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Ex) * (   b_LN3))
-                    + (((     L_z4) * Ez) * (   b_LN4_C - b_LN1_C))
-                    ),
-            'AA':  w1
-                    * (
-                      (((     L_x4) * Ex) * (   b_SQ1_x))
-                    + (((     L_x4) * Fx) * (   b_SQ1_z))
-                    + (((     L_z4) * Ez) * (   b_SQ1_x))
-                    + (((     L_z4) * Fz) * (   b_SQ1_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Fx) * (   b_LN2_C))
-                    + (((     L_z4) * Ez) * (   b_LN1_C))
-                    ),
-            'BB':  w1
-                    * (
-                      (((     L_x4) * Ex) * ( - b_SQ2_x - b_SQ1_x))
-                    + (((     L_x4) * Fx) * ( - b_SQ2_z + b_SQ1_z))
-                    + (((     L_z4) * Ez) * (   b_SQ2_x - b_SQ1_x))
-                    + (((     L_z4) * Fz) * (   b_SQ2_z + b_SQ2_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Fx) * ( - b_LN3_C + b_LN2_C))
-                    + (((      L_z) * Fz) * (   b_LN1))
-                    ),
-            'CC': w1
-                    * (
-                      (((     L_x4) * Ex) * (   b_SQ2_x))
-                    + (((-1 * L_x4) * Fx) * (   b_SQ2_z))
-                    + (((-1 * L_z4) * Ez) * (   b_SQ2_x))
-                    + (((     L_z4) * Fz) * (   b_SQ2_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Fx) * (   b_LN3_C))
-                    + (((-1 * L_z4) * Ez) * (   b_LN1_C))
-                    ),
-        }
+        M3_diagonals = generateDiagonals(0.   , Ex, Ez, Fx, Fz)
         prepareDiagonals(M3_diagonals)
 
-        M4_diagonals = {
-            'GG':  w1
-                    * (
-                      (((     L_x4) * Gx) * (   b_SQ3_x))
-                    + (((-1 * L_x4) * Hx) * (   b_SQ3_z))
-                    + (((-1 * L_z4) * Gz) * (   b_SQ3_x))
-                    + (((     L_z4) * Hz) * (   b_SQ3_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Hx) * (   b_LN2_C))
-                    + (((     L_z4) * Gz) * (   b_LN4_C))
-                    ),
-            'HH':  w1
-                    * (
-                      (((     L_x4) * Gx) * ( - b_SQ3_x - b_SQ4_x))
-                    + (((     L_x4) * Hx) * ( - b_SQ3_z + b_SQ4_z))
-                    + (((     L_z4) * Gz) * (   b_SQ3_x - b_SQ4_x))
-                    + (((     L_z4) * Hz) * (   b_SQ3_z + b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Hx) * ( - b_LN2_C + b_LN3_C))
-                    + (((      L_z) * Hz) * (   b_LN4))
-                    ),
-            'II':  w1
-                    * (
-                      (((     L_x4) * Gx) * (   b_SQ4_x))
-                    + (((     L_x4) * Hx) * (   b_SQ4_z))
-                    + (((     L_z4) * Gz) * (   b_SQ4_x))
-                    + (((     L_z4) * Hz) * (   b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Hx) * (   b_LN3_C))
-                    + (((     L_z4) * Gz) * (   b_LN4_C))
-                    ),
-            'DD':  w1
-                    * (
-                      (((     L_x4) * Gx) * (   b_SQ3_x + b_SQ1_x))
-                    + (((     L_x4) * Hx) * (   b_SQ3_z - b_SQ1_z))
-                    + (((     L_z4) * Gz) * ( - b_SQ3_x + b_SQ1_x))
-                    + (((     L_z4) * Hz) * ( - b_SQ3_z - b_SQ1_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Gx) * (   b_LN2))
-                    + (((     L_z4) * Gz) * ( - b_LN4_C +  b_LN1_C))
-                    ),
-            'EE':  K_avg
-                    + w1
-                    * (
-                      (((-1 * L_x4) * Gx) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
-                    + (((     L_x4) * Hx) * (   b_SQ2_z + b_SQ3_z - b_SQ1_z - b_SQ4_z))
-                    + (((     L_z4) * Gz) * (   b_SQ2_x + b_SQ3_x - b_SQ1_x - b_SQ4_x))
-                    + (((-1 * L_z4) * Hz) * (   b_SQ1_z + b_SQ2_z + b_SQ3_z + b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Gx) * ( - b_LN2 - b_LN3))
-                    + (((      L_z) * Hz) * ( - b_LN1 - b_LN4))
-                      ),
-            'FF':  w1
-                    * (
-                      (((     L_x4) * Gx) * (   b_SQ2_x + b_SQ4_x))
-                    + (((     L_x4) * Hx) * (   b_SQ2_z - b_SQ4_z))
-                    + (((     L_z4) * Gz) * ( - b_SQ2_x + b_SQ4_x))
-                    + (((     L_z4) * Hz) * ( - b_SQ2_z - b_SQ4_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((      L_x) * Gx) * (   b_LN3))
-                    + (((     L_z4) * Gz) * (   b_LN4_C - b_LN1_C))
-                    ),
-            'AA':  w1
-                    * (
-                      (((     L_x4) * Gx) * (   b_SQ1_x))
-                    + (((     L_x4) * Hx) * (   b_SQ1_z))
-                    + (((     L_z4) * Gz) * (   b_SQ1_x))
-                    + (((     L_z4) * Hz) * (   b_SQ1_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Hx) * (   b_LN2_C))
-                    + (((     L_z4) * Gz) * (   b_LN1_C))
-                    ),
-            'BB':  w1
-                    * (
-                      (((     L_x4) * Gx) * ( - b_SQ2_x - b_SQ1_x))
-                    + (((     L_x4) * Hx) * ( - b_SQ2_z + b_SQ1_z))
-                    + (((     L_z4) * Gz) * (   b_SQ2_x - b_SQ1_x))
-                    + (((     L_z4) * Hz) * (   b_SQ2_z + b_SQ2_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((     L_x4) * Hx) * ( - b_LN3_C + b_LN2_C))
-                    + (((      L_z) * Hz) * (   b_LN1))
-                    ),
-            'CC': w1
-                    * (
-                      (((     L_x4) * Gx) * (   b_SQ2_x))
-                    + (((-1 * L_x4) * Hx) * (   b_SQ2_z))
-                    + (((-1 * L_z4) * Gz) * (   b_SQ2_x))
-                    + (((     L_z4) * Hz) * (   b_SQ2_z))
-                      )
-                    + (1-w1)
-                    * (
-                      (((-1 * L_x4) * Hx) * (   b_LN3_C))
-                    + (((-1 * L_z4) * Gz) * (   b_LN1_C))
-                    ),
-        }
+        M4_diagonals = generateDiagonals(K_avg, Cx, Cz, Dx, Dz)
         prepareDiagonals(M4_diagonals)
 
         # self._setupBoundary(diagonals, freeSurf)
