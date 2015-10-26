@@ -129,7 +129,6 @@ class Eurus(object):
         gamma_x = np.zeros(nx, dtype=np.complex128)
         gamma_z = np.zeros(nz, dtype=np.complex128)
 
-
         x_vals  = np.arange(0,pmldx+dx,dx)
         z_vals  = np.arange(0,pmldz+dz,dz)
 
@@ -144,10 +143,8 @@ class Eurus(object):
 
         Xi_x     = 1 + ((1j *gamma_x.reshape((1,nx+2)))/iom)
         Xi_z     = 1 + ((1j *gamma_z.reshape((nz+2,1)))/iom)
-        
-        print Xi_x
-        
-        
+
+
         # Visual key for finite-difference terms
         # (per Pratt and Worthington, 1990)
         #
