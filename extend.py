@@ -107,12 +107,13 @@ class Eurus(object):
 
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.dx
-        dz  = self.dx
+        dz  = self.dz
         dxx = dx**2
         dzz = dz**2
         dxz = (dxx+dzz)/2
         dd  = np.sqrt(dxz)
-        iom = 1j * omega
+        tau = 0.4*0.05
+        iom = omega + (1j/tau)
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
@@ -132,18 +133,21 @@ class Eurus(object):
         x_vals  = np.arange(0,pmldx+dx,dx)
         z_vals  = np.arange(0,pmldz+dz,dz)
 
-        gamma_x[-nPML:]  = c_PML * (np.cos(np.pi/2))* x_vals/pmldx
-        gamma_x[:nPML] = c_PML * (np.cos(np.pi/2))* x_vals[::-1]/pmldx
+        gamma_x[:nPML]  = c_PML * (np.cos((np.pi/2)* (x_vals/pmldx)))
+        gamma_x[-nPML:] = c_PML * (np.cos((np.pi/2)* (x_vals[::-1]/pmldx)))
 
-        gamma_z[nPML:]  = c_PML * (np.cos(np.pi/2))* z_vals/pmldz
-        gamma_z[:-nPML] = c_PML * (np.cos(np.pi/2))* z_vals[::-1]/pmldz
+        gamma_z[:nPML]  = c_PML * (np.cos((np.pi/2)* (z_vals/pmldz)))
+        gamma_z[-nPML:] = c_PML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
 
         gamma_x = np.pad(gamma_x, pad_width=1, mode='edge')
         gamma_z = np.pad(gamma_z, pad_width=1, mode='edge')
 
-        Xi_x     = 1 + ((1j *gamma_x.reshape((1,nx+2)))/omega)
-        Xi_z     = 1 + ((1j *gamma_z.reshape((nz+2,1)))/omega)
-
+        Xi_x     = 1 + ((1j *gamma_x.reshape((1,nx+2)))/iom)
+        Xi_z     = 1 + ((1j *gamma_z.reshape((nz+2,1)))/iom)
+        
+        print Xi_x
+        
+        
         # Visual key for finite-difference terms
         # (per Pratt and Worthington, 1990)
         #
