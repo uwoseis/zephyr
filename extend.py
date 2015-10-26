@@ -132,11 +132,11 @@ class Eurus(object):
         x_vals  = np.arange(0,pmldx+dx,dx)
         z_vals  = np.arange(0,pmldz+dz,dz)
 
-        gamma_x[:nPML]  = c_PML * (np.cos(np.pi/2))* x_vals/pmldx
-        gamma_x[-nPML:] = c_PML * (np.cos(np.pi/2))* x_vals[::-1]/pmldx
+        gamma_x[-nPML:]  = c_PML * (np.cos(np.pi/2))* x_vals/pmldx
+        gamma_x[:nPML] = c_PML * (np.cos(np.pi/2))* x_vals[::-1]/pmldx
 
-        gamma_z[:nPML]  = c_PML * (np.cos(np.pi/2))* z_vals/pmldz
-        gamma_z[-nPML:] = c_PML * (np.cos(np.pi/2))* z_vals[::-1]/pmldz
+        gamma_z[nPML:]  = c_PML * (np.cos(np.pi/2))* z_vals/pmldz
+        gamma_z[:-nPML] = c_PML * (np.cos(np.pi/2))* z_vals[::-1]/pmldz
 
         gamma_x = np.pad(gamma_x, pad_width=1, mode='edge')
         gamma_z = np.pad(gamma_z, pad_width=1, mode='edge')
