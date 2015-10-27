@@ -468,43 +468,6 @@ class Eurus(object):
         A = scipy.sparse.vstack((top,bottom))
         return A
 
-    def _setupBoundary(self, diagonals, freeSurf):
-        """
-        Function to set up boundary regions for the Seismic FDFD problem
-        using the 9-point finite-difference stencil from OMEGA/FULLWV.
-        """
-
-        keys = diagonals.keys()
-        pickDiag = lambda x: -1. if freeSurf[x] else 1.
-
-        # Left
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][:,0] = pickDiag(3)
-            else:
-                diagonals[key][:,0] = 0.
-
-        # Right
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][:,-1] = pickDiag(1)
-            else:
-                diagonals[key][:,-1] = 0.
-
-        # Bottom
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][0,:] = pickDiag(0)
-            else:
-                diagonals[key][0,:] = 0.
-
-        # Top
-        for key in keys:
-            if key is 'BE':
-                diagonals[key][-1,:] = pickDiag(2)
-            else:
-                diagonals[key][-1,:] = 0.
-
     @property
     def A(self):
         if getattr(self, '_A', None) is None:
@@ -551,39 +514,3 @@ class Eurus(object):
     def __mul__(self, value):
         u = self.Solver.solve(value)
         return u
-
-def CB_mfact():
-
-    global Ainv
-
-    c = np.sqrt(fullwv.m[:fullwv.nz[0],:fullwv.nx[0]]/fullwv.rho[:fullwv.nz[0],:fullwv.nx[0]]).conjugate()
-    freq = fullwv.omega[0].conjugate() / (2*np.pi)
-    ky = fullwv.keiy[0] / (2*np.pi)
-
-    newSystem = True
-    if 'Ainv' in globals():
-        checks = [
-            not (Ainv.c - c).sum() == 0,
-            not (Ainv.freq - freq).sum() == 0,
-            not (Ainv.ky - ky).sum() == 0,
-        ]
-        newSystem = any(checks)
-
-    if newSystem:
-        fullwv.dbprint('Factorizing system')
-
-        systemConfig = {
-            'dx':       fullwv.dx[0],
-            'dz':       fullwv.dz[0],
-            'c':        c,
-            'rho':      fullwv.rho[:fullwv.nz,:fullwv.nx],
-            'nx':       fullwv.nx,
-            'nz':       fullwv.nz,
-            'freeSurf': fullwv.freesurf,
-            'nPML':     10,
-            'freq':     freq,
-            'ky':       ky,
-        }
-
-        Ainv = Eurus(systemConfig)
-
