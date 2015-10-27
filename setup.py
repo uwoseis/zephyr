@@ -26,7 +26,7 @@ with open('README.md') as fp:
     LONG_DESCRIPTION = ''.join(fp.readlines())
 
 setup(
-    name = 'Eurus',
+    name = 'eurus',
     # version = '0.1.1',
     packages = find_packages(),
     install_requires = ['numpy>=1.7',
@@ -39,7 +39,7 @@ setup(
     license = 'MIT',
     keywords = 'full-waveform inversion',
     # url = '',
-    download_url = 'http://github.com/bsmithyman/eurus',
+    download_url = 'http://github.com/ShaunHadden/eurus',
     classifiers = CLASSIFIERS,
     platforms = ['Windows', 'Linux', 'Solaris', 'Mac OS-X', 'Unix'],
     use_2to3 = False,
