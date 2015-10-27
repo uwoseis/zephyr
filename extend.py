@@ -65,6 +65,7 @@ class Eurus(object):
             'theta':        '_theta',
             'eps':          '_eps',
             'delta':        '_delta',
+            'cPML':         '_cPML',
         }
 
         for key in initMap.keys():
@@ -124,7 +125,7 @@ class Eurus(object):
         #Operto et al.(2009) PML implementation taken from Hudstedt et al.(2004)
         pmldx   = dx*(nPML - 1)
         pmldz   = dz*(nPML - 1)
-        c_PML   = 100
+        c_PML   = self.cPML
 
         gamma_x = np.zeros(nx, dtype=np.complex128)
         gamma_z = np.zeros(nz, dtype=np.complex128)
@@ -537,6 +538,12 @@ class Eurus(object):
         if getattr(self, '_mord', None) is None:
             self._mord = ('+nx', '+1')
         return self._mord
+
+    @property
+    def cPML(self):
+        if getattr(self, '_cPML', None) is None:
+            self._cPML = 1e3
+        return self._cPML
 
     @property
     def theta(self):
