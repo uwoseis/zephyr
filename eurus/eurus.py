@@ -1,35 +1,3 @@
-
-# ------------------------------------------------------------------------
-# Imports
-try:
-    import fullwv
-except ImportError:
-    print('Cannot import \'fullwv\'; callback functions will not work!')
-
-import time
-
-# ------------------------------------------------------------------------
-# Module variables
-starttime = 0
-
-# ------------------------------------------------------------------------
-# Callbacks
-
-def CB_the_start():
-    global starttime
-    fullwv.dbprint('At the start of the program!')
-    starttime = time.time()
-
-    fullwv.pythonSolver[:] = True
-
-def CB_the_end():
-    fullwv.dbprint('At the end of the program!')
-    timediff = time.time() - starttime
-    print('\nTime Elapsed: %8.3f\n'% (timediff,))
-
-# ------------------------------------------------------------------------
-# Python discretization from Zephyr
-
 import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
@@ -602,13 +570,3 @@ def CB_mfact():
 
         Ainv = Eurus(systemConfig)
 
-def CB_sveq():
-
-    q1 = fullwv.sfld[:fullwv.nx*fullwv.nz].reshape((fullwv.nx,fullwv.nz)).T.ravel()
-
-    # for now, assume fullwv does it by source, so dimensions of q needs to be (nx*nz,1)
-    q2=np.zeros(fullwv.nx*fullwv.nz,1)
-    q = np.vstack((q1,q2))
-
-    u = (Ainv*q).conjugate() * np.exp(-2j*np.pi* (0.25 + 0.006*Ainv.freq))
-    fullwv.sfld[:fullwv.nx*fullwv.nz] = u.reshape((fullwv.nz,fullwv.nx)).T.ravel()
