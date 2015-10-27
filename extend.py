@@ -541,7 +541,7 @@ class Eurus(object):
     @property
     def theta(self):
         if getattr(self, '_theta', None) is None:
-            self._theta = 0.5 * np.pi * np.ones((self.nz, self.nx))
+            self._theta = np.zeros((self.nz, self.nx))
         return self._theta
 
     @property
