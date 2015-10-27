@@ -2,6 +2,23 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 
+class SimpleSource(object):
+    
+    def __init__(self, sc):
+                
+        self._x, self._z = np.mgrid[
+            0:sc['dx']*sc['nx']:sc['dx'],
+            0:sc['dz']*sc['nz']:sc['dz']
+        ]
+    
+    def __call__(self, x, z):
+        
+        dist = np.sqrt((self._x - x)**2 + (self._z - z)**2)
+        srcterm = 1.*(dist == dist.min())
+        nz, nx = self._x.shape
+        
+        return np.hstack([srcterm.T.ravel() / srcterm.sum(), np.zeros(nx*nz, dtype=np.complex128)])
+
 class Eurus(object):
 
     c           =   None

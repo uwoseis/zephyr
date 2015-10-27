@@ -1,1 +1,1 @@
-from eurus import Eurus
+from eurus import Eurus, SimpleSource
