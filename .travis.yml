@@ -20,7 +20,7 @@ install:
 
 # Run test
 script:
-  - nosetests --with-cov --cov eurus --cov-config .coveragerc -v -s
+  - nosetests --with-cov --cov anemoi --cov-config .coveragerc -v -s
 
 # Calculate coverage
 after_success:
