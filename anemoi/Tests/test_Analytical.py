@@ -2,19 +2,17 @@ import unittest
 import numpy as np
 from anemoi import AnalyticalHelmholtz
 
-class TestMiniZephyr(unittest.TestCase):
+class TestAnalyticalHelmholtz(unittest.TestCase):
 
     def setUp(self):
         pass
 
-    def test_forwardModelling(self):
+    def test_cleanExecution(self):
 
         nx = 100
         nz = 200
 
         systemConfig = {
-            'dx':       1.,     # m
-            'dz':       1.,     # m
             'c':        2500.,  # m/s
             'nx':       nx,     # count
             'nz':       nz,     # count
