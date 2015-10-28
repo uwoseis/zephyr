@@ -1,6 +1,6 @@
 
 import numpy as np
-from scipy.special import hankel1
+from scipy.special import hankel2
 
 class AnalyticalHelmholtz(object):
 
@@ -21,15 +21,16 @@ class AnalyticalHelmholtz(object):
         nx = sc['nx']
         nz = sc['nz']
 
-        self._x, self._z = np.mgrid[
-            xorig:xorig+dz*nx:dx,
-            zorig:zorig+dz*nz:dz
+        self._z, self._x = np.mgrid[
+            zorig:zorig+dz*nz:dz,
+            xorig:xorig+dz*nx:dx
         ]
 
-    def Green2D(self, x):
+    def Green2D(self, r):
 
-        return -0.5j * hankel1(0, self.k*x)
+        # Correct: -0.5j * hankel2(0, self.k*r)
+        return 0.25j * hankel2(0, self.k*r)
 
     def __call__(self, x, z):
 
-        return np.nan_to_num(self.Green2D(np.sqrt((self.xstretch * (x - self._x))**2 + (self.zstretch * (z - self._z))**2)))
+        return np.nan_to_num(self.Green2D(np.sqrt((self.xstretch * (x - self._x))**2 + (self.zstretch * (z - self._z))**2))).ravel()
