@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from eurus import Eurus, SimpleSource
+from anemoi import Eurus, StackedSimpleSource
 
 class TestEurus(unittest.TestCase):
 
@@ -25,7 +25,7 @@ class TestEurus(unittest.TestCase):
         }
 
         Ainv = Eurus(systemConfig)
-        src = SimpleSource(systemConfig)
+        src = StackedSimpleSource(systemConfig)
 
         q = src(nx/2, nz/2)
         u = Ainv*q
