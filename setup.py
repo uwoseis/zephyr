@@ -1,4 +1,4 @@
-'''Eurus
+'''Anemoi
 '''
 
 import os
@@ -26,20 +26,20 @@ with open('README.md') as fp:
     LONG_DESCRIPTION = ''.join(fp.readlines())
 
 setup(
-    name = 'eurus',
+    name = 'anemoi',
     # version = '0.1.1',
     packages = find_packages(),
     install_requires = ['numpy>=1.7',
                         'scipy>=0.13',
                        ],
-    author = 'Shaun Hadden',
-    author_email = 'shadden2@uwo.ca',
-    description = 'Eurus',
+    author = 'Brendan Smithyman',
+    author_email = 'brendan@bitsmithy.net',
+    description = 'Anemoi',
     long_description = LONG_DESCRIPTION,
     license = 'MIT',
     keywords = 'full-waveform inversion',
     # url = '',
-    download_url = 'http://github.com/ShaunHadden/eurus',
+    download_url = 'http://github.com/uwoseis/anemoi',
     classifiers = CLASSIFIERS,
     platforms = ['Windows', 'Linux', 'Solaris', 'Mac OS-X', 'Unix'],
     use_2to3 = False,
