@@ -24,7 +24,7 @@ class MiniZephyr(object):
 
         initMap = {
         #   Argument        Rename to Property
-            'c':            None,
+            'c':            '_c',
             'rho':          '_rho',
             'nPML':         '_nPML',
             'freq':         None,
@@ -54,7 +54,7 @@ class MiniZephyr(object):
         """
 
         dtypeComplex = DTYPE_COMPLEX
-        dtypeReal = DTYPE_COMPLEX
+        dtypeReal = DTYPE_REAL
 
         nx = self.nx
         nz = self.nz
@@ -312,12 +312,23 @@ class MiniZephyr(object):
         if getattr(self, '_mord', None) is None:
             self._mord = ('+nx', '+1')
         return self._mord
+    
+    @property
+    def c(self):
+        if isinstance(self._c, np.ndarray):
+            return self._c
+        else:
+            return self._c * np.ones((self.nz, self.nx), dtype=DTYPE_COMPLEX)
 
     @property
     def rho(self):
         if getattr(self, '_rho', None) is None:
             self._rho = 310. * self.c**0.25 
-        return self._rho
+            
+        if isinstance(self._rho, np.ndarray):
+            return self._rho
+        else:
+            return self._rho * np.ones((self.nz, self.nx), dtype=DTYPE_REAL)
 
     @property
     def nPML(self):
@@ -356,16 +367,22 @@ class MiniZephyr(object):
 class SimpleSource(object):
     
     def __init__(self, systemConfig):
-                
-        self._x, self._z = np.mgrid[
-            0:systemConfig['dx']*systemConfig['nx']:systemConfig['dx'],
-            0:systemConfig['dz']*systemConfig['nz']:systemConfig['dz']
+        
+        xorig   = systemConfig.get('xorig', 0.)
+        zorig   = systemConfig.get('zorig', 0.)
+        dx      = systemConfig.get('dx', 1.)
+        dz      = systemConfig.get('dz', 1.)
+        nx      = systemConfig['nx']
+        nz      = systemConfig['nz']
+        
+        self._z, self._x = np.mgrid[
+            zorig : dz * nz : dz,
+            xorig : dx * nx : dx
         ]
     
     def __call__(self, x, z):
         
         dist = np.sqrt((self._x - x)**2 + (self._z - z)**2)
         srcterm = 1.*(dist == dist.min())
-        nz, nx = self._x.shape
         
-        return srcterm.T.ravel() / srcterm.sum()
+        return srcterm.ravel() / srcterm.sum()
