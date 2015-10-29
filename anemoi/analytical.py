@@ -4,22 +4,22 @@ from scipy.special import hankel2
 
 class AnalyticalHelmholtz(object):
 
-    def __init__(self, sc):
+    def __init__(self, systemConfig):
 
-        self.omega      = 2 * np.pi * sc['freq']
-        self.c          = sc['c']
+        self.omega      = 2 * np.pi * systemConfig['freq']
+        self.c          = systemConfig['c']
         self.k          = self.omega / self.c
-        self.stretch    = 1. + 2.*sc.get('eps', 0.)
-        self.theta      = sc.get('theta', 0.)
+        self.stretch    = 1. + 2.*systemConfig.get('eps', 0.)
+        self.theta      = systemConfig.get('theta', 0.)
         self.xstretch   = np.sqrt(np.sin(self.theta)**2 + self.stretch * np.cos(self.theta)**2)
         self.zstretch   = np.sqrt(np.cos(self.theta)**2 + self.stretch * np.sin(self.theta)**2)
 
-        xorig   = sc.get('xorig', 0.)
-        zorig   = sc.get('zorig', 0.)
-        dx      = sc.get('dx', 1.)
-        dz      = sc.get('dz', 1.)
-        nx = sc['nx']
-        nz = sc['nz']
+        xorig   = systemConfig.get('xorig', 0.)
+        zorig   = systemConfig.get('zorig', 0.)
+        dx      = systemConfig.get('dx', 1.)
+        dz      = systemConfig.get('dz', 1.)
+        nx      = systemConfig['nx']
+        nz      = systemConfig['nz']
 
         self._z, self._x = np.mgrid[
             zorig:zorig+dz*nz:dz,

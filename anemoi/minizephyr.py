@@ -35,6 +35,7 @@ class MiniZephyr(object):
             'nz':           None,
             'freeSurf':     '_freeSurf',
             'mord':         '_mord',
+            'premul':       '_premul',
         }
 
         for key in initMap.keys():
@@ -309,9 +310,7 @@ class MiniZephyr(object):
 
     @property
     def mord(self):
-        if getattr(self, '_mord', None) is None:
-            self._mord = ('+nx', '+1')
-        return self._mord
+        return getattr(self, '_mord', ('+nx', '+1'))
     
     @property
     def c(self):
@@ -332,35 +331,31 @@ class MiniZephyr(object):
 
     @property
     def nPML(self):
-        if getattr(self, '_nPML', None) is None:
-            self._nPML = 10
-        return self._nPML
+        return getattr(self, '_nPML', 10)
 
     @property
     def ky(self):
-        if getattr(self, '_ky', None) is None:
-            self._ky = 0.
-        return self._ky
+        return getattr(self, '_ky', 0.)
 
     @property
     def dx(self):
-        if getattr(self, '_dx', None) is None:
-            self._dx = 1.
-        return self._dx
+        return getattr(self, '_dx', 1.)
     
     @property
     def dz(self):
-        if getattr(self, '_dz', None) is None:
-            self._dz = self.dx
-        return self._dz
+        return getattr(self, '_dz', self.dx)
     
     @property
     def freeSurf(self):
         if getattr(self, '_freeSurf', None) is None:
             self._freeSurf = (False, False, False, False)
         return self._freeSurf
+    
+    @property
+    def premul(self):
+        return getattr(self, '_premul', 1.)
 
     def __mul__(self, value):
-        u = self.Solver.solve(value)
+        u = self.premul * self.Solver.solve(value)
         return u
 
