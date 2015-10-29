@@ -57,7 +57,10 @@ class TestMiniZephyr(unittest.TestCase):
         uMZr = uMZ.reshape((nz, nx))
         uAHr = uAH.reshape((nz, nx))
         
-        error = self.elementNorm(uAHr[40:180,40:80] - uMZr[40:180,40:80])
+        segAHr = uAHr[40:180,40:80]
+        segMZr = uMZr[40:180,40:80]
+        
+        error = self.elementNorm((segAHr - segMZr) / abs(segAHr))
         
         self.assertTrue(error < 1e-2)
     

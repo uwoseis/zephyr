@@ -7,7 +7,7 @@ class TestEurus(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_forwardModelling(self):
+    def test_cleanExecution(self):
 
         nx = 100
         nz = 200
