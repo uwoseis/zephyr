@@ -9,10 +9,8 @@ class AnalyticalHelmholtz(object):
         self.omega      = 2 * np.pi * systemConfig['freq']
         self.c          = systemConfig['c']
         self.k          = self.omega / self.c
-        self.stretch    = 1. / (1+(2.*systemConfig.get('eps', 0.)))
+        self.stretch    = 1. / (1 + (2.*systemConfig.get('eps', 0.)))
         self.theta      = systemConfig.get('theta', 0.)
-        self.xstretch   = np.sqrt(np.sin(self.theta)**2 + self.stretch * np.cos(self.theta)**2)
-        self.zstretch   = np.sqrt(np.cos(self.theta)**2 + self.stretch * np.sin(self.theta)**2)
 
         xorig   = systemConfig.get('xorig', 0.)
         zorig   = systemConfig.get('zorig', 0.)
@@ -32,5 +30,11 @@ class AnalyticalHelmholtz(object):
         return 0.25j * hankel2(0, self.k*r)
 
     def __call__(self, x, z):
-
-        return np.nan_to_num(self.Green2D(np.sqrt((self.xstretch * (x - self._x))**2 + (self.zstretch * (z - self._z))**2))).ravel()
+        
+        dx = self._x - x
+        dz = self._z - z
+        dist = np.sqrt(dx**2 + dz**2)
+        strangle = np.arctan(dz / dx) - self.theta
+        stretch = np.sqrt(self.stretch * np.cos(strangle)**2 + np.sin(strangle)**2)
+        
+        return np.nan_to_num(self.Green2D(dist * stretch)).ravel()
