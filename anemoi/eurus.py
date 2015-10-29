@@ -19,8 +19,8 @@ class Eurus(object):
 
         initMap = {
         #   Argument        Rename to Property
-            'c':            None,
-            'rho':          None,
+            'c':            '_c',
+            'rho':          '_rho',
             'nPML':         None,
             'freq':         None,
             'ky':           None,
@@ -475,24 +475,53 @@ class Eurus(object):
         if getattr(self, '_cPML', None) is None:
             self._cPML = 1e3
         return self._cPML
+    
+    @property
+    def c(self):
+        if isinstance(self._c, np.ndarray):
+            return self._c
+        else:
+            return self._c * np.ones((self.nz, self.nx), dtype=np.complex128)
+        
+    @property
+    def rho(self):
+        if getattr(self, '_rho', None) is None:
+            self._rho = 310. * self.c**0.25 
+            
+        if isinstance(self._rho, np.ndarray):
+            return self._rho
+        else:
+            return self._rho * np.ones((self.nz, self.nx), dtype=np.float64)
 
     @property
     def theta(self):
         if getattr(self, '_theta', None) is None:
             self._theta = np.zeros((self.nz, self.nx))
-        return self._theta
+            
+        if isinstance(self._theta, np.ndarray):
+            return self._theta
+        else:
+            return self._theta * np.ones((self.nz, self.nx), dtype=np.float64)
 
     @property
     def eps(self):
         if getattr(self, '_eps', None) is None:
             self._eps = np.zeros((self.nz, self.nx))
-        return self._eps
+            
+        if isinstance(self._eps, np.ndarray):
+            return self._eps
+        else:
+            return self._eps * np.ones((self.nz, self.nx), dtype=np.float64)
 
     @property
     def delta(self):
         if getattr(self, '_delta', None) is None:
             self._delta = np.zeros((self.nz, self.nx))
-        return self._delta
+            
+        if isinstance(self._delta, np.ndarray):
+            return self._delta
+        else:
+            return self._delta * np.ones((self.nz, self.nx), dtype=np.float64)
 
     def __mul__(self, value):
         u = self.Solver.solve(value)
