@@ -9,7 +9,7 @@ class AnalyticalHelmholtz(object):
         self.omega      = 2 * np.pi * systemConfig['freq']
         self.c          = systemConfig['c']
         self.k          = self.omega / self.c
-        self.stretch    = 1. + 2.*systemConfig.get('eps', 0.)
+        self.stretch    = 1. / (1+(2.*systemConfig.get('eps', 0.)))
         self.theta      = systemConfig.get('theta', 0.)
         self.xstretch   = np.sqrt(np.sin(self.theta)**2 + self.stretch * np.cos(self.theta)**2)
         self.zstretch   = np.sqrt(np.cos(self.theta)**2 + self.stretch * np.sin(self.theta)**2)
