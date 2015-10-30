@@ -82,7 +82,7 @@ class Eurus(object):
         dxz = (dxx+dzz)/2
         dd  = np.sqrt(dxz)
         tau = 0.4*0.05
-        iom = omega + (1j/tau)
+        omegaDamped = omega + (1j/tau)
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
@@ -110,8 +110,8 @@ class Eurus(object):
         gamma_x = np.pad(gamma_x, pad_width=1, mode='edge')
         gamma_z = np.pad(gamma_z, pad_width=1, mode='edge')
 
-        Xi_x     = 1 + ((1j *gamma_x.reshape((1,nx+2)))/iom)
-        Xi_z     = 1 + ((1j *gamma_z.reshape((nz+2,1)))/iom)
+        Xi_x     = 1 + ((1j *gamma_x.reshape((1,nx+2)))/omegaDamped)
+        Xi_z     = 1 + ((1j *gamma_z.reshape((nz+2,1)))/omegaDamped)
 
 
         # Visual key for finite-difference terms
@@ -243,7 +243,7 @@ class Eurus(object):
 
 
         # Model parameter M
-        K = omega*omega.conjugate() / (rhoPad * cPad**2)
+        K = (omegaDamped**2) / (rhoPad * cPad**2)
 
         # K = omega^2/(c^2 . rho)
 
