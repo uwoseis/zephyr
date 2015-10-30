@@ -260,7 +260,7 @@ class Eurus(object):
 
 
         # Model parameter M
-        K = omega*omega.conjugate() / (rhoPad * cPad**2)
+        K = iom*iom.conjugate() / (rhoPad * cPad**2)
 
         # K = omega^2/(c^2 . rho)
 
