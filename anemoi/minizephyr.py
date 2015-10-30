@@ -24,26 +24,27 @@ class MiniZephyr(object):
 
         initMap = {
         #   Argument        Rename to Property
-            'c':            '_c',
-            'rho':          '_rho',
-            'nPML':         '_nPML',
-            'freq':         None,
-            'ky':           '_ky',
-            'dx':           '_dx',
-            'dz':           '_dz',
-            'nx':           None,
-            'nz':           None,
-            'freeSurf':     '_freeSurf',
-            'mord':         '_mord',
-            'premul':       '_premul',
+            'c':            ('_c',          np.complex128),
+            'rho':          ('_rho',        np.float64),
+            'nPML':         ('_nPML',       np.int64),
+            'freq':         (None,          np.complex128),
+            'ky':           ('_ky',         np.float64),
+            'dx':           ('_dx',         np.float64),
+            'dz':           ('_dz',         np.float64),
+            'nx':           (None,          np.int64),
+            'nz':           (None,          np.int64),
+            'freeSurf':     ('_freeSurf',   list),
+            'mord':         ('_mord',       tuple),
+            'premul':       ('_premul',     np.complex128),
         }
 
         for key in initMap.keys():
             if key in systemConfig:
-                if initMap[key] is None:
-                    setattr(self, key, systemConfig[key])
+                typer = initMap[key][1]
+                if initMap[key][0] is None:
+                    setattr(self, key, typer(systemConfig[key]))
                 else:
-                    setattr(self, initMap[key], systemConfig[key])
+                    setattr(self, initMap[key][0], typer(systemConfig[key]))
 
     def _initHelmholtzNinePoint(self):
         """
