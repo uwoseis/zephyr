@@ -29,6 +29,48 @@ class TestMiniZephyr(unittest.TestCase):
 
         q = src(xs, zs)
         u = Ainv*q
+
+    def test_cleanExecution25D(self):
+
+        systemConfig = {
+            'c':        2500.,                          # m/s
+            'rho':      1.,                             # density
+            'nx':       100,                            # count
+            'nz':       200,                            # count
+            'freq':     2e2,
+            'nky':      4,
+            'parallel': False,
+        }
+        
+        xs = 50
+        zs = 100
+
+        Ainv = MiniZephyr25D(systemConfig)
+        src = SimpleSource(systemConfig)
+
+        q = src(xs, zs)
+        u = Ainv*q
+
+    def test_cleanExecution25DParallel(self):
+
+        systemConfig = {
+            'c':        2500.,                          # m/s
+            'rho':      1.,                             # density
+            'nx':       100,                            # count
+            'nz':       200,                            # count
+            'freq':     2e2,
+            'nky':      4,
+            'parallel': True,
+        }
+        
+        xs = 50
+        zs = 100
+
+        Ainv = MiniZephyr25D(systemConfig)
+        src = SimpleSource(systemConfig)
+
+        q = src(xs, zs)
+        u = Ainv*q
     
     def test_compareAnalytical(self):
         
@@ -72,7 +114,7 @@ class TestMiniZephyr(unittest.TestCase):
             'nx':       100,    # count
             'nz':       200,    # count
             'freq':     2e2,    # Hz
-            'nky':      100,
+            'nky':      20,
             '3D':       True,
         }
         
