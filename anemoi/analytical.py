@@ -1,4 +1,5 @@
 
+import warnings
 import numpy as np
 from scipy.special import hankel2
 
@@ -34,7 +35,9 @@ class AnalyticalHelmholtz(object):
         dx = self._x - x
         dz = self._z - z
         dist = np.sqrt(dx**2 + dz**2)
-        strangle = np.arctan(dz / dx) - self.theta
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            strangle = np.arctan(dz / dx) - self.theta
         stretch = np.sqrt(self.stretch * np.cos(strangle)**2 + np.sin(strangle)**2)
         
         return np.nan_to_num(self.Green2D(dist * stretch)).ravel()
