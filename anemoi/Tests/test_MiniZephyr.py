@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from anemoi import MiniZephyr, SimpleSource, AnalyticalHelmholtz
+from anemoi import MiniZephyr, MiniZephyr25D, SimpleSource, AnalyticalHelmholtz
 
 class TestMiniZephyr(unittest.TestCase):
     
@@ -61,6 +61,43 @@ class TestMiniZephyr(unittest.TestCase):
         segMZr = uMZr[40:180,40:80]
         
         error = self.elementNorm((segAHr - segMZr) / abs(segAHr))
+        
+        self.assertTrue(error < 1e-2)
+        
+    def test_compareAnalytical25D(self):
+        
+        systemConfig = {
+            'c':        2500.,  # m/s
+            'rho':      1.,     # kg/m^3
+            'nx':       100,    # count
+            'nz':       200,    # count
+            'freq':     2e2,    # Hz
+            'nky':      100,
+            '3D':       True,
+        }
+        
+        xs = 25 
+        zs = 25
+
+        Ainv = MiniZephyr25D(systemConfig)
+        src = SimpleSource(systemConfig)
+        q = src(xs, zs)
+        uMZ = Ainv*q
+        
+        AH = AnalyticalHelmholtz(systemConfig)
+        uAH = AH(xs, zs)
+        
+        nx = systemConfig['nx']
+        nz = systemConfig['nz']
+        
+        uMZr = uMZ.reshape((nz, nx))
+        uAHr = uAH.reshape((nz, nx))
+        
+        segAHr = uAHr[40:180,40:80]
+        segMZr = uMZr[40:180,40:80]
+        
+        error = self.elementNorm((segAHr - segMZr) / abs(segAHr))
+        print(error)
         
         self.assertTrue(error < 1e-2)
     

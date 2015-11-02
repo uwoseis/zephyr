@@ -464,6 +464,10 @@ class MiniZephyr25D(object):
             self._subProblems = map(self.discretization, self._spConfigs)
         return self._subProblems
     
+    @property
+    def scaleTerm(self):
+        return getattr(self, '_scaleTerm', 1./(4*np.pi))
+    
     def __mul__(self, rhs):
         
         if self.parallel:
@@ -477,4 +481,4 @@ class MiniZephyr25D(object):
         else:
             u = (sp*rhs for sp in self.subProblems)
         
-        return reduce(np.add, u)
+        return self.scaleTerm * reduce(np.add, u)
