@@ -9,21 +9,10 @@ DTYPE_REAL = np.float64
 
 class MiniZephyr(object):
 
-    c           =   None
-    rho         =   None
-    nPML        =   None
-    freq        =   None
-    ky          =   None
-    dx          =   None
-    dx          =   None
-    nx          =   None
-    nz          =   None
-    freeSurf    =   None
-
     def __init__(self, systemConfig):
 
         initMap = {
-        #   Argument        Rename to Property
+        #   Argument        Rename as ...   Store as type
             'c':            ('_c',          np.complex128),
             'rho':          ('_rho',        np.float64),
             'nPML':         ('_nPML',       np.int64),
@@ -73,8 +62,9 @@ class MiniZephyr(object):
 
         # Set up physical properties in matrices with padding
         omega   = 2*np.pi * self.freq
-        cPad    = np.pad(c, pad_width=1, mode='edge')
-        rhoPad  = np.pad(rho, pad_width=1, mode='edge')
+        padopts = {'pad_width': 1, 'mode': 'edge'}
+        cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
+        rhoPad  = np.pad(rho, **padopts)
 
         aky = 2*np.pi * self.ky
 

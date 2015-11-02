@@ -4,44 +4,33 @@ import scipy.sparse.linalg
 
 class Eurus(object):
 
-    c           =   None
-    rho         =   None
-    nPML        =   None
-    freq        =   None
-    ky          =   None
-    dx          =   None
-    dx          =   None
-    nx          =   None
-    nz          =   None
-    freeSurf    =   None
-
     def __init__(self, systemConfig):
 
         initMap = {
-        #   Argument        Rename to Property
-            'c':            '_c',
-            'rho':          '_rho',
-            'nPML':         None,
-            'freq':         None,
-            'ky':           None,
-            'dx':           None,
-            'dz':           None,
-            'nx':           None,
-            'nz':           None,
-            'freeSurf':     None,
-            'mord':         '_mord',
-            'theta':        '_theta',
-            'eps':          '_eps',
-            'delta':        '_delta',
-            'cPML':         '_cPML',
+        #   Argument        Rename as ...   Store as type
+            'c':            ('_c',          np.complex128),
+            'rho':          ('_rho',        np.float64),
+            'nPML':         ('_nPML',       np.int64),
+            'freq':         (None,          np.complex128),
+            'dx':           (None,          np.float64),
+            'dz':           (None,          np.float64),
+            'nx':           (None,          np.int64),
+            'nz':           (None,          np.int64),
+            'freeSurf':     (None,          list),
+            'mord':         ('_mord',       tuple),
+            'theta':        ('_theta',      np.float64),
+            'eps':          ('_eps',        np.float64),
+            'delta':        ('_delta',      np.float64),
+            'cPML':         ('_cPML',       np.float64),
         }
 
         for key in initMap.keys():
             if key in systemConfig:
-                if initMap[key] is None:
-                    setattr(self, key, systemConfig[key])
+                typer = initMap[key][1]
+                if initMap[key][0] is None:
+                    setattr(self, key, typer(systemConfig[key]))
                 else:
-                    setattr(self, initMap[key], systemConfig[key])
+                    setattr(self, initMap[key][0], typer(systemConfig[key]))
 
     def _initHelmholtzNinePoint(self):
         """
@@ -71,8 +60,9 @@ class Eurus(object):
 
         # Set up physical properties in matrices with padding
         omega   = 2*np.pi * self.freq
-        cPad    = np.pad(c, pad_width=1, mode='edge')
-        rhoPad  = np.pad(rho, pad_width=1, mode='edge')
+        padopts = {'pad_width': 1, 'mode': 'edge'}
+        cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
+        rhoPad  = np.pad(rho, **padopts)
 
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.dx
@@ -107,8 +97,8 @@ class Eurus(object):
         gamma_z[:nPML]  = c_PML * (np.cos((np.pi/2)* (z_vals/pmldz)))
         gamma_z[-nPML:] = c_PML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
 
-        gamma_x = np.pad(gamma_x, pad_width=1, mode='edge')
-        gamma_z = np.pad(gamma_z, pad_width=1, mode='edge')
+        gamma_x = np.pad(gamma_x.real, **padopts) + 1j * np.pad(gamma_x.imag, **padopts)
+        gamma_z = np.pad(gamma_z.real, **padopts) + 1j * np.pad(gamma_z.imag, **padopts)
 
         Xi_x     = 1 + ((1j *gamma_x.reshape((1,nx+2)))/omegaDamped)
         Xi_z     = 1 + ((1j *gamma_z.reshape((nz+2,1)))/omegaDamped)
@@ -466,15 +456,15 @@ class Eurus(object):
 
     @property
     def mord(self):
-        if getattr(self, '_mord', None) is None:
-            self._mord = ('+nx', '+1')
-        return self._mord
+        return getattr(self, '_mord', ('+nx', '+1'))
 
     @property
     def cPML(self):
-        if getattr(self, '_cPML', None) is None:
-            self._cPML = 1e3
-        return self._cPML
+        return getattr(self, '_cPML', 1e3)
+
+    @property
+    def nPML(self):
+        return getattr(self, '_nPML', 10)
     
     @property
     def c(self):
