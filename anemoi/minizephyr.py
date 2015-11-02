@@ -62,8 +62,9 @@ class MiniZephyr(object):
 
         # Set up physical properties in matrices with padding
         omega   = 2*np.pi * self.freq
-        cPad    = np.pad(c, pad_width=1, mode='edge')
-        rhoPad  = np.pad(rho, pad_width=1, mode='edge')
+        padopts = {'pad_width': 1, 'mode': 'edge'}
+        cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
+        rhoPad  = np.pad(rho, **padopts)
 
         aky = 2*np.pi * self.ky
 

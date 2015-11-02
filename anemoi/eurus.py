@@ -60,8 +60,9 @@ class Eurus(object):
 
         # Set up physical properties in matrices with padding
         omega   = 2*np.pi * self.freq
-        cPad    = np.pad(c, pad_width=1, mode='edge')
-        rhoPad  = np.pad(rho, pad_width=1, mode='edge')
+        padopts = {'pad_width': 1, 'mode': 'edge'}
+        cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
+        rhoPad  = np.pad(rho, **padopts)
 
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.dx
@@ -96,8 +97,8 @@ class Eurus(object):
         gamma_z[:nPML]  = c_PML * (np.cos((np.pi/2)* (z_vals/pmldz)))
         gamma_z[-nPML:] = c_PML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
 
-        gamma_x = np.pad(gamma_x, pad_width=1, mode='edge')
-        gamma_z = np.pad(gamma_z, pad_width=1, mode='edge')
+        gamma_x = np.pad(gamma_x.real, **padopts) + 1j * np.pad(gamma_x.imag, **padopts)
+        gamma_z = np.pad(gamma_z.real, **padopts) + 1j * np.pad(gamma_z.imag, **padopts)
 
         Xi_x     = 1 + ((1j *gamma_x.reshape((1,nx+2)))/omegaDamped)
         Xi_z     = 1 + ((1j *gamma_z.reshape((nz+2,1)))/omegaDamped)
