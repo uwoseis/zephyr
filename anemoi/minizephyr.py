@@ -9,21 +9,10 @@ DTYPE_REAL = np.float64
 
 class MiniZephyr(object):
 
-    c           =   None
-    rho         =   None
-    nPML        =   None
-    freq        =   None
-    ky          =   None
-    dx          =   None
-    dx          =   None
-    nx          =   None
-    nz          =   None
-    freeSurf    =   None
-
     def __init__(self, systemConfig):
 
         initMap = {
-        #   Argument        Rename to Property
+        #   Argument        Rename as ...   Store as type
             'c':            ('_c',          np.complex128),
             'rho':          ('_rho',        np.float64),
             'nPML':         ('_nPML',       np.int64),
