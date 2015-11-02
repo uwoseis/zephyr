@@ -1,4 +1,5 @@
 
+import warnings
 import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
@@ -27,13 +28,18 @@ class MiniZephyr(object):
             'premul':       ('_premul',     np.complex128),
         }
 
-        for key in initMap.keys():
-            if key in systemConfig:
-                typer = initMap[key][1]
-                if initMap[key][0] is None:
-                    setattr(self, key, typer(systemConfig[key]))
-                else:
-                    setattr(self, initMap[key][0], typer(systemConfig[key]))
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            for key in initMap.keys():
+                if key in systemConfig:
+                    if initMap[key][1] is None:
+                        typer = lambda x: x
+                    else:
+                        typer = initMap[key][1]
+                    if initMap[key][0] is None:
+                        setattr(self, key, typer(systemConfig[key]))
+                    else:
+                        setattr(self, initMap[key][0], typer(systemConfig[key]))
 
     def _initHelmholtzNinePoint(self):
         """

@@ -1,3 +1,5 @@
+
+import warnings
 import numpy as np
 import copy
 
@@ -13,29 +15,39 @@ class Composite25D(object):
     def __init__(self, systemConfig):
         
         initMap = {
-        #   Argument        Rename to Property
-            'disc':         '_discretization',
-            'freqs':        None,
-            'nky':          '_nky',
-            'parallel':     '_parallel',
+        #   Argument        Rename as ...   Store as type
+            'disc':         ('_disc',       None),
+            'nky':          ('_nky',        np.int64),
+            'parallel':     ('_parallel',   bool),
+            'cmin':         ('_cmin',       np.float64),
+            'freq':         (None,          np.complex128),
+            'c':            (None,          np.float64),
         }
         
-        for key in initMap.keys():
-            if key in systemConfig:
-                if initMap[key] is None:
-                    setattr(self, key, systemConfig[key])
-                else:
-                    setattr(self, initMap[key], systemConfig[key])
+        maskKeys = ['nky', 'disc', 'parallel']
         
-        self.systemConfig = {key: systemConfig[key] for key in systemConfig if key not in initMap}
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            for key in initMap.keys():
+                if key in systemConfig:
+                    if initMap[key][1] is None:
+                        typer = lambda x: x
+                    else:
+                        typer = initMap[key][1]
+                    if initMap[key][0] is None:
+                        setattr(self, key, typer(systemConfig[key]))
+                    else:
+                        setattr(self, initMap[key][0], typer(systemConfig[key]))
+        
+        self.systemConfig = {key: systemConfig[key] for key in systemConfig if key not in maskKeys}
     
     @property
     def discretization(self):
         
-        if getattr(self, '_discretization', None) is None:
+        if getattr(self, '_disc', None) is None:
             from minizephyr import MiniZephyr
-            self._discretization = MiniZephyr
-        return self._discretization
+            self._disc = MiniZephyr
+        return self._disc
     
     @property
     def nky(self):
@@ -49,7 +61,7 @@ class Composite25D(object):
         # By regular sampling strategy
         indices = np.arange(self.nky)
         if self.nky > 1:
-            dky = 1. / (self.cmin * (self.nky-1))
+            dky = self.freq / (self.cmin * (self.nky-1))
         else:
             dky = 0.
         return indices * dky
@@ -63,7 +75,7 @@ class Composite25D(object):
     @property
     def cmin(self):
         if getattr(self, '_cmin', None) is None:
-            return np.min(self.systemConfig['c'])
+            return np.min(self.c)
         else:
             return self._cmin
     
@@ -71,7 +83,7 @@ class Composite25D(object):
     def spUpdates(self):
         
         weightfac = 1./(2*self.nky - 1) if self.nky > 1 else 1.
-        return [{'freq': freq, 'ky': freq*ky, 'premul': weightfac*(1. + (ky > 0))} for freq in self.freqs for ky in self.pkys]
+        return [{'ky': ky, 'premul': weightfac*(1. + (ky > 0))} for ky in self.pkys]
         
     @property
     def _spConfigs(self):
