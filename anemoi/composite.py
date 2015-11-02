@@ -1,6 +1,13 @@
 import numpy as np
 import copy
 
+try:
+    from multiprocessing import Pool, Process
+except ImportError:
+    PARALLEL = False
+else:
+    PARALLEL = True
+
 class Composite25D(object):
     
     def __init__(self, systemConfig):
@@ -10,7 +17,7 @@ class Composite25D(object):
             'disc':         '_discretization',
             'freqs':        None,
             'nky':          '_nky',
-            'parallel':     None,
+            'parallel':     '_parallel',
         }
         
         for key in initMap.keys():
@@ -63,7 +70,8 @@ class Composite25D(object):
     @property
     def spUpdates(self):
         
-        return [{'freq': freq, 'ky': freq*ky, 'premul': 1. + (ky > 0)} for freq in self.freqs for ky in self.pkys]
+        weightfac = 1./(2*self.nky - 1) if self.nky > 1 else 1.
+        return [{'freq': freq, 'ky': freq*ky, 'premul': weightfac*(1. + (ky > 0))} for freq in self.freqs for ky in self.pkys]
         
     @property
     def _spConfigs(self):
@@ -77,20 +85,8 @@ class Composite25D(object):
     
     @property
     def parallel(self):
-        return getattr(self, '_parallel', False)
-    @parallel.setter
-    def parallel(self, par):
-        if par:
-            try:
-                import multiprocessing
-                self.pool = multiprocessing.Pool()
-            except:
-                self._parallel = False
-            else:
-                self._parallel = True
-        else:
-            self._parallel = False
-    
+        return PARALLEL and getattr(self, '_parallel', True)
+
     @property
     def subProblems(self):
         if getattr(self, '_subProblems', None) is None:
@@ -100,6 +96,15 @@ class Composite25D(object):
     
     def __mul__(self, rhs):
         
-        u = (sp * rhs for sp in self.subProblems)
+        if self.parallel:
+            pool = Pool()
+            plist = []
+            for sp in self.subProblems:
+                p = pool.apply_async(sp, (rhs,))
+                plist.append(p)
+            
+            u = (p.get(60) for p in plist)
+        else:
+            u = (sp*rhs for sp in self.subProblems)
         
         return reduce(np.add, u)

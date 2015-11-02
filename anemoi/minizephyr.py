@@ -349,4 +349,8 @@ class MiniZephyr(object):
     def __mul__(self, value):
         u = self.premul * self.Solver.solve(value)
         return u
+    
+    def __call__(self, value):
+        u = self.premul * self.Solver.solve(value)
+        return u
 
