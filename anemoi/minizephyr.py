@@ -433,7 +433,7 @@ class MiniZephyr25D(BaseDiscretization):
     
     @property
     def scaleTerm(self):
-        return getattr(self, '_scaleTerm', 1./(4*np.pi))
+        return getattr(self, '_scaleTerm', np.exp(1j * np.pi) /(4*np.pi))
     
     def __mul__(self, rhs):
         
