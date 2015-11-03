@@ -13,10 +13,6 @@ except ImportError:
 else:
     PARALLEL = True
 
-# Configuration defaults for MiniZephyr
-DTYPE_COMPLEX = np.complex128
-DTYPE_REAL = np.float64
-
 class MiniZephyr(BaseDiscretization):
         
     initMap = {
@@ -43,9 +39,6 @@ class MiniZephyr(BaseDiscretization):
         including Ivan Stekl. The boundary conditions are based on the PML
         implementation by Steve Roecker in fdfdpml.f.
         """
-
-        dtypeComplex = DTYPE_COMPLEX
-        dtypeReal = DTYPE_REAL
 
         nx = self.nx
         nz = self.nz
@@ -91,10 +84,10 @@ class MiniZephyr(BaseDiscretization):
         pmlfx   = 3.0 * np.log(1/pmlr)/(2*pmldx**3)
         pmlfz   = 3.0 * np.log(1/pmlr)/(2*pmldz**3)
 
-        dpmlx   = np.zeros(dims, dtype=dtypeComplex)
-        dpmlz   = np.zeros(dims, dtype=dtypeComplex)
-        isnx    = np.zeros(dims, dtype=dtypeReal)
-        isnz    = np.zeros(dims, dtype=dtypeReal)
+        dpmlx   = np.zeros(dims, dtype=np.complex128)
+        dpmlz   = np.zeros(dims, dtype=np.complex128)
+        isnx    = np.zeros(dims, dtype=np.float64)
+        isnz    = np.zeros(dims, dtype=np.float64)
 
         # Only enable PML if the free surface isn't set
 
@@ -245,7 +238,7 @@ class MiniZephyr(BaseDiscretization):
         diagonals = [diagonals[key] for key in keys]
         offsets = [offsets[key] for key in keys]
 
-        A = scipy.sparse.diags(diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=dtypeComplex)
+        A = scipy.sparse.diags(diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
         return A
 
@@ -308,7 +301,7 @@ class MiniZephyr(BaseDiscretization):
         if isinstance(self._c, np.ndarray):
             return self._c
         else:
-            return self._c * np.ones((self.nz, self.nx), dtype=DTYPE_COMPLEX)
+            return self._c * np.ones((self.nz, self.nx), dtype=np.complex128)
 
     @property
     def rho(self):
@@ -318,7 +311,7 @@ class MiniZephyr(BaseDiscretization):
         if isinstance(self._rho, np.ndarray):
             return self._rho
         else:
-            return self._rho * np.ones((self.nz, self.nx), dtype=DTYPE_REAL)
+            return self._rho * np.ones((self.nz, self.nx), dtype=np.float64)
 
     @property
     def nPML(self):
