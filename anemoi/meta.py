@@ -1,5 +1,6 @@
 
 import warnings
+import numpy as np
 
 class AttributeMapper(object):
     
@@ -14,7 +15,15 @@ class AttributeMapper(object):
                     if self.initMap[key][1] is None:
                         typer = lambda x: x
                     else:
-                        typer = self.initMap[key][1]
+                        def typer(x):
+                            newtype = self.initMap[key][1]
+                            try:
+                                return self.initMap[key][1](x)
+                            except TypeError:
+                                if np.iscomplex(x) and issubclass(newtype, np.floating):
+                                    return typer(x.real)
+                                raise
+                                
                     if self.initMap[key][0] is None:
                         setattr(self, key, typer(systemConfig[key]))
                     else:
