@@ -1,3 +1,4 @@
+
 import unittest
 import numpy as np
 from anemoi import AnalyticalHelmholtz
@@ -24,3 +25,4 @@ class TestAnalyticalHelmholtz(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+ 

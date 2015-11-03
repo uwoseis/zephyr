@@ -361,7 +361,7 @@ class MiniZephyr25D(BaseDiscretization):
     
     def __init__(self, systemConfig):
         
-        BaseDiscretization.__init__(self, systemConfig)
+        super(MiniZephyr25D, self).__init__(systemConfig)
         
         maskKeys = ['nky', 'disc', 'parallel']
         self.systemConfig = {key: systemConfig[key] for key in systemConfig if key not in maskKeys}
