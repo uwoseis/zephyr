@@ -23,6 +23,7 @@ class Eurus(BaseDiscretization):
         'eps':          ('_eps',        np.float64),
         'delta':        ('_delta',      np.float64),
         'cPML':         ('_cPML',       np.float64),
+        'tau':          ('_tau',        np.float64),
     }
 
     def _initHelmholtzNinePoint(self):
@@ -64,8 +65,7 @@ class Eurus(BaseDiscretization):
         dzz = dz**2
         dxz = (dxx+dzz)/2
         dd  = np.sqrt(dxz)
-        tau = 0.4*0.05
-        omegaDamped = omega + (1j/tau)
+        omegaDamped = omega + self.dampcoeff
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
@@ -505,6 +505,10 @@ class Eurus(BaseDiscretization):
             return self._delta
         else:
             return self._delta * np.ones((self.nz, self.nx), dtype=np.float64)
+    
+    @property
+    def dampcoeff(self):
+        return 1j / getattr(self, '_tau', np.inf)
 
     def __mul__(self, value):
         u = self.Solver.solve(value)

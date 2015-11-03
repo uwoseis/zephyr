@@ -341,11 +341,11 @@ class MiniZephyr(BaseDiscretization):
 
     def __mul__(self, value):
         u = self.premul * self.Solver.solve(value)
-        return u
+        return u.conjugate()
     
     def __call__(self, value):
         u = self.premul * self.Solver.solve(value)
-        return u
+        return u.conjugate()
 
 class MiniZephyr25D(BaseDiscretization):
     

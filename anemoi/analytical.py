@@ -1,7 +1,7 @@
 
 import warnings
 import numpy as np
-from scipy.special import hankel2
+from scipy.special import hankel1
 
 class AnalyticalHelmholtz(object):
 
@@ -12,7 +12,7 @@ class AnalyticalHelmholtz(object):
         self.k          = self.omega / self.c
         self.stretch    = 1. / (1 + (2.*systemConfig.get('eps', 0.)))
         self.theta      = systemConfig.get('theta', 0.)
-        self.scaleterm  = systemConfig.get('scaleterm', -0.5)
+        self.scaleterm  = systemConfig.get('scaleterm', 0.5)
 
         xorig   = systemConfig.get('xorig', 0.)
         zorig   = systemConfig.get('zorig', 0.)
@@ -34,12 +34,12 @@ class AnalyticalHelmholtz(object):
     def Green2D(self, r):
 
         # Correct: -0.5j * hankel2(0, self.k*r)
-        return self.scaleterm * (-0.5j * hankel2(0, self.k*r))
+        return self.scaleterm * (-0.5j * hankel1(0, self.k*r))
     
     def Green3D(self, r):
 
         # Correct: (1./(4*np.pi*r)) * np.exp(-1j*self.k*r)
-        return self.scaleterm * (1./(4*np.pi*r)) * np.exp(-1j*self.k*r)
+        return self.scaleterm * (1./(4*np.pi*r)) * np.exp(1j*self.k*r)
 
     def __call__(self, x, z):
         
