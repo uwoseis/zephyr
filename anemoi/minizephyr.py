@@ -1,5 +1,6 @@
 
-import warnings
+from anemoi.meta import BaseDiscretization
+
 import copy
 import numpy as np
 import scipy.sparse
@@ -16,38 +17,23 @@ else:
 DTYPE_COMPLEX = np.complex128
 DTYPE_REAL = np.float64
 
-class MiniZephyr(object):
-
-    def __init__(self, systemConfig):
-
-        initMap = {
-        #   Argument        Rename as ...   Store as type
-            'c':            ('_c',          np.complex128),
-            'rho':          ('_rho',        np.float64),
-            'nPML':         ('_nPML',       np.int64),
-            'freq':         (None,          np.complex128),
-            'ky':           ('_ky',         np.float64),
-            'dx':           ('_dx',         np.float64),
-            'dz':           ('_dz',         np.float64),
-            'nx':           (None,          np.int64),
-            'nz':           (None,          np.int64),
-            'freeSurf':     ('_freeSurf',   list),
-            'mord':         ('_mord',       tuple),
-            'premul':       ('_premul',     np.complex128),
-        }
-
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            for key in initMap.keys():
-                if key in systemConfig:
-                    if initMap[key][1] is None:
-                        typer = lambda x: x
-                    else:
-                        typer = initMap[key][1]
-                    if initMap[key][0] is None:
-                        setattr(self, key, typer(systemConfig[key]))
-                    else:
-                        setattr(self, initMap[key][0], typer(systemConfig[key]))
+class MiniZephyr(BaseDiscretization):
+        
+    initMap = {
+    #   Argument        Rename as ...   Store as type
+        'c':            ('_c',          np.complex128),
+        'rho':          ('_rho',        np.float64),
+        'nPML':         ('_nPML',       np.int64),
+        'freq':         (None,          np.complex128),
+        'ky':           ('_ky',         np.float64),
+        'dx':           ('_dx',         np.float64),
+        'dz':           ('_dz',         np.float64),
+        'nx':           (None,          np.int64),
+        'nz':           (None,          np.int64),
+        'freeSurf':     ('_freeSurf',   list),
+        'mord':         ('_mord',       tuple),
+        'premul':       ('_premul',     np.complex128),
+    }
 
     def _initHelmholtzNinePoint(self):
         """
@@ -368,35 +354,23 @@ class MiniZephyr(object):
         u = self.premul * self.Solver.solve(value)
         return u
 
-class MiniZephyr25D(object):
+class MiniZephyr25D(BaseDiscretization):
+    
+    initMap = {
+    #   Argument        Rename as ...   Store as type
+        'disc':         ('_disc',       None),
+        'nky':          ('_nky',        np.int64),
+        'parallel':     ('_parallel',   bool),
+        'cmin':         ('_cmin',       np.float64),
+        'freq':         (None,          np.complex128),
+        'c':            (None,          np.float64),
+    }
     
     def __init__(self, systemConfig):
         
-        initMap = {
-        #   Argument        Rename as ...   Store as type
-            'disc':         ('_disc',       None),
-            'nky':          ('_nky',        np.int64),
-            'parallel':     ('_parallel',   bool),
-            'cmin':         ('_cmin',       np.float64),
-            'freq':         (None,          np.complex128),
-            'c':            (None,          np.float64),
-        }
+        BaseDiscretization.__init__(self, systemConfig)
         
         maskKeys = ['nky', 'disc', 'parallel']
-        
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            for key in initMap.keys():
-                if key in systemConfig:
-                    if initMap[key][1] is None:
-                        typer = lambda x: x
-                    else:
-                        typer = initMap[key][1]
-                    if initMap[key][0] is None:
-                        setattr(self, key, typer(systemConfig[key]))
-                    else:
-                        setattr(self, initMap[key][0], typer(systemConfig[key]))
-        
         self.systemConfig = {key: systemConfig[key] for key in systemConfig if key not in maskKeys}
     
     @property

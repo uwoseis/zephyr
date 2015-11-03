@@ -1,43 +1,29 @@
 
-import warnings
+from anemoi.meta import BaseDiscretization
+
 import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 
-class Eurus(object):
-
-    def __init__(self, systemConfig):
-
-        initMap = {
-        #   Argument        Rename as ...   Store as type
-            'c':            ('_c',          np.complex128),
-            'rho':          ('_rho',        np.float64),
-            'nPML':         ('_nPML',       np.int64),
-            'freq':         (None,          np.complex128),
-            'dx':           (None,          np.float64),
-            'dz':           (None,          np.float64),
-            'nx':           (None,          np.int64),
-            'nz':           (None,          np.int64),
-            'freeSurf':     (None,          list),
-            'mord':         ('_mord',       tuple),
-            'theta':        ('_theta',      np.float64),
-            'eps':          ('_eps',        np.float64),
-            'delta':        ('_delta',      np.float64),
-            'cPML':         ('_cPML',       np.float64),
-        }
-
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            for key in initMap.keys():
-                if key in systemConfig:
-                    if initMap[key][1] is None:
-                        typer = lambda x: x
-                    else:
-                        typer = initMap[key][1]
-                    if initMap[key][0] is None:
-                        setattr(self, key, typer(systemConfig[key]))
-                    else:
-                        setattr(self, initMap[key][0], typer(systemConfig[key]))
+class Eurus(BaseDiscretization):
+    
+    initMap = {
+    #   Argument        Rename as ...   Store as type
+        'c':            ('_c',          np.complex128),
+        'rho':          ('_rho',        np.float64),
+        'nPML':         ('_nPML',       np.int64),
+        'freq':         (None,          np.complex128),
+        'dx':           (None,          np.float64),
+        'dz':           (None,          np.float64),
+        'nx':           (None,          np.int64),
+        'nz':           (None,          np.int64),
+        'freeSurf':     (None,          list),
+        'mord':         ('_mord',       tuple),
+        'theta':        ('_theta',      np.float64),
+        'eps':          ('_eps',        np.float64),
+        'delta':        ('_delta',      np.float64),
+        'cPML':         ('_cPML',       np.float64),
+    }
 
     def _initHelmholtzNinePoint(self):
         """
