@@ -20,7 +20,7 @@ class AMMetaClass(type):
     def __call__(cls, *args, **kwargs):
         
         if len(args) < 1:
-            raise TypeError('__init__() takes at least 2 arguments (1 given) ZOMG!')
+            raise TypeError('__init__() takes at least 2 arguments (1 given)')
         systemConfig = args[0]
         
         obj = cls.__new__(cls)
