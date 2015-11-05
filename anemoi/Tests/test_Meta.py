@@ -14,15 +14,16 @@ class TestMeta(unittest.TestCase):
         class TestAttributeMapper(AttributeMapper):
             
             initMap = {
-            #   Argument        Rename as ...   Store as type
-                'a':            ('_a',          np.complex128),
-                'b':            (None,          np.float64),
-                'c':            (None,          np.int64),
-                'd':            ('_d',          list),
-                'e':            ('_e',          tuple),
-                'f':            ('_f',          None),
-                'g':            (None,          None),
-                'h':            ('_dnexist',    np.int64),
+            #   Argument        Required    Rename as ...   Store as type
+                'a':            (False,     '_a',          np.complex128),
+                'b':            (False,     None,          np.float64),
+                'c':            (False,     None,          np.int64),
+                'd':            (False,     '_d',          list),
+                'e':            (False,     '_e',          tuple),
+                'f':            (False,     '_f',          None),
+                'g':            (False,     None,          None),
+                'h':            (False,     '_dnexist',    np.int64),
+                'i':            (True,      '_mustexist',  np.int64),
             }
             
             def __init__(self, systemConfig):
@@ -42,7 +43,21 @@ class TestMeta(unittest.TestCase):
             'f':    TestType(),
             'g':    1 + 2j,
         }
-        
+
+        try:
+            tam = TestAttributeMapper(systemConfig)
+        except Exception as e:
+            if e.args[0] == 'AttributeMapper subclass TestAttributeMapper requires parameter \'i\'!':
+                exceptionFired = True
+            else:
+                exceptionFired = False
+        else:
+            exceptionFired = False
+
+        self.assertTrue(exceptionFired)
+
+        systemConfig.update({'i': 0})
+
         tam = TestAttributeMapper(systemConfig)
         
         self.assertEqual(tam._a, 2500.)

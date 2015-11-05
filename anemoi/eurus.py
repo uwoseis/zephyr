@@ -8,22 +8,22 @@ import scipy.sparse.linalg
 class Eurus(BaseDiscretization):
     
     initMap = {
-    #   Argument        Rename as ...   Store as type
-        'c':            ('_c',          np.complex128),
-        'rho':          ('_rho',        np.float64),
-        'nPML':         ('_nPML',       np.int64),
-        'freq':         (None,          np.complex128),
-        'dx':           (None,          np.float64),
-        'dz':           (None,          np.float64),
-        'nx':           (None,          np.int64),
-        'nz':           (None,          np.int64),
-        'freeSurf':     (None,          list),
-        'mord':         ('_mord',       tuple),
-        'theta':        ('_theta',      np.float64),
-        'eps':          ('_eps',        np.float64),
-        'delta':        ('_delta',      np.float64),
-        'cPML':         ('_cPML',       np.float64),
-        'tau':          ('_tau',        np.float64),
+    #   Argument        Required    Rename as ...   Store as type
+        'c':            (True,      '_c',           np.complex128),
+        'rho':          (False,     '_rho',         np.float64),
+        'nPML':         (False,     '_nPML',        np.int64),
+        'freq':         (True,      None,           np.complex128),
+        'dx':           (True,      None,           np.float64),
+        'dz':           (True,      None,           np.float64),
+        'nx':           (True,      None,           np.int64),
+        'nz':           (True,      None,           np.int64),
+        'freeSurf':     (False,     None,           list),
+        'mord':         (False,     '_mord',        tuple),
+        'theta':        (False,     '_theta',       np.float64),
+        'eps':          (False,     '_eps',         np.float64),
+        'delta':        (False,     '_delta',       np.float64),
+        'cPML':         (False,     '_cPML',        np.float64),
+        'tau':          (False,     '_tau',         np.float64),
     }
 
     def _initHelmholtzNinePoint(self):

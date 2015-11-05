@@ -16,19 +16,19 @@ else:
 class MiniZephyr(BaseDiscretization):
         
     initMap = {
-    #   Argument        Rename as ...   Store as type
-        'c':            ('_c',          np.complex128),
-        'rho':          ('_rho',        np.float64),
-        'nPML':         ('_nPML',       np.int64),
-        'freq':         (None,          np.complex128),
-        'ky':           ('_ky',         np.float64),
-        'dx':           ('_dx',         np.float64),
-        'dz':           ('_dz',         np.float64),
-        'nx':           (None,          np.int64),
-        'nz':           (None,          np.int64),
-        'freeSurf':     ('_freeSurf',   list),
-        'mord':         ('_mord',       tuple),
-        'premul':       ('_premul',     np.complex128),
+    #   Argument        Required    Rename as ...   Store as type
+        'c':            (True,      '_c',           np.complex128),
+        'rho':          (False,     '_rho',         np.float64),
+        'nPML':         (False,     '_nPML',        np.int64),
+        'freq':         (True,      None,           np.complex128),
+        'ky':           (False,     '_ky',          np.float64),
+        'dx':           (False,     '_dx',          np.float64),
+        'dz':           (False,     '_dz',          np.float64),
+        'nx':           (True,      None,           np.int64),
+        'nz':           (True,      None,           np.int64),
+        'freeSurf':     (False,     '_freeSurf',    list),
+        'mord':         (False,     '_mord',        tuple),
+        'premul':       (False,     '_premul',      np.complex128),
     }
 
     def _initHelmholtzNinePoint(self):
@@ -350,13 +350,13 @@ class MiniZephyr(BaseDiscretization):
 class MiniZephyr25D(BaseDiscretization):
     
     initMap = {
-    #   Argument        Rename as ...   Store as type
-        'disc':         ('_disc',       None),
-        'nky':          ('_nky',        np.int64),
-        'parallel':     ('_parallel',   bool),
-        'cmin':         ('_cmin',       np.float64),
-        'freq':         (None,          np.complex128),
-        'c':            (None,          np.float64),
+    #   Argument        Required    Rename as ...   Store as type
+        'disc':         (False,     '_disc',        None),
+        'nky':          (True,      '_nky',         np.int64),
+        'parallel':     (False,     '_parallel',    bool),
+        'cmin':         (False,     '_cmin',        np.float64),
+        'freq':         (True,      None,           np.complex128),
+        'c':            (True,      None,           np.float64),
     }
     
     def __init__(self, systemConfig):
