@@ -71,23 +71,25 @@ class AttributeMapper(object):
     }
     
     Each value in the dictionary is a tuple, which is interpreted by
-    the baseclass (i.e., AttributeMapper) to determine how to process
-    the value corresponding to the same key in systemConfig.
+    the metaclass (i.e., AMMetaClass) to determine how to process the
+    value corresponding to the same key in systemConfig.
     
     An exception will be raised if the first element in the tuple
     is set to true, but the corresponding key does not exist in the
     systemConfig parameter.
     
     If the second element in the tuple is set to None, the key will be
-    assigned to the subclass's attribute dictionary unmodified, whereas
-    if the second element is a string then that will be the assigned key.
+    defined in the subclass's attribute dictionary as it stands, whereas
+    if the second element is a string then that overrides the key.
     
     If the third element in the tuple is set to None, the input argument
-    will be set unmodified; however, if the third element is a class
-    then it will be applied to the element (e.g., to allow typecasting).
+    will be set in the subclass dictionary unmodified; however, if the
+    third element is a callable then it will be applied to the element
+    (e.g., to allow copying and/or typecasting of inputs).
     
-    NB: Complex numpy arguments are handled specially, and the real part
-    of their value is returned when they are typecast to a float.
+    NB: Complex numpy arguments are handled specially: the real part of
+    the value is kept and the imaginary part is discarded when they are
+    typecast to a float.
     '''
     
     __metaclass__ = AMMetaClass
