@@ -1,5 +1,5 @@
 
-from anemoi.meta import BaseDiscretization
+from .meta import BaseDiscretization
 
 import copy
 import numpy as np

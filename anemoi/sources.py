@@ -1,4 +1,5 @@
 
+from .meta import BaseSource
 import numpy as np
 
 class SimpleSource(BaseSource):
