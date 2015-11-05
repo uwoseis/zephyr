@@ -9,15 +9,8 @@ class Eurus(BaseDiscretization):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        'c':            (True,      '_c',           np.complex128),
-        'rho':          (False,     '_rho',         np.float64),
         'nPML':         (False,     '_nPML',        np.int64),
         'freq':         (True,      None,           np.complex128),
-        'dx':           (True,      None,           np.float64),
-        'dz':           (True,      None,           np.float64),
-        'nx':           (True,      None,           np.int64),
-        'nz':           (True,      None,           np.int64),
-        'freeSurf':     (False,     None,           list),
         'mord':         (False,     '_mord',        tuple),
         'theta':        (False,     '_theta',       np.float64),
         'eps':          (False,     '_eps',         np.float64),
@@ -459,23 +452,6 @@ class Eurus(BaseDiscretization):
     def nPML(self):
         return getattr(self, '_nPML', 10)
     
-    @property
-    def c(self):
-        if isinstance(self._c, np.ndarray):
-            return self._c
-        else:
-            return self._c * np.ones((self.nz, self.nx), dtype=np.complex128)
-        
-    @property
-    def rho(self):
-        if getattr(self, '_rho', None) is None:
-            self._rho = 310. * self.c**0.25 
-            
-        if isinstance(self._rho, np.ndarray):
-            return self._rho
-        else:
-            return self._rho * np.ones((self.nz, self.nx), dtype=np.float64)
-
     @property
     def theta(self):
         if getattr(self, '_theta', None) is None:

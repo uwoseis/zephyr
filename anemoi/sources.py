@@ -1,20 +1,15 @@
 
 import numpy as np
 
-class SimpleSource(object):
+class SimpleSource(BaseSource):
     
     def __init__(self, systemConfig):
         
-        xorig   = systemConfig.get('xorig', 0.)
-        zorig   = systemConfig.get('zorig', 0.)
-        dx      = systemConfig.get('dx', 1.)
-        dz      = systemConfig.get('dz', 1.)
-        nx      = systemConfig['nx']
-        nz      = systemConfig['nz']
-
+        super(SimpleSource, self).__init__(systemConfig)
+        
         self._z, self._x = np.mgrid[
-            zorig : dz * nz : dz,
-            xorig : dx * nx : dx
+            self.zorig : self.dz * self.nz : self.dz,
+            self.xorig : self.dx * self.nx : self.dx
         ]
     
     def __call__(self, x, z):

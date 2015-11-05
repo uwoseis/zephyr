@@ -17,16 +17,8 @@ class MiniZephyr(BaseDiscretization):
         
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        'c':            (True,      '_c',           np.complex128),
-        'rho':          (False,     '_rho',         np.float64),
         'nPML':         (False,     '_nPML',        np.int64),
-        'freq':         (True,      None,           np.complex128),
         'ky':           (False,     '_ky',          np.float64),
-        'dx':           (False,     '_dx',          np.float64),
-        'dz':           (False,     '_dz',          np.float64),
-        'nx':           (True,      None,           np.int64),
-        'nz':           (True,      None,           np.int64),
-        'freeSurf':     (False,     '_freeSurf',    list),
         'mord':         (False,     '_mord',        tuple),
         'premul':       (False,     '_premul',      np.complex128),
     }
@@ -297,23 +289,6 @@ class MiniZephyr(BaseDiscretization):
         return getattr(self, '_mord', ('+nx', '+1'))
     
     @property
-    def c(self):
-        if isinstance(self._c, np.ndarray):
-            return self._c
-        else:
-            return self._c * np.ones((self.nz, self.nx), dtype=np.complex128)
-
-    @property
-    def rho(self):
-        if getattr(self, '_rho', None) is None:
-            self._rho = 310. * self.c**0.25 
-            
-        if isinstance(self._rho, np.ndarray):
-            return self._rho
-        else:
-            return self._rho * np.ones((self.nz, self.nx), dtype=np.float64)
-
-    @property
     def nPML(self):
         return getattr(self, '_nPML', 10)
 
@@ -321,20 +296,6 @@ class MiniZephyr(BaseDiscretization):
     def ky(self):
         return getattr(self, '_ky', 0.)
 
-    @property
-    def dx(self):
-        return getattr(self, '_dx', 1.)
-    
-    @property
-    def dz(self):
-        return getattr(self, '_dz', self.dx)
-    
-    @property
-    def freeSurf(self):
-        if getattr(self, '_freeSurf', None) is None:
-            self._freeSurf = (False, False, False, False)
-        return self._freeSurf
-    
     @property
     def premul(self):
         return getattr(self, '_premul', 1.)
@@ -356,7 +317,6 @@ class MiniZephyr25D(BaseDiscretization):
         'parallel':     (False,     '_parallel',    bool),
         'cmin':         (False,     '_cmin',        np.float64),
         'freq':         (True,      None,           np.complex128),
-        'c':            (True,      None,           np.float64),
     }
     
     def __init__(self, systemConfig):
@@ -449,3 +409,4 @@ class MiniZephyr25D(BaseDiscretization):
             u = (sp*rhs for sp in self.subProblems)
         
         return self.scaleTerm * reduce(np.add, u)
+
