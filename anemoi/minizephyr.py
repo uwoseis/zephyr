@@ -13,6 +13,8 @@ except ImportError:
 else:
     PARALLEL = True
 
+PARTASK_TIMEOUT = 60
+
 class MiniZephyr(BaseDiscretization):
         
     initMap = {
@@ -392,7 +394,7 @@ class MiniZephyr25D(BaseDiscretization):
                 p = pool.apply_async(sp, (rhs,))
                 plist.append(p)
             
-            u = (p.get(60) for p in plist)
+            u = (p.get(PARTASK_TIMEOUT) for p in plist)
         else:
             u = (sp*rhs for sp in self.subProblems)
         
