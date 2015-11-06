@@ -1,5 +1,5 @@
 
-from .meta import BaseDiscretization
+from .discretization import BaseDiscretization
 
 import copy
 import numpy as np
@@ -278,13 +278,6 @@ class MiniZephyr(BaseDiscretization):
         return self._A
 
     @property
-    def Solver(self):
-        if getattr(self, '_Solver', None) is None:
-            A = self.A.tocsc()
-            self._Solver = scipy.sparse.linalg.splu(A)
-        return self._Solver
-
-    @property
     def mord(self):
         return getattr(self, '_mord', ('+nx', '+1'))
     
@@ -301,12 +294,7 @@ class MiniZephyr(BaseDiscretization):
         return getattr(self, '_premul', 1.)
 
     def __mul__(self, value):
-        u = self.premul * self.Solver.solve(value)
-        return u.conjugate()
-    
-    def __call__(self, value):
-        u = self.premul * self.Solver.solve(value)
-        return u.conjugate()
+        return self.premul * super(MiniZephyr, self).__mul__(value).conjugate()
 
 class MiniZephyr25D(BaseDiscretization):
     

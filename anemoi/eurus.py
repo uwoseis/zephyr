@@ -1,9 +1,8 @@
 
-from .meta import BaseDiscretization
+from .discretization import BaseDiscretization
 
 import numpy as np
 import scipy.sparse
-import scipy.sparse.linalg
 
 class Eurus(BaseDiscretization):
     
@@ -434,13 +433,6 @@ class Eurus(BaseDiscretization):
         return self._A
 
     @property
-    def Solver(self):
-        if getattr(self, '_Solver', None) is None:
-            A = self.A.tocsc()
-            self._Solver = scipy.sparse.linalg.splu(A)
-        return self._Solver
-
-    @property
     def mord(self):
         return getattr(self, '_mord', ('+nx', '+1'))
 
@@ -485,11 +477,3 @@ class Eurus(BaseDiscretization):
     @property
     def dampcoeff(self):
         return 1j / getattr(self, '_tau', np.inf)
-
-    def __mul__(self, value):
-        u = self.Solver.solve(value)
-        return u
-    
-    def __call__(self, value):
-        u = self.Solver.solve(value)
-        return u

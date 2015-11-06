@@ -1,6 +1,35 @@
 
-from .meta import BaseSource
+from .meta import AttributeMapper
 import numpy as np
+
+class BaseSource(AttributeMapper):
+    
+    initMap = {
+    #   Argument        Required    Rename as ...   Store as type
+        'xorig':        (False,     '_xorig',       np.float64),
+        'zorig':        (False,     '_zorig',       np.float64),
+        'dx':           (False,     '_dx',          np.float64),
+        'dz':           (False,     '_dz',          np.float64),
+        'nx':           (True,      None,           np.int64),
+        'nz':           (True,      None,           np.int64),
+    }
+    
+    @property
+    def xorig(self):
+        return getattr(self, '_xorig', 0.)
+
+    @property
+    def zorig(self):
+        return getattr(self, '_zorig', 0.)
+    
+    @property
+    def dx(self):
+        return getattr(self, '_dx', 1.)
+    
+    @property
+    def dz(self):
+        return getattr(self, '_dz', 1.)
+
 
 class SimpleSource(BaseSource):
     
@@ -20,6 +49,7 @@ class SimpleSource(BaseSource):
         
         return srcterm.ravel() / srcterm.sum()
 
+    
 class StackedSimpleSource(SimpleSource):
 
     def __call__(self, x, z):
