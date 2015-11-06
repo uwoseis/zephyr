@@ -1,5 +1,5 @@
 
-from .meta import BaseDiscretization
+from .discretization import BaseDiscretization
 
 import copy
 import numpy as np
@@ -12,6 +12,8 @@ except ImportError:
     PARALLEL = False
 else:
     PARALLEL = True
+
+PARTASK_TIMEOUT = 60
 
 class MiniZephyr(BaseDiscretization):
         
@@ -278,13 +280,6 @@ class MiniZephyr(BaseDiscretization):
         return self._A
 
     @property
-    def Solver(self):
-        if getattr(self, '_Solver', None) is None:
-            A = self.A.tocsc()
-            self._Solver = scipy.sparse.linalg.splu(A)
-        return self._Solver
-
-    @property
     def mord(self):
         return getattr(self, '_mord', ('+nx', '+1'))
     
@@ -301,12 +296,7 @@ class MiniZephyr(BaseDiscretization):
         return getattr(self, '_premul', 1.)
 
     def __mul__(self, value):
-        u = self.premul * self.Solver.solve(value)
-        return u.conjugate()
-    
-    def __call__(self, value):
-        u = self.premul * self.Solver.solve(value)
-        return u.conjugate()
+        return self.premul * super(MiniZephyr, self).__mul__(value).conjugate()
 
 class MiniZephyr25D(BaseDiscretization):
     
@@ -404,7 +394,7 @@ class MiniZephyr25D(BaseDiscretization):
                 p = pool.apply_async(sp, (rhs,))
                 plist.append(p)
             
-            u = (p.get(60) for p in plist)
+            u = (p.get(PARTASK_TIMEOUT) for p in plist)
         else:
             u = (sp*rhs for sp in self.subProblems)
         
