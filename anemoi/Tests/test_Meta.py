@@ -26,10 +26,6 @@ class TestMeta(unittest.TestCase):
                 'i':            (True,      '_mustexist',  np.int64),
             }
             
-            def __init__(self, systemConfig):
-                
-                super(TestAttributeMapper, self).__init__(systemConfig)
-
         class TestType(object):
             
             pass
@@ -47,7 +43,7 @@ class TestMeta(unittest.TestCase):
         try:
             tam = TestAttributeMapper(systemConfig)
         except Exception as e:
-            if e.args[0] == 'AttributeMapper subclass TestAttributeMapper requires parameter \'i\'!':
+            if e.args[0] == 'Class TestAttributeMapper requires parameter \'i\'!':
                 exceptionFired = True
             else:
                 exceptionFired = False
