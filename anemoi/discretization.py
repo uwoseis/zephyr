@@ -14,7 +14,7 @@ class BaseDiscretization(AttributeMapper):
         'dz':           (False,     '_dz',          np.float64),
         'nx':           (True,      None,           np.int64),
         'nz':           (True,      None,           np.int64),
-        'freeSurf':     (False,     '_freeSurf',    list),
+        'freeSurf':     (False,     '_freeSurf',    tuple),
         'Solver':       (False,     '_Solver',      None),
     }
     

@@ -40,17 +40,8 @@ class TestMeta(unittest.TestCase):
             'g':    1 + 2j,
         }
 
-        try:
+        with self.assertRaises(Exception):
             tam = TestAttributeMapper(systemConfig)
-        except Exception as e:
-            if e.args[0] == 'Class TestAttributeMapper requires parameter \'i\'!':
-                exceptionFired = True
-            else:
-                exceptionFired = False
-        else:
-            exceptionFired = False
-
-        self.assertTrue(exceptionFired)
 
         systemConfig.update({'i': 0})
 
