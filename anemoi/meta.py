@@ -2,6 +2,10 @@
 import warnings
 import numpy as np
 
+class ClassProperty(property):
+    def __get__(self, cls, owner):
+        return self.fget.__get__(None, owner)()
+
 class AMMetaClass(type):
     
     def __new__(mcs, name, bases, attrs):
@@ -12,6 +16,9 @@ class AMMetaClass(type):
         initMap = {}
         for baseMap in baseMaps:
             initMap.update(baseMap)
+            for key in initMap:
+                if initMap[key] is None:
+                    del(initMap[key])
         
         attrs['initMap'] = initMap
         
@@ -29,7 +36,7 @@ class AMMetaClass(type):
             warnings.simplefilter('ignore')
             for key in obj.initMap.keys():
                 if (key not in systemConfig) and obj.initMap[key][0]:
-                    raise Exception('Class %s requires parameter \'%s\'!'%(cls.__name__, key))
+                    raise ValueError('Class %s requires parameter \'%s\'!'%(cls.__name__, key))
                 if key in systemConfig:
                     if obj.initMap[key][2] is None:
                         typer = lambda x: x
@@ -96,3 +103,72 @@ class AttributeMapper(object):
     
     def __init__(self, systemConfig):
         pass
+    
+    @ClassProperty
+    @classmethod
+    def required(cls):
+        return set([key for key in cls.initMap if cls.initMap[key][0]])
+
+    @ClassProperty
+    @classmethod
+    def optional(cls):
+        return set([key for key in cls.initMap if not cls.initMap[key][0]])
+
+
+class BaseModelDependent(AttributeMapper):
+    
+    initMap = {
+    #   Argument        Required    Rename as ...   Store as type
+        'nx':           (True,      None,           np.int64),
+        'ny':           (False,     None,           np.int64),
+        'nz':           (True,      None,           np.int64),
+        'xorig':        (False,     '_xorig',       np.float64),
+        'yorig':        (False,     '_xorig',       np.float64),
+        'zorig':        (False,     '_zorig',       np.float64),
+        'dx':           (False,     '_dx',          np.float64),
+        'dy':           (False,     '_dx',          np.float64),
+        'dz':           (False,     '_dz',          np.float64),
+        'freeSurf':     (False,     '_freeSurf',    tuple),
+    }
+    
+    @property
+    def xorig(self):
+        return getattr(self, '_xorig', 0.)
+    
+    @property
+    def yorig(self):
+        if hasattr(self, 'ny'):
+            return getattr(self, '_yorig', 0.)
+        else:
+            raise AttributeError('%s object is not 3D'%(self.__class__.__name__,))
+
+    @property
+    def zorig(self):
+        return getattr(self, '_zorig', 0.)
+    
+    @property
+    def dx(self):
+        return getattr(self, '_dx', 1.)
+    
+    @property
+    def dy(self):
+        if hasattr(self, 'ny'):
+            return getattr(self, '_dy', self.dx)
+        else:
+            raise AttributeError('%s object is not 3D'%(self.__class__.__name__,))
+    
+    @property
+    def dz(self):
+        return getattr(self, '_dz', self.dx)
+            
+    @property
+    def freeSurf(self):
+        if getattr(self, '_freeSurf', None) is None:
+            self._freeSurf = (False, False, False, False)
+        return self._freeSurf
+    
+    @property
+    def modelDims(self):
+        if hasattr(self, 'ny'):
+            return (self.nz, self.ny, self.nx)
+        return (self.nz, self.nx)
