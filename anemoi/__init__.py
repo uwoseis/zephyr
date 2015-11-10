@@ -2,4 +2,4 @@ from .analytical import AnalyticalHelmholtz
 from .discretization import BaseDiscretization
 from .minizephyr import MiniZephyr, MiniZephyr25D
 from .eurus import Eurus
-from .source import SimpleSource, StackedSimpleSource
+from .source import BaseSource, SimpleSource, StackedSimpleSource, KaiserSource, FakeSource

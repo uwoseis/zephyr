@@ -1,5 +1,5 @@
 
-from .meta import AttributeMapper, BaseModelDependent
+from .meta import BaseModelDependent
 from .solver import DirectSolver
 import numpy as np
 
