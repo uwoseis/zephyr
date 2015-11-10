@@ -23,11 +23,12 @@ class TestMiniZephyr(unittest.TestCase):
         
         xs = 50
         zs = 100
+        sloc = np.array([xs, zs]).reshape((1,2))
 
         Ainv = MiniZephyr(systemConfig)
         src = SimpleSource(systemConfig)
 
-        q = src(xs, zs)
+        q = src(sloc)
         u = Ainv*q
 
     def test_cleanExecution25D(self):
@@ -44,11 +45,12 @@ class TestMiniZephyr(unittest.TestCase):
         
         xs = 50
         zs = 100
+        sloc = np.array([xs, zs]).reshape((1,2))
 
         Ainv = MiniZephyr25D(systemConfig)
         src = SimpleSource(systemConfig)
 
-        q = src(xs, zs)
+        q = src(sloc)
         u = Ainv*q
 
     def test_cleanExecution25DParallel(self):
@@ -65,11 +67,12 @@ class TestMiniZephyr(unittest.TestCase):
         
         xs = 50
         zs = 100
+        sloc = np.array([xs, zs]).reshape((1,2))
 
         Ainv = MiniZephyr25D(systemConfig)
         src = SimpleSource(systemConfig)
 
-        q = src(xs, zs)
+        q = src(sloc)
         u = Ainv*q
     
     def test_compareAnalytical(self):
@@ -84,14 +87,15 @@ class TestMiniZephyr(unittest.TestCase):
         
         xs = 25 
         zs = 25
+        sloc = np.array([xs, zs]).reshape((1,2))
 
         Ainv = MiniZephyr(systemConfig)
         src = SimpleSource(systemConfig)
-        q = src(xs, zs)
+        q = src(sloc)
         uMZ = Ainv*q
         
         AH = AnalyticalHelmholtz(systemConfig)
-        uAH = AH(xs, zs)
+        uAH = AH(sloc)
         
         nx = systemConfig['nx']
         nz = systemConfig['nz']
@@ -120,14 +124,15 @@ class TestMiniZephyr(unittest.TestCase):
         
         xs = 25 
         zs = 25
+        sloc = np.array([xs, zs]).reshape((1,2))
 
         Ainv = MiniZephyr25D(systemConfig)
         src = SimpleSource(systemConfig)
-        q = src(xs, zs)
+        q = src(sloc)
         uMZ = Ainv*q
         
         AH = AnalyticalHelmholtz(systemConfig)
-        uAH = AH(xs, zs)
+        uAH = AH(sloc)
         
         nx = systemConfig['nx']
         nz = systemConfig['nz']

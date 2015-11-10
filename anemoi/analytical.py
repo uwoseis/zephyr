@@ -41,7 +41,10 @@ class AnalyticalHelmholtz(object):
         # Correct: (1./(4*np.pi*r)) * np.exp(-1j*self.k*r)
         return self.scaleterm * (1./(4*np.pi*r)) * np.exp(1j*self.k*r)
 
-    def __call__(self, x, z):
+    def __call__(self, q):
+        
+        x = q[0,0]
+        z = q[0,-1]
         
         dx = self._x - x
         dz = self._z - z
@@ -52,3 +55,7 @@ class AnalyticalHelmholtz(object):
         stretch = np.sqrt(self.stretch * np.cos(strangle)**2 + np.sin(strangle)**2)
         
         return np.nan_to_num(self.Green(dist * stretch)).ravel()
+    
+    def __mul__(self, q):
+        
+        return self(q)

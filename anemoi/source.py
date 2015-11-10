@@ -1,58 +1,60 @@
 
-from .meta import AttributeMapper
+from .meta import BaseModelDependent
 import numpy as np
 
-class BaseSource(AttributeMapper):
+class BaseSource(BaseModelDependent):
     
-    initMap = {
-    #   Argument        Required    Rename as ...   Store as type
-        'xorig':        (False,     '_xorig',       np.float64),
-        'zorig':        (False,     '_zorig',       np.float64),
-        'dx':           (False,     '_dx',          np.float64),
-        'dz':           (False,     '_dz',          np.float64),
-        'nx':           (True,      None,           np.int64),
-        'nz':           (True,      None,           np.int64),
-    }
-    
-    @property
-    def xorig(self):
-        return getattr(self, '_xorig', 0.)
-
-    @property
-    def zorig(self):
-        return getattr(self, '_zorig', 0.)
-    
-    @property
-    def dx(self):
-        return getattr(self, '_dx', 1.)
-    
-    @property
-    def dz(self):
-        return getattr(self, '_dz', 1.)
+    pass
 
 
+class FakeSource(BaseSource):
+    
+    def __call__(self, loc):
+        
+        return loc
+
+    
 class SimpleSource(BaseSource):
     
     def __init__(self, systemConfig):
         
-        super(SimpleSource, self).__init__(systemConfig)
+        super(BaseSource, self).__init__(systemConfig)
         
-        self._z, self._x = np.mgrid[
-            self.zorig : self.dz * self.nz : self.dz,
-            self.xorig : self.dx * self.nx : self.dx
-        ]
+        if hasattr(self, 'ny'):
+            raise NotImplementedError('Sources not implemented for 3D case')
+            self._z, self._y, self._x = np.mgrid[
+                self.zorig : self.dz * self.nz : self.dz,
+                self.yorig : self.dy * self.ny : self.dy,
+                self.xorig : self.dx * self.nx : self.dx
+            ]
+        else:
+            self._z, self._x = np.mgrid[
+                self.zorig : self.dz * self.nz : self.dz,
+                self.xorig : self.dx * self.nx : self.dx
+            ]
     
-    def __call__(self, x, z):
+    def dist(self, loc):
         
-        dist = np.sqrt((self._x - x)**2 + (self._z - z)**2)
+        if hasattr(self, 'ny'):
+            raise NotImplementedError('Sources not implemented for 3D case')
+            dist = np.sqrt((self._x - loc[:,0])**2 + (self._y - loc[:,1])**2 + (self._z - loc[:,2])**2)
+        else:
+            dist = np.sqrt((self._x - loc[:,0])**2 + (self._z - loc[:,1])**2)
+            
+        return dist
+    
+    def __call__(self, loc):
+        
+        dist = self.dist(loc)
         srcterm = 1.*(dist == dist.min())
+        q = srcterm.ravel() / srcterm.sum()
         
-        return srcterm.ravel() / srcterm.sum()
-
+        return q
+    
     
 class StackedSimpleSource(SimpleSource):
 
-    def __call__(self, x, z):
+    def __call__(self, loc):
 
-        q = SimpleSource.__call__(self, x, z)
+        q = super(StackedSimpleSource, self).__call__(loc)
         return np.hstack([q, np.zeros(self._x.size, dtype=np.complex128)])
