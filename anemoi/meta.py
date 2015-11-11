@@ -173,6 +173,10 @@ class BaseModelDependent(AttributeMapper):
             return (self.nz, self.ny, self.nx)
         return (self.nz, self.nx)
     
+    @property
+    def nrow(self):
+        return np.prod(self.modelDims)
+    
     def toLinearIndex(self, vec):
         
         if hasattr(self, 'ny'):
@@ -183,7 +187,7 @@ class BaseModelDependent(AttributeMapper):
     def toVecIndex(self, lind):
         
         if hasattr(self, 'ny'):
-            return np.array([lind / (self.nx * self.ny), np.mod(lind, self.nx), np.mod(lind, self.ny * self.nx)])
+            return np.array([lind / (self.nx * self.ny), np.mod(lind, self.nx), np.mod(lind, self.ny * self.nx)]).T
         else:
-            return np.array([lind / self.nx, np.mod(lind, self.nx)])
+            return np.array([lind / self.nx, np.mod(lind, self.nx)]).T
 
