@@ -9,7 +9,6 @@ DEFAULT_SOLVER = scipy.sparse.linalg.splu
 class DirectSolver(object):
     
     def __init__(self, Solver=None):
-        
         self._Solver = Solver
     
     @property
