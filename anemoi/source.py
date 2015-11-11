@@ -1,6 +1,7 @@
 
 from .meta import BaseModelDependent
 import numpy as np
+import scipy.sparse as sp
 
 class BaseSource(BaseModelDependent):
     
@@ -35,21 +36,36 @@ class SimpleSource(BaseSource):
     
     def dist(self, loc):
         
+        nsrc = len(loc)
         if hasattr(self, 'ny'):
             raise NotImplementedError('Sources not implemented for 3D case')
-            dist = np.sqrt((self._x - loc[:,0])**2 + (self._y - loc[:,1])**2 + (self._z - loc[:,2])**2)
+            dist = np.sqrt((self._x.reshape((1, self.nz, self.ny, self.nx)) - loc[:,0].reshape((nsrc, 1, 1, 1)))**2
+                         + (self._y.reshape((1, self.nz, self.ny, self.nx)) - loc[:,1].reshape((nsrc, 1, 1, 1)))**2
+                         + (self._z.reshape((1, self.nz, self.ny, self.nx)) - loc[:,2].reshape((nsrc, 1, 1, 1)))**2)
         else:
-            dist = np.sqrt((self._x - loc[:,0])**2 + (self._z - loc[:,1])**2)
+            dist = np.sqrt((self._x.reshape((1, self.nz, self.nx)) - loc[:,0].reshape((nsrc, 1, 1)))**2
+                         + (self._z.reshape((1, self.nz, self.nx)) - loc[:,1].reshape((nsrc, 1, 1)))**2)
             
         return dist
     
+    def vecIndexOf(self, loc):
+        return self.toVecIndex(self.linIndexOf(loc))
+    
+    def linIndexOf(self, loc):
+        nsrc = loc.shape[0]
+        
+        dists = self.dist(loc).reshape((nsrc, self.nrow))
+        return np.argmin(dists, axis=1)
+    
     def __call__(self, loc):
+        
+        nsrc = loc.shape[0]
         
         dist = self.dist(loc)
         srcterm = 1.*(dist == dist.min())
-        q = srcterm.ravel() / srcterm.sum()
+        q = srcterm.reshape((nsrc, self.nrow)) / srcterm.sum()
         
-        return q
+        return q.T
     
     
 class StackedSimpleSource(SimpleSource):
@@ -57,10 +73,10 @@ class StackedSimpleSource(SimpleSource):
     def __call__(self, loc):
 
         q = super(StackedSimpleSource, self).__call__(loc)
-        return np.hstack([q, np.zeros(self._x.size, dtype=np.complex128)])
+        return np.vstack([q, np.zeros(q.shape, dtype=np.complex128)])
 
 
-class KaiserSource(SimpleSource):
+class SparseKaiserSource(SimpleSource):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
@@ -137,49 +153,114 @@ class KaiserSource(SimpleSource):
         if terms is None:
             terms = np.ones((len(sLocs),), dtype=np.complex128)
 
-        q = np.zeros((self.nz, self.nx), dtype=np.complex128)
-
-        # Scale source based on the cellsize so that changing the grid doesn't
-        # change the overall source amplitude
-        srcScale = self.dx*self.dz
-        
         ireg = self.ireg
+        N = sLocs.shape[0]
+        M = self.nz * self.nx
+
+        if getattr(terms, '__contains__', None) is None:
+            terms = np.array([terms]*N)
+
+        qI = self.linIndexOf(sLocs)
 
         if ireg == 0:
-            # Closest source point
-            q = q.ravel()
+            # Closest gridpoint
 
-            for i in xrange(len(sLocs)):
-                qI = self.toLinearIndex(self.dist(sLocs))
-                q[qI] += terms[i]/srcScale
+            q = sp.coo_matrix((terms/self.srcScale, (np.arange(N), qI)), shape=(N, M))
 
         else:
+
             # Kaiser windowed sinc function
 
             freg = 2*ireg+1
-            q = np.pad(q, ireg, mode='constant')
 
-            for i in xrange(len(sLocs)):
-                Zi, Xi = self.toVecIndex(np.argmin(self.dist(sLocs[i].reshape((1,2)))))
+            nnz = N * freg**2
+            lShift, sShift = np.mgrid[-ireg:ireg+1,-ireg:ireg+1]
+            shift = lShift * self.nx + sShift
+
+            entries = np.zeros((nnz,), dtype=np.complex128)
+            columns =  np.zeros((nnz,))
+            rows = np.zeros((nnz,))
+            dptr = 0
+
+            for i in xrange(N):
+                Zi, Xi = (qI[i] / self.nx, np.mod(qI[i], self.nx))
                 offset = (sLocs[i][0] - Xi * self.dx, sLocs[i][1] - Zi * self.dz)
                 sourceRegion = self.kws(offset)
-                q[Zi:Zi+freg,Xi:Xi+freg] += terms[i] * sourceRegion / srcScale
+                qshift = shift.copy()
 
-            # Mirror and flip sign on terms that cross the free-surface boundary
-            if self.freeSurf[0]:
-                q[ireg:2*ireg,:]      -= np.flipud(q[:ireg,:])    # Top
-            if self.freeSurf[1]:
-                q[:,-2*ireg:-ireg]    -= np.fliplr(q[:,-ireg:])   # Right
-            if self.freeSurf[2]:
-                q[-2*ireg:-ireg,:]    -= np.flipud(q[-ireg:,:])   # Bottom
-            if self.freeSurf[3]:
-                q[:,ireg:2*ireg]      -= np.fliplr(q[:,:ireg])    # Left
+                if Zi < ireg:
+                    index = ireg-Zi
+                    if freeSurf[2]:
+                        lift = np.flipud(sourceRegion[:index,:])
+                    
+                    sourceRegion = sourceRegion[index:,:]
+                    qshift = qshift[index:,:]
 
-            # Cut off edges
-            q = q[ireg:-ireg,ireg:-ireg].ravel()
+                    if freeSurf[2]:
+                        sourceRegion[:index,:] -= lift
 
-        return q
+                if Zi > self.nz-ireg-1:
+                    index = self.nz-ireg-1 - Zi
+                    if freeSurf[0]: 
+                        lift = np.flipud(sourceRegion[index:,:])
+
+                    sourceRegion = sourceRegion[:index,:]
+                    qshift = qshift[:index,:]
+
+                    if freeSurf[0]:
+                        sourceRegion[index:,:] -= lift
+
+                if Xi < ireg:
+                    index = ireg-Xi
+                    if freeSurf[3]:
+                        lift = np.fliplr(sourceRegion[:,:index])
+
+                    sourceRegion = sourceRegion[:,index:]
+                    qshift = qshift[:,index:]
+
+                    if freeSurf[3]:
+                        sourceRegion[:,:index] -= lift
+
+                if Xi > self.nx-ireg-1:
+                    index = self.nx-ireg-1 - Xi
+                    if freeSurf[1]:
+                        lift = np.fliplr(sourceRegion[:,index:])
+
+                    sourceRegion = sourceRegion[:,:index]
+                    qshift = qshift[:,:index]
+
+                    if freeSurf[1]:
+                        sourceRegion[:,index:] -= lift
+
+                data = sourceRegion.ravel() * terms[i] / self.srcScale
+                cols = qI[i] + qshift.ravel()
+                dlen = data.shape[0]
+
+                entries[dptr:dptr+dlen] = data
+                columns[dptr:dptr+dlen] = cols
+                rows[dptr:dptr+dlen] = i
+
+                dptr += dlen
+
+            q = sp.coo_matrix((entries[:dptr], (rows[:dptr],columns[:dptr])), shape=(N, M), dtype=np.complex128)
+
+        return q.T
     
     @property
     def ireg(self):
         return getattr(self, '_ireg', 4)
+    
+    # Scale source based on the cellsize so that changing the grid doesn't
+    # change the overall source amplitude   
+    @property
+    def srcScale(self):
+        return getattr(self, '_srcScale', self.dx*self.dz)
+
+class KaiserSource(SparseKaiserSource):
+    
+    def __call__(self, sLocs, terms=None):
+        
+        q = super(KaiserSource, self).__call__(sLocs, terms)
+        return q.toarray()
+
+
