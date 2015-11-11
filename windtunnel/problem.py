@@ -47,9 +47,9 @@ class MultiFreq(DiscretizationWrapper):
             
             u = (self.scaleTerm*p.get(PARTASK_TIMEOUT) for p in plist)
         else:
-            u = (self.scaleTerm*sp*rhs for sp in self.subProblems)
+            u = (self.scaleTerm*(sp*rhs) for sp in self.subProblems)
         
-        return u
+        return list(u) # TODO: Maybe we *do* want to return a generator here?
     
 
 class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, DiscretizationWrapper):
