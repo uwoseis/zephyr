@@ -4,6 +4,15 @@ import numpy as np
 from .meta import AttributeMapper, BaseModelDependent
 from .solver import DirectSolver
 
+try:
+    from multiprocessing import Pool, Process
+except ImportError:
+    PARALLEL = False
+else:
+    PARALLEL = True
+
+PARTASK_TIMEOUT = 60
+
 class BaseDiscretization(BaseModelDependent):
     
     initMap = {
@@ -87,3 +96,41 @@ class DiscretizationWrapper(AttributeMapper):
     def __mul__(self, rhs):
         raise NotImplementedError
 
+
+class MultiFreq(DiscretizationWrapper):
+    
+    initMap = {
+    #   Argument        Required    Rename as ...   Store as type
+        'disc':         (True,      '_disc',        None),
+        'freqs':        (True,      None,           list),
+        'parallel':     (False,     '_parallel',    bool),
+    }
+    
+    maskKeys = ['disc', 'freqs', 'parallel']
+    
+    @property
+    def parallel(self):
+        return PARALLEL and getattr(self, '_parallel', True)
+    
+    @property
+    def spUpdates(self):
+        return [{'freq': freq} for freq in self.freqs]
+    
+    @property
+    def disc(self):
+        return self._disc
+
+    def __mul__(self, rhs):
+        
+        if self.parallel:
+            pool = Pool()
+            plist = []
+            for sp in self.subProblems:
+                p = pool.apply_async(sp, (rhs,))
+                plist.append(p)
+            
+            u = (self.scaleTerm*p.get(PARTASK_TIMEOUT) for p in plist)
+        else:
+            u = (self.scaleTerm*(sp*rhs) for sp in self.subProblems)
+        
+        return list(u) # TODO: Maybe we *do* want to return a generator here?
