@@ -60,10 +60,10 @@ class SimpleSource(BaseSource):
     def __call__(self, loc):
         
         nsrc = loc.shape[0]
+        q = np.zeros((nsrc, self.nrow), dtype=np.complex128)
         
-        dist = self.dist(loc)
-        srcterm = 1.*(dist == dist.min())
-        q = srcterm.reshape((nsrc, self.nrow)) / srcterm.sum()
+        for i, index in enumerate(self.linIndexOf(loc)):
+            q[i,index] = 1.
         
         return q.T
     
