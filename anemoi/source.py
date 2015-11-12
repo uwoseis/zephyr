@@ -148,24 +148,22 @@ class SparseKaiserSource(SimpleSource):
 
         return result
     
-    def __call__(self, sLocs, terms=None):
+    def __call__(self, sLocs):
         
-        if terms is None:
-            terms = np.ones((len(sLocs),), dtype=np.complex128)
-
         ireg = self.ireg
         N = sLocs.shape[0]
         M = self.nz * self.nx
-
-        if getattr(terms, '__contains__', None) is None:
-            terms = np.array([terms]*N)
+        
+        # Scale source based on the cellsize so that changing the grid doesn't
+        # change the overall source amplitude   
+        srcScale = 1. / (self.dx * self.dz)
 
         qI = self.linIndexOf(sLocs)
 
         if ireg == 0:
             # Closest gridpoint
 
-            q = sp.coo_matrix((terms/self.srcScale, (np.arange(N), qI)), shape=(N, M))
+            q = sp.coo_matrix((srcScale, (np.arange(N), qI)), shape=(N, M))
 
         else:
 
@@ -232,7 +230,7 @@ class SparseKaiserSource(SimpleSource):
                     if freeSurf[1]:
                         sourceRegion[:,index:] -= lift
 
-                data = sourceRegion.ravel() * terms[i] / self.srcScale
+                data = srcScale * sourceRegion.ravel()
                 cols = qI[i] + qshift.ravel()
                 dlen = data.shape[0]
 
@@ -250,17 +248,11 @@ class SparseKaiserSource(SimpleSource):
     def ireg(self):
         return getattr(self, '_ireg', 4)
     
-    # Scale source based on the cellsize so that changing the grid doesn't
-    # change the overall source amplitude   
-    @property
-    def srcScale(self):
-        return getattr(self, '_srcScale', self.dx*self.dz)
-
 class KaiserSource(SparseKaiserSource):
     
-    def __call__(self, sLocs, terms=None):
+    def __call__(self, sLocs):
         
-        q = super(KaiserSource, self).__call__(sLocs, terms)
+        q = super(KaiserSource, self).__call__(sLocs)
         return q.toarray()
 
 
