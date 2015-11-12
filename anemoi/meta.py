@@ -6,6 +6,7 @@ class ClassProperty(property):
     def __get__(self, cls, owner):
         return self.fget.__get__(None, owner)()
 
+
 class AMMetaClass(type):
     
     def __new__(mcs, name, bases, attrs):
@@ -36,7 +37,7 @@ class AMMetaClass(type):
             warnings.simplefilter('ignore')
             for key in obj.initMap.keys():
                 if (key not in systemConfig) and obj.initMap[key][0]:
-                    raise ValueError('Class %s requires parameter \'%s\'!'%(cls.__name__, key))
+                    raise ValueError('Class %s requires parameter \'%s\''%(cls.__name__, key))
                 if key in systemConfig:
                     if obj.initMap[key][2] is None:
                         typer = lambda x: x
@@ -113,6 +114,36 @@ class AttributeMapper(object):
     @classmethod
     def optional(cls):
         return set([key for key in cls.initMap if not cls.initMap[key][0]])
+
+
+class SCFilter(object):
+    
+    def __init__(self, clslist):
+        
+        if not hasattr(clslist, '__contains__'):
+            clslist = [clslist]
+        
+        self.required = reduce(set.union, (cls.required for cls in clslist if issubclass(cls, AMMetaClass)))
+        self.optional = reduce(set.union, (cls.optional for cls in clslist if issubclass(cls, AMMetaClass)))
+        self.optional.symmetric_difference_update(self.required)
+     
+    def __call__(self, systemConfig):
+        
+        for key in self.required:
+            if key not in systemConfig:
+                raise ValueError('%s requires parameter \'%s\''%(cls.__name__, key))
+        
+        return {key: systemConfig[key] for key in set.union(self.required, self.optional)}
+
+
+class BaseSCCache(AttributeMapper):
+    
+    maskKeys = []
+    
+    def __init__(self, systemConfig):
+        
+        super(BaseSCCache, self).__init__(systemConfig)
+        self.systemConfig = {key: systemConfig[key] for key in systemConfig if key not in self.maskKeys}
 
 
 class BaseModelDependent(AttributeMapper):

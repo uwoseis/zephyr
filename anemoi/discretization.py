@@ -1,7 +1,7 @@
 
 import copy
 import numpy as np
-from .meta import AttributeMapper, BaseModelDependent
+from .meta import AttributeMapper, BaseSCCache, BaseModelDependent
 from .solver import DirectSolver
 
 try:
@@ -53,20 +53,13 @@ class BaseDiscretization(BaseModelDependent):
     def __call__(self, value):
         return self*value
 
-class DiscretizationWrapper(AttributeMapper):
+class DiscretizationWrapper(BaseSCCache):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'disc':         (True,      None,           None),
         'scaleTerm':    (False,     '_scaleTerm',   np.complex128),
     }
-    
-    maskKeys = []
-    
-    def __init__(self, systemConfig):
-        
-        super(DiscretizationWrapper, self).__init__(systemConfig)
-        self.systemConfig = {key: systemConfig[key] for key in systemConfig if key not in self.maskKeys}
     
     @property
     def scaleTerm(self):
