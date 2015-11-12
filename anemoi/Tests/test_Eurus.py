@@ -31,7 +31,8 @@ class TestEurus(unittest.TestCase):
         Ainv = Eurus(systemConfig)
         src = StackedSimpleSource(systemConfig)
 
-        q = src(nx/2, nz/2)
+        sloc = np.array([nx/2, nz/2]).reshape((1,2))
+        q = src(sloc)
         u = Ainv*q
 
     def test_compareAnalytical_Isotropic(self):
@@ -68,14 +69,15 @@ class TestEurus(unittest.TestCase):
 
         xs = 25
         zs = 25
+        sloc = np.array([xs, zs]).reshape((1,2))
 
         Ainv = Eurus(systemConfig)
         src = StackedSimpleSource(systemConfig)
-        q = src(xs, zs)
+        q = src(sloc)
         uMZ = Ainv*q
 
         AH = AnalyticalHelmholtz(systemConfig)
-        uAH = AH(xs, zs)
+        uAH = AH(sloc)
 
         nx = systemConfig['nx']
         nz = systemConfig['nz']
@@ -124,14 +126,15 @@ class TestEurus(unittest.TestCase):
 
         xs = 25
         zs = 25
+        sloc = np.array([xs, zs]).reshape((1,2))
 
         Ainv = Eurus(systemConfig)
         src = StackedSimpleSource(systemConfig)
-        q = src(xs, zs)
+        q = src(sloc)
         uMZ = Ainv*q
 
         AH = AnalyticalHelmholtz(systemConfig)
-        uAH = AH(xs, zs)
+        uAH = AH(sloc)
 
         nx = systemConfig['nx']
         nz = systemConfig['nz']

@@ -1,7 +1,7 @@
 
 import unittest
 import numpy as np
-from anemoi import AnalyticalHelmholtz
+from anemoi import AnalyticalHelmholtz, FakeSource
 
 class TestAnalyticalHelmholtz(unittest.TestCase):
 
@@ -19,9 +19,11 @@ class TestAnalyticalHelmholtz(unittest.TestCase):
             'nz':       nz,     # count
             'freq':     2e2,    # Hz
         }
-
+        
+        sloc = np.array([nx/2, nz/2]).reshape((1,2))
+        
         Green = AnalyticalHelmholtz(systemConfig)
-        u = Green(nx/2, nz/2)
+        u = Green(sloc)
 
 if __name__ == '__main__':
     unittest.main()

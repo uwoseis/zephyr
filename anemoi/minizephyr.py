@@ -1,5 +1,5 @@
 
-from .discretization import BaseDiscretization
+from .discretization import BaseDiscretization, DiscretizationWrapper
 
 import copy
 import numpy as np
@@ -298,7 +298,7 @@ class MiniZephyr(BaseDiscretization):
     def __mul__(self, value):
         return self.premul * super(MiniZephyr, self).__mul__(value).conjugate()
 
-class MiniZephyr25D(BaseDiscretization):
+class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
@@ -306,18 +306,12 @@ class MiniZephyr25D(BaseDiscretization):
         'nky':          (True,      '_nky',         np.int64),
         'parallel':     (False,     '_parallel',    bool),
         'cmin':         (False,     '_cmin',        np.float64),
-        'freq':         (True,      None,           np.complex128),
     }
     
-    def __init__(self, systemConfig):
-        
-        super(MiniZephyr25D, self).__init__(systemConfig)
-        
-        maskKeys = ['nky', 'disc', 'parallel']
-        self.systemConfig = {key: systemConfig[key] for key in systemConfig if key not in maskKeys}
+    maskKeys = ['nky', 'disc', 'parallel']
     
     @property
-    def discretization(self):
+    def disc(self):
         
         if getattr(self, '_disc', None) is None:
             from minizephyr import MiniZephyr
@@ -332,7 +326,6 @@ class MiniZephyr25D(BaseDiscretization):
     
     @property
     def pkys(self):
-        
         # By regular sampling strategy
         indices = np.arange(self.nky)
         if self.nky > 1:
@@ -356,31 +349,13 @@ class MiniZephyr25D(BaseDiscretization):
     
     @property
     def spUpdates(self):
-        
         weightfac = 1./(2*self.nky - 1) if self.nky > 1 else 1.
         return [{'ky': ky, 'premul': weightfac*(1. + (ky > 0))} for ky in self.pkys]
-        
-    @property
-    def _spConfigs(self):
-        
-        def duplicateUpdate(spu):
-            nsc = copy.copy(self.systemConfig)
-            nsc.update(spu)
-            return nsc
-        
-        return (duplicateUpdate(spu) for spu in self.spUpdates)
     
     @property
     def parallel(self):
         return PARALLEL and getattr(self, '_parallel', True)
 
-    @property
-    def subProblems(self):
-        if getattr(self, '_subProblems', None) is None:
-            
-            self._subProblems = map(self.discretization, self._spConfigs)
-        return self._subProblems
-    
     @property
     def scaleTerm(self):
         return getattr(self, '_scaleTerm', np.exp(1j * np.pi) /(4*np.pi))
