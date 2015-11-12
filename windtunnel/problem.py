@@ -1,31 +1,31 @@
 
 import numpy as np
-from anemoi import BaseModelDependent, DiscretizationWrapper, MultiFreq, MiniZephyr, Eurus
+from anemoi import BaseModelDependent, BaseSCCache, MultiFreq, MiniZephyr, Eurus
 import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
 
-class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, DiscretizationWrapper):
+class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCache):
     
 #    initMap = {
 #    #   Argument        Required    Rename as ...   Store as type
 #    }
 
-    maskKeys = []
+#    maskKeys = []
     
     surveyPair = HelmBaseSurvey
     SystemWrapper = MultiFreq
     
     def __init__(self, systemConfig, *args, **kwargs):
+         
+        # Initialize anemoi side
+        BaseSCCache.__init__(self, systemConfig, *args, **kwargs)       
         
         # Initialize SimPEG side
         hx = [(self.dx, self.nx-1)]
         hz = [(self.dz, self.nz-1)]
         mesh = SimPEG.Mesh.TensorMesh([hx, hz], '00')
         SimPEG.Problem.BaseProblem.__init__(self, mesh, *args, **kwargs)
-        
-        # Initialize anemoi side
-        DiscretizationWrapper.__init__(self, systemConfig, *args, **kwargs)
-    
+
 #    @property
 #    def _survey(self):
 #        return self.__survey
@@ -44,18 +44,6 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, Discretiza
         return self._system
 
     @SimPEG.Utils.timeIt
-    def Jvec(self, m, v, u=None):
-        """Jvec(m, v, u=None)
-            Effect of J(m) on a vector v.
-            :param numpy.array m: model
-            :param numpy.array v: vector to multiply
-            :param numpy.array u: fields
-            :rtype: numpy.array
-            :return: Jv
-        """
-        raise NotImplementedError('J is not yet implemented.')
-
-    @SimPEG.Utils.timeIt
     def Jtvec(self, m, v, u=None):
         """Jtvec(m, v, u=None)
             Effect of transpose of J(m) on a vector v.
@@ -65,20 +53,21 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, Discretiza
             :rtype: numpy.array
             :return: JTv
         """
+        
+        if not self.ispaired:
+            raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
+            
         raise NotImplementedError('Jt is not yet implemented.')
 
-    def fields(self, m):
-        """
-            The field given the model.
-            :param numpy.array m: model
-            :rtype: numpy.array
-            :return: u, the fields
-        """
+    def fields(self, m=None):
         
-        RHSs = self._survey.getRHSorSomething # THIS IS NOT FUNCTIONAL
-        field = FancyField([self.system * rhs for rhs in RHSs]) # THIS IS NOT FUNCTIONAL
-        return field
-        #raise NotImplementedError('fields is not yet implemented.')
+        if not self.ispaired:
+            raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
+        
+        qs = self.survey.sVecs
+        uF = self.system * qs
+        
+        return uF
     
 
 class Helm2DProblem(HelmBaseProblem):
