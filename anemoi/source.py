@@ -1,7 +1,10 @@
 
 from .meta import BaseModelDependent
+import warnings
 import numpy as np
 import scipy.sparse as sp
+from scipy.special import i0 as bessi0
+
 
 class BaseSource(BaseModelDependent):
     
@@ -106,9 +109,6 @@ class SparseKaiserSource(SimpleSource):
         Input offset is the 2D offsets in fractional gridpoints between the source location and
         the nearest node on the modelling grid.
         '''
-
-        from scipy.special import i0 as bessi0
-        import warnings
 
         try:
             b = self.HC_KAISER.get(self.ireg)
