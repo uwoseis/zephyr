@@ -51,7 +51,7 @@ class AnalyticalHelmholtz(object):
         dist = np.sqrt(dx**2 + dz**2)
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            strangle = np.arctan(dz / dx) - self.theta
+            strangle = np.arctan(dz / dx) + self.theta
         stretch = np.sqrt(self.stretch * np.cos(strangle)**2 + np.sin(strangle)**2)
         
         return np.nan_to_num(self.Green(dist * stretch)).ravel()
