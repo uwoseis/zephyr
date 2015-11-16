@@ -434,7 +434,7 @@ class Eurus(BaseDiscretization):
 
     @property
     def mord(self):
-        return getattr(self, '_mord', ('+nx', '+1'))
+        return getattr(self, '_mord', ('-nx', '+1'))
 
     @property
     def cPML(self):
