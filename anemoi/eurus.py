@@ -253,21 +253,21 @@ class Eurus(BaseDiscretization):
 
         # Need to define Anisotropic Matrix coeffs as in OPerto et al. (2009)
 
-        Ax = 1 + (2*delta)*((np.cos(theta))**2)
-        Bx = (-1*delta)*np.sin(2*theta)
-        Cx = (1+(2*delta))*(np.cos(theta)**2)
-        Dx = (-1*(1+(2*delta)))*((np.sin(2*theta))/2)
-        Ex = (2*(eps-delta))*(np.cos(theta)**2)
-        Fx = (-1*(eps-delta))*(np.sin(2*theta))
+        Ax = 1. + (2.*delta)*(np.cos(theta)**2.)
+        Bx = (-1.*delta)*np.sin(2.*theta)
+        Cx = (1.+(2.*delta))*(np.cos(theta)**2.)
+        Dx = (-1*(1.+(2.*delta)))*((np.sin(2.*theta))/2.)
+        Ex = (2.*(eps-delta))*(np.cos(theta)**2.)
+        Fx = (-1.*(eps-delta))*(np.sin(2.*theta))
         Gx = Ex
         Hx = Fx
 
         Az = Bx
-        Bz = 1 + ((2*delta)*(np.sin(theta)**2))
+        Bz = 1. + (2.*delta)*(np.sin(theta)**2.)
         Cz = Dx
-        Dz = (1+(2*delta))*(np.sin(theta))
+        Dz = (1.+(2.*delta))*(np.sin(theta)**2.)
         Ez = Fx
-        Fz = (2*(eps-delta))*(np.sin(theta)**2)
+        Fz = (2.*(eps-delta))*(np.sin(theta)**2.)
         Gz = Fx
         Hz = Fz
 
