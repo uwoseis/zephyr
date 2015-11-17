@@ -126,4 +126,4 @@ class MultiFreq(DiscretizationWrapper):
         else:
             u = (self.scaleTerm*(sp*rhs) for sp in self.subProblems)
         
-        return list(u) # TODO: Maybe we *do* want to return a generator here?
+        return u
