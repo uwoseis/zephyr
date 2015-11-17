@@ -111,3 +111,17 @@ class HelmFields(SimPEG.Fields.Fields):
 
         shape = self._correctShape(name, ind, deflate=True)
         return out.reshape(shape, order='F')
+    
+    def __repr__(self):
+        
+        shape = self._storageShape('N')        
+        attrs = {
+            'name':     self.__class__.__name__,
+            'id':       id(self),
+            'nFields':  len(self.knownFields) + len(self.aliasFields),
+            'nN':       shape[0],
+            'nSrc':     shape[1],
+            'nFreq':    shape[2],
+        }
+        
+        return '<%(name)s container at 0x%(id)x: %(nFields)d fields, with N shape (%(nN)d, %(nSrc)d, %(nFreq)d)>'%attrs
