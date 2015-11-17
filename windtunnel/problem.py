@@ -3,6 +3,7 @@ import numpy as np
 from anemoi import BaseModelDependent, BaseSCCache, MultiFreq, MiniZephyr, Eurus
 import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
+from .fields import HelmFields
 
 class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCache):
     
@@ -67,7 +68,15 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         qs = self.survey.sVecs
         uF = self.system * qs
         
-        return uF
+        if not np.iterable(uF):
+            uF = [uF]
+        
+        fields = HelmFields(self.mesh, self.survey)
+        
+        for ifreq, uFsub in enumerate(uF):
+            fields[:,'u',ifreq] = uFsub
+        
+        return fields
     
 
 class Helm2DProblem(HelmBaseProblem):

@@ -19,14 +19,24 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'geom':         (True,      None,           dict),
+        'freqs':        (True,      None,           tuple),
     }
+    
+    def __init__(self, *args, **kwargs):
+        
+        BaseSCCache.__init__(self, *args, **kwargs)
+        SimPEG.Survey.BaseSurvey.__init__(self, **kwargs)
+    
+    @property
+    def nfreq(self):
+        return len(self.freqs)
     
     @property
     def geom(self):
         return self._geom
     @geom.setter
     def geom(self, value):
-        if value.get('mode', None) not in ['fixed', 'relative']:
+        if value.get('mode', 'fixed') not in {'fixed', 'relative'}:
             raise Exception('%s objects only work with \'fixed\' or \'relative\' receiver arrays'%(self.__class__.__name__,))
             
         self._geom = value
@@ -70,7 +80,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
         if not hasattr(self, '_rhsGenerator'):
             GeneratorClass = self.geom.get('GeneratorClass', SparseKaiserSource)
             self._rhsGenerator = GeneratorClass(self.systemConfig)
-        return sefl._rhsGenerator
+        return self._rhsGenerator
     
     @property
     def sVecs(self):
