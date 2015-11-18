@@ -59,8 +59,8 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
             
         raise NotImplementedError('Jt is not yet implemented.')
-
-    def fields(self, m=None):
+    
+    def _lazyFields(self, m=None):
         
         if not self.ispaired:
             raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
@@ -71,6 +71,11 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         if not np.iterable(uF):
             uF = [uF]
         
+        return uF
+
+    def fields(self, m=None):
+        
+        uF = self._lazyFields(m)
         fields = HelmFields(self.mesh, self.survey)
         
         for ifreq, uFsub in enumerate(uF):

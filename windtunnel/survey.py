@@ -4,17 +4,24 @@ import scipy.sparse as sp
 from anemoi import BaseSCCache, SparseKaiserSource
 import SimPEG
 
-class HelmSource(SimPEG.Survey.BaseSrc):
+class HelmSrc(SimPEG.Survey.BaseSrc):
     
-    pass
+    def __init__(self, rxList, loc):
+        
+        self.loc = loc
+        SimPEG.Survey.BaseSrc.__init__(self, rxList)
+
 
 class HelmRx(SimPEG.Survey.BaseRx):
     
-    pass
+    def __init__(self, locs, rxType=None):
+        
+        SimPEG.Survey.BaseRx.__init__(self, locs, rxType)
+
 
 class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
 
-    srcPair = HelmSource
+    srcPair = HelmSrc
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
@@ -26,6 +33,14 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
         
         BaseSCCache.__init__(self, *args, **kwargs)
         SimPEG.Survey.BaseSurvey.__init__(self, **kwargs)
+        
+        if self.mode == 'fixed':
+            rxList = HelmRx(self.rLocs)
+            rxListGen = lambda sLoc: [rxList]
+        elif self.mode == 'relative':
+            rxListGen = lambda sLoc: [HelmRx(sLoc + self.rLocs)]
+        
+        self.srcList = [HelmSrc(rxListGen(loc), loc) for loc in self.sLocs]
     
     @property
     def nfreq(self):
@@ -91,14 +106,14 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
     def rVec(self, isrc):
         if self.mode == 'fixed':
             if not hasattr(self, '_rVecs'):
-                self._rVecs = self.rhsGenerator(self.rLocs) * sp.diags(self.rTerms, 0)
+                self._rVecs = (self.rhsGenerator(self.rLocs) * sp.diags(self.rTerms, 0)).T
             return self._rVecs
         
         elif self.mode == 'relative':
             if not hasattr(self, '_rVecs'):
                 self._rVecs = {}
             if isrc not in self._rVecs:
-                self._rVecs[isrc] = self.rhsGenerator(self.rLocs + self.sLocs[isrc]) * sp.diags(self.rTerms, 0)
+                self._rVecs[isrc] = (self.rhsGenerator(self.rLocs + self.sLocs[isrc]) * sp.diags(self.rTerms, 0)).T
             return self._rVecs[isrc]
     
     @property
@@ -108,28 +123,44 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
     @property
     def nD(self):
         """Number of data"""
-        return self.nsrc * self.nrec
+        return self.nsrc * self.nrec * self.nfreq
 
     @property
     def vnD(self):
         """Vector number of data"""
-        return np.array([self.nrec]*self.nsrc)
-
-    @property
-    def nSrc(self):
-        """Number of Sources"""
-        return self.nsrc
+        return self.nfreq * np.array([src.nD for src in self.srcList])
 
     @SimPEG.Utils.count
     def projectFields(self, u):
         
-        data = np.empty((self.nrec, self.nsrc), dtype=np.complex128)
+        data = np.empty((self.nrec, self.nsrc, self.nfreq), dtype=np.complex128)
         
-        for i, rVec in enumerate(self.rVecs):
-            data[:,i] = rVec * u[:,i]
+        for isrc, rVec in enumerate(self.rVecs):
+            data[:,isrc,:] = rVec * u[:,isrc,:]
+            #for ifreq, freq in enumerate(self.freqs):
+            #    data[:,isrc,ifreq] = rVec * u[:,isrc,ifreq]
+        
+        return data
+    
+    def _lazyProjectFields(self, u):
+        
+        data = np.empty((self.nrec, self.nsrc, self.nfreq), dtype=np.complex128)
+        
+        for ifreq, uFreq in enumerate(u):
+            for isrc, rVec in enumerate(self.rVecs):
+                data[:,isrc,ifreq] = rVec * uFreq[:,isrc]
         
         return data
 
+    @SimPEG.Utils.count
+    @SimPEG.Utils.requires('prob')
+    def dpred(self, m, u=None):
+        
+        if u is None:
+            u = self.prob._lazyFields(m)
+            return self._lazyProjectFields(u).ravel()
+        else:
+            return self.projectFields(u).ravel()
 
 class Helm2DSurvey(HelmBaseSurvey):
     
