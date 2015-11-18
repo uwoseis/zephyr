@@ -115,15 +115,21 @@ class MultiFreq(DiscretizationWrapper):
 
     def __mul__(self, rhs):
         
+        if isinstance(rhs, dict):
+            getRHS = lambda i: rhs['rhs'] * rhs['terms'][:,i]
+        else:
+            getRHS = lambda i: rhs
+        
         if self.parallel:
             pool = Pool()
             plist = []
-            for sp in self.subProblems:
-                p = pool.apply_async(sp, (rhs,))
+            for i, sp in enumerate(self.subProblems):
+                
+                p = pool.apply_async(sp, (getRHS(i),))
                 plist.append(p)
             
             u = (self.scaleTerm*p.get(PARTASK_TIMEOUT) for p in plist)
         else:
-            u = (self.scaleTerm*(sp*rhs) for sp in self.subProblems)
+            u = (self.scaleTerm*(sp*getRHS(i)) for i, sp in enumerate(self.subProblems))
         
         return u
