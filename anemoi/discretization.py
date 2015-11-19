@@ -1,6 +1,7 @@
 
 import copy
 import numpy as np
+import scipy.sparse as sp
 from .meta import AttributeMapper, BaseSCCache, BaseModelDependent
 from .solver import DirectSolver
 
@@ -53,6 +54,7 @@ class BaseDiscretization(BaseModelDependent):
     def __call__(self, value):
         return self*value
 
+
 class DiscretizationWrapper(BaseSCCache):
     
     initMap = {
@@ -60,6 +62,8 @@ class DiscretizationWrapper(BaseSCCache):
         'disc':         (True,      None,           None),
         'scaleTerm':    (False,     '_scaleTerm',   np.complex128),
     }
+    
+    cacheItems = ['_subProblems']
     
     @property
     def scaleTerm(self):
@@ -115,15 +119,21 @@ class MultiFreq(DiscretizationWrapper):
 
     def __mul__(self, rhs):
         
+        if isinstance(rhs, list):
+            getRHS = lambda i: rhs[i]
+        else:
+            getRHS = lambda i: rhs
+        
         if self.parallel:
             pool = Pool()
             plist = []
-            for sp in self.subProblems:
-                p = pool.apply_async(sp, (rhs,))
+            for i, sp in enumerate(self.subProblems):
+                
+                p = pool.apply_async(sp, (getRHS(i),))
                 plist.append(p)
             
             u = (self.scaleTerm*p.get(PARTASK_TIMEOUT) for p in plist)
         else:
-            u = (self.scaleTerm*(sp*rhs) for sp in self.subProblems)
+            u = (self.scaleTerm*(sp*getRHS(i)) for i, sp in enumerate(self.subProblems))
         
-        return list(u) # TODO: Maybe we *do* want to return a generator here?
+        return u

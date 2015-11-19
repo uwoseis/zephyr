@@ -139,11 +139,25 @@ class SCFilter(object):
 class BaseSCCache(AttributeMapper):
     
     maskKeys = []
+    cacheItems = []
     
     def __init__(self, systemConfig):
         
         super(BaseSCCache, self).__init__(systemConfig)
         self.systemConfig = {key: systemConfig[key] for key in systemConfig if key not in self.maskKeys}
+        
+    @property
+    def systemConfig(self):
+        return self._systemConfig
+    @systemConfig.setter
+    def systemConfig(self, value):
+        self._systemConfig = value
+        self.clearCache()
+    
+    def clearCache(self):
+        for attr in self.cacheItems:
+            if hasattr(self, attr):
+                delattr(self, attr)
 
 
 class BaseModelDependent(AttributeMapper):
