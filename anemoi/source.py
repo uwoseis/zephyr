@@ -151,6 +151,7 @@ class SparseKaiserSource(SimpleSource):
     def __call__(self, sLocs):
         
         ireg = self.ireg
+        freeSurf = self.freeSurf
         N = sLocs.shape[0]
         M = self.nz * self.nx
         
