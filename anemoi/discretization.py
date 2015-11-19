@@ -1,6 +1,7 @@
 
 import copy
 import numpy as np
+import scipy.sparse as sp
 from .meta import AttributeMapper, BaseSCCache, BaseModelDependent
 from .solver import DirectSolver
 
@@ -116,7 +117,7 @@ class MultiFreq(DiscretizationWrapper):
     def __mul__(self, rhs):
         
         if isinstance(rhs, dict):
-            getRHS = lambda i: rhs['rhs'] * rhs['terms'][:,i]
+            getRHS = lambda i: rhs['rhs'] * sp.diags(rhs['terms'][:,i], 0)
         else:
             getRHS = lambda i: rhs
         
