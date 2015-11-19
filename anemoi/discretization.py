@@ -54,6 +54,7 @@ class BaseDiscretization(BaseModelDependent):
     def __call__(self, value):
         return self*value
 
+
 class DiscretizationWrapper(BaseSCCache):
     
     initMap = {
@@ -61,6 +62,8 @@ class DiscretizationWrapper(BaseSCCache):
         'disc':         (True,      None,           None),
         'scaleTerm':    (False,     '_scaleTerm',   np.complex128),
     }
+    
+    cacheItems = ['_subProblems']
     
     @property
     def scaleTerm(self):
