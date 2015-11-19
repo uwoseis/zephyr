@@ -116,8 +116,8 @@ class MultiFreq(DiscretizationWrapper):
 
     def __mul__(self, rhs):
         
-        if isinstance(rhs, dict):
-            getRHS = lambda i: rhs['rhs'] * sp.diags(rhs['terms'][:,i], 0)
+        if isinstance(rhs, list):
+            getRHS = lambda i: rhs[i]
         else:
             getRHS = lambda i: rhs
         
