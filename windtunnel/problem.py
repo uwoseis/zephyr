@@ -6,6 +6,8 @@ import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
 from .fields import HelmFields
 
+EPS = 1e-15
+
 class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCache):
     
 #    initMap = {
@@ -16,6 +18,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
     
     surveyPair = HelmBaseSurvey
     SystemWrapper = MultiFreq
+    cacheItems = ['_system']
     
     def __init__(self, systemConfig, *args, **kwargs):
          
@@ -38,6 +41,23 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 #            self._cleanSystem()
 #        else:
 #            self._buildSystem()
+
+    def updateModel(self, m, loneKey='c'):
+        
+        if m is None:
+            return
+        
+        elif isinstance(m, dict):
+            self.systemConfig.update(m)
+            self.clearCache()
+        
+        elif isinstance(m, np.ndarray) or isinstance(m, np.inexact) or isinstance(m, complex) or isinstance(m, float):
+            if not np.linalg.norm(m - self.systemConfig.get(loneKey, 0.)) < EPS:
+                self.systemConfig[loneKey] = m
+                self.clearCache()
+        
+        else:
+                raise Exception('Class %s doesn\'t know how to update with model of type %s'%(self.__class__.__name__, type(m)))
             
     @property
     def system(self):
@@ -46,23 +66,20 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         return self._system
 
     @SimPEG.Utils.timeIt
-    def Jtvec(self, m, v, uF=None):
-        """Jtvec(m, v, u=None)
-            Effect of transpose of J(m) on a vector v.
-            :param numpy.array m: model
-            :param numpy.array v: vector to multiply
-            :param numpy.array u: fields
-            :rtype: numpy.array
-            :return: JTv
-        """
+    def Jtvec(self, m=None, v=None, uF=None):
+        
+        if not self.ispaired:
+            raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
+            
+        if v is None:
+            raise Exception('Actually, Jtvec requires a residual vector')
+        
+        self.updateModel(m)
         
         # v.shape <nrec,  nsrc,  nfreq>
         # o.shape [<nelem, nsrc> . nfreq]
         # r.shape [<nrec, nelem> . nsrc]
                 
-        if not self.ispaired:
-            raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
-        
         resid = v.reshape((self.survey.nrec, self.survey.nsrc, self.survey.nfreq))
         
         if uF is None:
@@ -92,6 +109,8 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         
         if not self.ispaired:
             raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
+        
+        self.updateModel(m)
         
         qs = self.survey.sVecs
         uF = self.system * qs

@@ -154,7 +154,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
 
     @SimPEG.Utils.count
     @SimPEG.Utils.requires('prob')
-    def dpred(self, m, u=None):
+    def dpred(self, m=None, u=None):
         
         if u is None:
             u = self.prob._lazyFields(m)
