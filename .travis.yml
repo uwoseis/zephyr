@@ -20,7 +20,7 @@ install:
 
 # Run test
 script:
-  - nosetests --with-cov --cov zephyrcli --cov-config .coveragerc -v -s
+  - nosetests --with-cov --cov zephyr --cov-config .coveragerc -v -s
 
 # Calculate coverage
 after_success:
