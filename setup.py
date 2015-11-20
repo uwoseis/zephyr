@@ -45,5 +45,5 @@ setup(
     platforms = ['Windows', 'Linux', 'Solaris', 'Mac OS-X', 'Unix'],
     use_2to3 = False,
     include_dirs=[np.get_include()],
-    entry_points = {'console_scripts': ['zephyr = zephyr.zephyr:main']},
+    entry_points = {'console_scripts': ['zephyr = zephyr.frontend.cli:zephyr']},
 )
