@@ -2,7 +2,7 @@
 import unittest
 import numpy as np
 
-from anemoi.meta import AttributeMapper
+from zephyr.backend.meta import AttributeMapper
 
 class TestMeta(unittest.TestCase):
 

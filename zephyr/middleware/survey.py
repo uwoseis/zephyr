@@ -1,7 +1,7 @@
 
 import numpy as np
 import scipy.sparse as sp
-from anemoi import BaseSCCache, SparseKaiserSource
+from zephyr.backend import BaseSCCache, SparseKaiserSource
 import SimPEG
 
 class HelmSrc(SimPEG.Survey.BaseSrc):

@@ -1,7 +1,7 @@
 
 import numpy as np
 import scipy.sparse as sp
-from anemoi import BaseModelDependent, BaseSCCache, MultiFreq, MiniZephyr, Eurus
+from zephyr.backend import BaseModelDependent, BaseSCCache, MultiFreq, MiniZephyr, Eurus
 import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
 from .fields import HelmFields

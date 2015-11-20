@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from anemoi import MiniZephyr, MiniZephyr25D, SimpleSource, AnalyticalHelmholtz
+from zephyr.backend import MiniZephyr, MiniZephyr25D, SimpleSource, AnalyticalHelmholtz
 
 class TestMiniZephyr(unittest.TestCase):
     

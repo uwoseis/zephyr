@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from anemoi import Eurus, StackedSimpleSource, AnalyticalHelmholtz
+from zephyr.backend import Eurus, StackedSimpleSource, AnalyticalHelmholtz
 
 class TestEurus(unittest.TestCase):
 

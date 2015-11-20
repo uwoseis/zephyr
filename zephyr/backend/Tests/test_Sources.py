@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from anemoi import SimpleSource, StackedSimpleSource, SparseKaiserSource, KaiserSource
+from zephyr.backend import SimpleSource, StackedSimpleSource, SparseKaiserSource, KaiserSource
 
 class TestSources(unittest.TestCase):
     

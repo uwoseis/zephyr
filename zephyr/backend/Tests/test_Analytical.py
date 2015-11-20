@@ -1,7 +1,7 @@
 
 import unittest
 import numpy as np
-from anemoi import AnalyticalHelmholtz, FakeSource
+from zephyr.backend import AnalyticalHelmholtz, FakeSource
 
 class TestAnalyticalHelmholtz(unittest.TestCase):
 
