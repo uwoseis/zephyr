@@ -31,6 +31,7 @@ setup(
     packages = find_packages(),
     install_requires = ['numpy>=1.7',
                         'scipy>=0.13',
+                        'click',
                        ],
     author = 'Brendan Smithyman',
     author_email = 'brendan@bitsmithy.net',
@@ -44,4 +45,5 @@ setup(
     platforms = ['Windows', 'Linux', 'Solaris', 'Mac OS-X', 'Unix'],
     use_2to3 = False,
     include_dirs=[np.get_include()],
+    entry_points = {'console_scripts': ['zephyr = zephyrcli.zephyr:main']},
 )
