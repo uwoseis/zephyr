@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Zephyr
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/uwoseis/zephyr-cli/blob/master/LICENSE)
