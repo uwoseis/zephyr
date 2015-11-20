@@ -26,7 +26,7 @@ with open('README.md') as fp:
     LONG_DESCRIPTION = ''.join(fp.readlines())
 
 setup(
-    name = 'zephyr-cli',
+    name = 'zephyrcli',
     # version = '0.1.1',
     packages = find_packages(),
     install_requires = ['numpy>=1.7',
@@ -34,12 +34,12 @@ setup(
                        ],
     author = 'Brendan Smithyman',
     author_email = 'brendan@bitsmithy.net',
-    description = 'zephyr-cli',
+    description = 'zephyrcli',
     long_description = LONG_DESCRIPTION,
     license = 'MIT',
     keywords = 'full-waveform inversion',
     # url = '',
-    download_url = 'http://github.com/uwoseis/zephyr-cli',
+    download_url = 'http://github.com/uwoseis/zephyrcli',
     classifiers = CLASSIFIERS,
     platforms = ['Windows', 'Linux', 'Solaris', 'Mac OS-X', 'Unix'],
     use_2to3 = False,
