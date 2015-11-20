@@ -3,8 +3,8 @@
 import click
 import numpy as np
 
-import anemoi
-import windtunnel
+from .. import backend
+from .. import middleware
 import SimPEG
 
 @click.group()

@@ -1,7 +1,7 @@
 
 import numpy as np
 import scipy.sparse as sp
-from zephyr.backend import BaseModelDependent
+from ..backend import BaseModelDependent
 import SimPEG
 
 class HelmFields(SimPEG.Fields.Fields):
