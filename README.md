@@ -9,4 +9,5 @@ Open-source seismic waveform modelling and inversion code written in Python
 ## Authors
 
 Brendan Smithyman <[brendan@bitsmithy.net](mailto:brendan@bitsmithy.net)>
+
 Shaun Hadden <[shadden2@uwo.ca](mailto:shadden2@uwo.ca)>
