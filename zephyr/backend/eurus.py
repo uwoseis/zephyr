@@ -286,7 +286,7 @@ class Eurus(BaseDiscretization):
                         + (1-w1)
                         * (
                           (((-1 * L_x4) * coeff2x) * (   b_LN2_C))
-                        + (((     L_z4) * coeff1z) * (   b_LN4_C))
+                        + (((-1 * L_z4) * coeff1z) * (   b_LN4_C))
                         ),
                 'HH':  w1
                         * (
@@ -358,7 +358,7 @@ class Eurus(BaseDiscretization):
                           )
                         + (1-w1)
                         * (
-                          (((-1 * L_x4) * coeff2x) * (   b_LN2_C))
+                          (((     L_x4) * coeff2x) * (   b_LN2_C))
                         + (((     L_z4) * coeff1z) * (   b_LN1_C))
                         ),
                 'BB':  w1
