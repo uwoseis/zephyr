@@ -370,6 +370,8 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
                 plist.append(p)
             
             u = (p.get(PARTASK_TIMEOUT) for p in plist)
+            pool.close()
+            pool.join()
         else:
             u = (sp*rhs for sp in self.subProblems)
         

@@ -133,6 +133,8 @@ class MultiFreq(DiscretizationWrapper):
                 plist.append(p)
             
             u = (self.scaleTerm*p.get(PARTASK_TIMEOUT) for p in plist)
+            pool.close()
+            pool.join()
         else:
             u = (self.scaleTerm*(sp*getRHS(i)) for i, sp in enumerate(self.subProblems))
         
