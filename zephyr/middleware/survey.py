@@ -135,8 +135,8 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
         
         data = np.empty((self.nrec, self.nsrc, self.nfreq), dtype=np.complex128)
         
-        for isrc, rVec in enumerate(self.rVecs):
-            data[:,isrc,:] = rVec * u[:,isrc,:]
+        for isrc, src in enumerate(self.srcList):
+            data[:,isrc,:] = self.rVec(isrc) * u[src,'u',:]
             #for ifreq, freq in enumerate(self.freqs):
             #    data[:,isrc,ifreq] = rVec * u[:,isrc,ifreq]
         

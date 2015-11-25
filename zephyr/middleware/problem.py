@@ -66,7 +66,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         return self._system
 
     @SimPEG.Utils.timeIt
-    def Jtvec(self, m=None, v=None, uF=None):
+    def Jtvec(self, m=None, v=None, u=None):
         
         if not self.ispaired:
             raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
@@ -82,8 +82,8 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
                 
         resid = v.reshape((self.survey.nrec, self.survey.nsrc, self.survey.nfreq))
         
-        if uF is None:
-            uF = self._lazyFields(m)
+        if u is None:
+            u = self._lazyFields(m)
             
         # Make a list of receiver vectors for each frequency, each of size <nelem, nsrc>
         qb = [
@@ -101,7 +101,10 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
              ]
         
         uB = self.system * qb
-        g = reduce(np.add, ((uFf * uBf).sum(axis=1) for uFf, uBf in zip(uF, uB)))
+        if isinstance(u, HelmFields):
+            g = reduce(np.add, ((u[:,'u',ifreq] * uBi).sum(axis=1) for ifreq, uBi in enumerate(uB)))
+        else:
+            g = reduce(np.add, ((uFi * uBi).sum(axis=1) for uFi, uBi in zip(u, uB)))
         
         return g
     
