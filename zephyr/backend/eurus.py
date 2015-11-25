@@ -36,8 +36,8 @@ class Eurus(BaseDiscretization):
         dims = (nz, nx)
         nrows = nx*nz
 
-        c = self.c
-        rho = self.rho
+        c = self.c.reshape(dims)
+        rho = self.rho.reshape(dims)
 
         exec 'nf = %s'%self.mord[0] in locals()
         exec 'ns = %s'%self.mord[1] in locals()
