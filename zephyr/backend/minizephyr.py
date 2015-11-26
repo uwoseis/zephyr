@@ -39,8 +39,8 @@ class MiniZephyr(BaseDiscretization):
         dims = (nz, nx)
         nrows = nx*nz
 
-        c = self.c
-        rho = self.rho
+        c = self.c.reshape(dims)
+        rho = self.rho.reshape(dims)
 
         exec 'nf = %s'%self.mord[0] in locals()
         exec 'ns = %s'%self.mord[1] in locals()
@@ -370,6 +370,8 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
                 plist.append(p)
             
             u = (p.get(PARTASK_TIMEOUT) for p in plist)
+            pool.close()
+            pool.join()
         else:
             u = (sp*rhs for sp in self.subProblems)
         
