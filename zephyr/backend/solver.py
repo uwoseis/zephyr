@@ -35,6 +35,10 @@ class DirectSolver(object):
         else:
             raise Exception('Class %s can only register SciPy sparse matrices'%(self.__class__.__name__,))
     
+    @property
+    def shape(self):
+        return self.A.T.shape
+    
     def __mul__(self, rhs):
         
         if hasattr(self.Ainv, '__mul__'):

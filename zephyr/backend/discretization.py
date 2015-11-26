@@ -42,6 +42,10 @@ class BaseDiscretization(BaseModelDependent):
             return self._rho * np.ones((self.nz, self.nx), dtype=np.float64)
     
     @property
+    def shape(self):
+        return self.A.T.shape
+    
+    @property
     def Ainv(self):
         if not hasattr(self, '_Ainv'):
             self._Ainv = DirectSolver(getattr(self, '_Solver', None))

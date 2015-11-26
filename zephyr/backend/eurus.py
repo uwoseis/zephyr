@@ -2,7 +2,7 @@
 from .discretization import BaseDiscretization
 
 import numpy as np
-import scipy.sparse
+import scipy.sparse as sp
 
 class Eurus(BaseDiscretization):
     
@@ -405,25 +405,22 @@ class Eurus(BaseDiscretization):
         offsets = [offsets[key] for key in keys]
 
         M1_diagonals = [M1_diagonals[key] for key in keys]
-        M1_A = scipy.sparse.diags(M1_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
+        M1_A = sp.diags(M1_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
         M2_diagonals = [M2_diagonals[key] for key in keys]
-        M2_A = scipy.sparse.diags(M2_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
+        M2_A = sp.diags(M2_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
         M3_diagonals = [M3_diagonals[key] for key in keys]
-        M3_A = scipy.sparse.diags(M3_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
+        M3_A = sp.diags(M3_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
         M4_diagonals = [M4_diagonals[key] for key in keys]
-        M4_A = scipy.sparse.diags(M4_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
+        M4_A = sp.diags(M4_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
         # Need to switch these matrices together
         # A = [M1_A M2_A
         #      M3_A M4_A]
 
-        top = scipy.sparse.hstack((M1_A,M2_A))
-        bottom = scipy.sparse.hstack((M3_A,M4_A))
-
-        A = scipy.sparse.vstack((top,bottom))
+        A = sp.bmat([[M1_A, M2_A],[M3_A,M4_A]])
         return A
 
     @property
@@ -477,3 +474,26 @@ class Eurus(BaseDiscretization):
     @property
     def dampcoeff(self):
         return 1j / getattr(self, '_tau', np.inf)
+    
+    def __mul__(self, rhs):
+        
+        clipResult = False
+        
+        if 2*rhs.shape[0] == self.shape[1]:
+            
+            if isinstance(rhs, sp.spmatrix):
+                rhs = sp.vstack([rhs, sp.csr_matrix(rhs.shape, dtype=np.complex128)])
+            else:
+                rhs = np.vstack([rhs, np.zeros(rhs.shape)])
+            
+            clipResult = True
+                
+        elif rhs.shape[0] != self.shape[1]:
+            raise ValueError('dimension mismatch')
+        
+        result = self.Ainv * rhs
+        
+        if clipResult:
+            result = result[:self.shape[0]/2,:]
+            
+        return result
