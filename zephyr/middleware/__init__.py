@@ -1,4 +1,4 @@
 
-from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
-from .problem import HelmBaseProblem, Helm2DProblem, Helm25DProblem
-from .fields import HelmFields
+from .survey import *
+from .problem import *
+from .fields import *
