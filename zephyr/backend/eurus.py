@@ -232,9 +232,9 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
         # 9-point fd star
 
-        wm1 = 0.6291844;
-        wm2 = 0.3708126;
-        w1 = 0.4258673;
+        wm1 = 0.6291844
+        wm2 = 0.3708126
+        w1 = 0.4258673
 
         # Mass Averaging Term
 
@@ -331,7 +331,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
                         + (((-1 * L_z4) * coeff2z) * (   b_SQ1_z + b_SQ2_z + b_SQ3_z + b_SQ4_z))
                           )
                         + (1-w1)
-                        * (
+                        * ( 
                           (((      L_x) * coeff1x) * ( - b_LN2 - b_LN3))
                         + (((      L_z) * coeff2z) * ( - b_LN1 - b_LN4))
                           ),
