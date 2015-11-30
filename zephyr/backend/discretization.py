@@ -5,14 +5,6 @@ import scipy.sparse as sp
 from .meta import AttributeMapper, BaseSCCache, BaseModelDependent
 from .solver import DirectSolver
 
-try:
-    from multiprocessing import Pool, Process
-except ImportError:
-    PARALLEL = False
-else:
-    PARALLEL = True
-
-PARTASK_TIMEOUT = 60
 
 class BaseDiscretization(BaseModelDependent):
     
@@ -67,6 +59,8 @@ class DiscretizationWrapper(BaseSCCache):
         'scaleTerm':    (False,     '_scaleTerm',   np.complex128),
     }
     
+    maskKeys = {'disc', 'scaleTerm'}
+    
     cacheItems = ['_subProblems']
     
     @property
@@ -96,48 +90,3 @@ class DiscretizationWrapper(BaseSCCache):
     
     def __mul__(self, rhs):
         raise NotImplementedError
-
-
-class MultiFreq(DiscretizationWrapper):
-    
-    initMap = {
-    #   Argument        Required    Rename as ...   Store as type
-        'disc':         (True,      '_disc',        None),
-        'freqs':        (True,      None,           list),
-        'parallel':     (False,     '_parallel',    bool),
-    }
-    
-    maskKeys = ['disc', 'freqs', 'parallel']
-    
-    @property
-    def parallel(self):
-        return PARALLEL and getattr(self, '_parallel', True)
-    
-    @property
-    def spUpdates(self):
-        return [{'freq': freq} for freq in self.freqs]
-    
-    @property
-    def disc(self):
-        return self._disc
-
-    def __mul__(self, rhs):
-        
-        if isinstance(rhs, list):
-            getRHS = lambda i: rhs[i]
-        else:
-            getRHS = lambda i: rhs
-        
-        if self.parallel:
-            pool = Pool()
-            plist = []
-            for i, sp in enumerate(self.subProblems):
-                
-                p = pool.apply_async(sp, (getRHS(i),))
-                plist.append(p)
-            
-            u = (self.scaleTerm*p.get(PARTASK_TIMEOUT) for p in plist)
-        else:
-            u = (self.scaleTerm*(sp*getRHS(i)) for i, sp in enumerate(self.subProblems))
-        
-        return u

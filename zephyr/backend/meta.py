@@ -20,8 +20,14 @@ class AMMetaClass(type):
             for key in initMap:
                 if initMap[key] is None:
                     del(initMap[key])
-        
+         
         attrs['initMap'] = initMap
+        
+        baseMasks = reduce(set.union, (getattr(base, 'maskKeys', set()) for base in bases))
+        maskKeys = set.union(baseMasks, attrs.get('maskKeys', set())
+        
+        if maskKeys:
+            attrs['maskKeys'] = maskKeys
         
         return type.__new__(mcs, name, bases, attrs)
     
@@ -138,7 +144,7 @@ class SCFilter(object):
 
 class BaseSCCache(AttributeMapper):
     
-    maskKeys = []
+    maskKeys = set()
     cacheItems = []
     
     def __init__(self, systemConfig):
