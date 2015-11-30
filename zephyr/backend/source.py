@@ -100,11 +100,11 @@ class SparseKaiserSource(SimpleSource):
         10: 14.18,
     }
     
-    def modifyGrid(self, Zi, Xi):
+    def modifyGrid(self, Zi, Xi, aZi, aXi):
         
         return Zi, Xi
 
-    def kws(self, offset):
+    def kws(self, offset, aZi, aXi):
         '''
         Finds 2D source terms to approximate a band-limited point source, based on
         Hicks, Graham J. (2002) Arbitrary source and receiver positioning in finite-difference
@@ -127,7 +127,7 @@ class SparseKaiserSource(SimpleSource):
         # Grid from 0 to freg-1
         Zi, Xi = np.mgrid[:freg,:freg]
         
-        Zi, Xi = self.modifyGrid(Zi, Xi)
+        Zi, Xi = self.modifyGrid(Zi, Xi, aZi, aXi)
 
         # Distances from source point
         dZi = (zOffset + self.ireg - Zi)
@@ -190,7 +190,7 @@ class SparseKaiserSource(SimpleSource):
             for i in xrange(N):
                 Zi, Xi = (qI[i] / self.nx, np.mod(qI[i], self.nx))
                 offset = (sLocs[i][0] - Xi * self.dx, sLocs[i][1] - Zi * self.dz)
-                sourceRegion = self.kws(offset)
+                sourceRegion = self.kws(offset, Zi, Xi)
                 qshift = shift.copy()
 
                 if Zi < ireg:
@@ -264,8 +264,18 @@ class KaiserSource(SparseKaiserSource):
         return q.toarray()
 
 
-class AnisotropicSparseKaiserSource(SparseKaiserSource, BaseAnisotropic):
+class AnisotropicKaiserSource(SparseKaiserSource, BaseAnisotropic):
     
-    def modifyGrid(self, Zi, Xi):
+    def modifyGrid(self, Zi, Xi, aZi, aXi):
+        
+        theta   = self.theta[aZi,aXi]
+        epsilon = self.eps[aZi,aXi]
+        delta   = self.delta[aZi,aXi]
+        
+        wx = (1. + (2*epsilon) +np.sqrt(1+(2*delta)))/(1 + epsilon + np.sqrt(1+(2*delta)))
+        wz = (1.  + np.sqrt(1+(2*delta)))/(1 + epsilon + np.sqrt(1+(2*delta)))
+        
+        Xi = Xi*(wx*np.cos(theta)) + Xi*(wz*np.sin(theta))
+        Zi = Zi*(wx*np.sin(theta)) + Zi*(wz*np.cos(theta))
         
         return Zi, Xi
