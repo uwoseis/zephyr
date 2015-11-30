@@ -90,3 +90,4 @@ class DiscretizationWrapper(BaseSCCache):
     
     def __mul__(self, rhs):
         raise NotImplementedError
+
