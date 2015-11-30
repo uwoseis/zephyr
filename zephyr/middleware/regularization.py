@@ -1,10 +1,10 @@
 
 import SimPEG
-from .maps import NodalIdentityMap
+from .maps import SquaredSlownessMap
 
 class HelmBaseRegularization(SimPEG.Regularization.BaseRegularization):
     
-    mapPair = NodalIdentityMap
+    mapPair = SquaredSlownessMap
     
     @property
     def W(self):

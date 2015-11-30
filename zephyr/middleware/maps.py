@@ -28,3 +28,23 @@ class NodalIdentityMap(SimPEG.Maps.IdentityMap):
     def deriv(self, m):
         
         return self.mesh.aveN2CC
+
+class SquaredSlownessMap(NodalIdentityMap):
+    
+    def _transform(self, m):
+        
+        m = NodalIdentityMap._transform(self, m)
+        
+        return 1. / m**2
+    
+    def inverse(self, D):
+        
+        D = 1. / np.sqrt(D)
+        
+        return NodalIdentityMap._transform(self, D)
+    
+    def deriv(self, m):
+        
+        m = NodalIdentityMap._transform(self, m)
+        
+        return 1. / m**2
