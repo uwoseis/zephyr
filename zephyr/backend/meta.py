@@ -24,7 +24,7 @@ class AMMetaClass(type):
         attrs['initMap'] = initMap
         
         baseMasks = reduce(set.union, (getattr(base, 'maskKeys', set()) for base in bases))
-        maskKeys = set.union(baseMasks, attrs.get('maskKeys', set())
+        maskKeys = set.union(baseMasks, attrs.get('maskKeys', set()))
         
         if maskKeys:
             attrs['maskKeys'] = maskKeys

@@ -1,4 +1,5 @@
 
+import numpy as np
 from .discretization import DiscretizationWrapper
 
 try:
@@ -10,14 +11,44 @@ else:
 
 PARTASK_TIMEOUT = 60
 
-
-class BaseMPDist(DiscretizationWrapper):
+class BaseDist(DiscretizationWrapper):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
+        'disc':         (True,      '_disc',        None),
         'parallel':     (False,     '_parallel',    bool),
         'nWorkers':     (False,     '_nWorkers',    np.int64),
+        'remDists':     (False,     None,           list),
     }
+    
+    maskKeys = {'remDists'}
+    
+    @property
+    def remDists(self):
+        return getattr(self, '_remDists', [])
+    @remDists.setter
+    def remDists(self, value):
+        if value:
+            self._discOverride = value.pop(0)
+        self._remDists = value
+    
+    @property
+    def disc(self):
+        return getattr(self, '_discOverride', self._disc)
+    
+    def addFields(self):
+        return {'remDists': self.remDists}
+    
+    @property
+    def systemConfig(self):
+        self._systemConfig.update(self.remDists)
+        return self._systemConfig
+    @systemConfig.setter
+    def systemConfig(self, value):
+        self._systemConfig = value
+
+
+class BaseMPDist(BaseDist):
     
     maskKeys = {'parallel'}
     
@@ -43,17 +74,17 @@ class BaseMPDist(DiscretizationWrapper):
             return multiprocessing.cpu_count()
         else:
             return 1
-    
-    @property
+        
     def addFields(self):
+        
+        fields = super(BaseMPDist, self).addFields()
         
         remCap = self.cpuCount / self.nWorkers
         if (self.nWorkers < self.cpuCount) and remCap > 1:
             
-            return {'parallel': True, 'nWorkers': remCap}
-        
-        else:
-            return {}
+            fields.update({'parallel': True, 'nWorkers': remCap})
+            
+        return fields
     
     def __mul__(self, rhs):
         
@@ -77,7 +108,7 @@ class BaseMPDist(DiscretizationWrapper):
         return u
 
 
-class BaseIPYDist(DiscretizationWrapper):
+class BaseIPYDist(BaseDist):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type

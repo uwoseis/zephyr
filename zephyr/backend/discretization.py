@@ -59,7 +59,7 @@ class DiscretizationWrapper(BaseSCCache):
         'scaleTerm':    (False,     '_scaleTerm',   np.complex128),
     }
     
-    maskKeys = {'disc', 'scaleTerm'}
+    maskKeys = {'scaleTerm'}
     
     cacheItems = ['_subProblems']
     
