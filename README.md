@@ -6,6 +6,9 @@
 
 Open-source seismic waveform modelling and inversion code written in Python
 
+Project site: [https://zephyr.space](https://zephyr.space)
+Auto docs: [https://zephyr.space/api/zephyr.html](https://zephyr.space/api/zephyr.html)
+
 ## Authors
 
 Brendan Smithyman <[brendan@bitsmithy.net](mailto:brendan@bitsmithy.net)>
