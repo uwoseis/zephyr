@@ -1,4 +1,4 @@
-.PHONY: all install clean test docs
+.PHONY: all install clean test tests docs pnggraphs dotgraphs graphs
 
 all:
 	python setup.py build
@@ -24,3 +24,10 @@ docs:
 	$(MAKE) -C .autodocs html
 	ln -s .autodocs/.build/html ./docs
     
+pnggraphs:
+	mkdir -p graphs && cd graphs && pyreverse -my -A -o png -p zephyr ../zephyr/**/**.py
+
+dotgraphs:
+	mkdir -p graphs && cd graphs && pyreverse -my -A -o dot -p zephyr ../zephyr/**/**.py
+
+graphs: dotgraphs pnggraphs
