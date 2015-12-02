@@ -1,3 +1,4 @@
+.PHONY: all install clean test docs
 
 all:
 	python setup.py build
