@@ -1,11 +1,21 @@
+'''
+A set of classes that implement analytical responses to
+simple systems (mainly used in testing the discrete cases).
+'''
 
 import warnings
 import numpy as np
 from scipy.special import hankel1
 
 class AnalyticalHelmholtz(object):
+    '''
+    An implementation of the analytical Helmholtz system,
+    with additional support for the tilted elliptical case
+    by way of coordinate stretching.
+    '''
 
     def __init__(self, systemConfig):
+        'Initialize using a systemConfig'
 
         self.omega      = 2 * np.pi * systemConfig['freq']
         self.c          = systemConfig['c']
@@ -32,16 +42,19 @@ class AnalyticalHelmholtz(object):
             self.Green = self.Green2D
 
     def Green2D(self, r):
+        'Model the 2D Green\'s function'
 
         # Correct: -0.5j * hankel2(0, self.k*r)
         return self.scaleterm * (-0.5j * hankel1(0, self.k*r))
     
     def Green3D(self, r):
+        'Model the 3D Green\'s function'
 
         # Correct: (1./(4*np.pi*r)) * np.exp(-1j*self.k*r)
         return self.scaleterm * (1./(4*np.pi*r)) * np.exp(1j*self.k*r)
 
     def __call__(self, q):
+        'Model the appropriate Green\'s function, given a source location'
         
         x = q[0,0]
         z = q[0,-1]
@@ -57,5 +70,6 @@ class AnalyticalHelmholtz(object):
         return np.nan_to_num(self.Green(dist * stretch)).ravel()
     
     def __mul__(self, q):
+        'Pretend to be a matrix'
         
         return self(q)

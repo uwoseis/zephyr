@@ -1,15 +1,25 @@
+'''
+Low-level programming constructs for Zephyr
+'''
 
 import warnings
 import numpy as np
 
 class ClassProperty(property):
+    'Class decorator to enable property behaviour in classes'
+
     def __get__(self, cls, owner):
         return self.fget.__get__(None, owner)()
 
 
 class AMMetaClass(type):
+    '''
+    Meta class that enables AttributeMapper functionality, including inheritance
+    in the dictionary 'initMap'.
+    '''
     
     def __new__(mcs, name, bases, attrs):
+        'Build a new subclass of AttributeMapper'
         
         baseMaps = [getattr(base, 'initMap', {}) for base in bases][::-1]
         baseMaps.append(attrs.get('initMap', {}))
@@ -26,6 +36,7 @@ class AMMetaClass(type):
         return type.__new__(mcs, name, bases, attrs)
     
     def __call__(cls, *args, **kwargs):
+        'Instantiate a subsclass of AttributeMapper'
         
         if len(args) < 1:
             raise TypeError('__init__() takes at least 2 arguments (1 given)')
@@ -103,22 +114,50 @@ class AttributeMapper(object):
     __metaclass__ = AMMetaClass
     
     def __init__(self, systemConfig):
+        '''
+        AttributeMapper(systemConfig)
+        
+        Args:
+            systemConfig (dict): A set of setup keys
+        '''
+        
         pass
     
     @ClassProperty
     @classmethod
     def required(cls):
+        'Property to return required fields in initMap'
+
         return set([key for key in cls.initMap if cls.initMap[key][0]])
 
     @ClassProperty
     @classmethod
     def optional(cls):
+        'Property to return optional fields in initMap'
+
         return set([key for key in cls.initMap if not cls.initMap[key][0]])
 
 
 class SCFilter(object):
+    '''
+    A SCFilter class is initialized with a list of classes as arguments.
+    For any of those classes that are AttributeMapper subclasses, SCFilter
+    determines the required fields in their initMap trees, and the optional
+    fields. When called, the SCFilter discards any key in the passed dictionary
+    that does not match one of those fields, and raises an error if any of the
+    required fields are not present.
+    '''
     
     def __init__(self, clslist):
+        '''
+        SCFilter(clslist)
+        
+        Args:
+            clslist (list): List of classes from which to build the filter
+            
+        Returns:
+            new SCFilter instance
+        '''
         
         if not hasattr(clslist, '__contains__'):
             clslist = [clslist]
@@ -128,6 +167,16 @@ class SCFilter(object):
         self.optional.symmetric_difference_update(self.required)
      
     def __call__(self, systemConfig):
+        '''
+        Args:
+            systemConfig (dict): A systemConfig dictionary to filter
+        
+        Returns:
+            dict: Filtered dictionary
+        
+        Raises:
+            ValueError: If a required key is not in the systemConfig
+        '''
         
         for key in self.required:
             if key not in systemConfig:
@@ -137,6 +186,10 @@ class SCFilter(object):
 
 
 class BaseSCCache(AttributeMapper):
+    '''
+    Subclass of AttributeMapper that caches (a filtered version of) the
+    systemConfig object used to initialize it.
+    '''
     
     maskKeys = []
     cacheItems = []
@@ -155,12 +208,17 @@ class BaseSCCache(AttributeMapper):
         self.clearCache()
     
     def clearCache(self):
+        'Clears cached items (e.g., when model is reset).'
         for attr in self.cacheItems:
             if hasattr(self, attr):
                 delattr(self, attr)
 
 
 class BaseModelDependent(AttributeMapper):
+    '''
+    AttributeMapper subclass that implements model-dependent properties,
+    such as grid coordinates and free-surface conditions.
+    '''
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
@@ -223,6 +281,17 @@ class BaseModelDependent(AttributeMapper):
         return np.prod(self.modelDims)
     
     def toLinearIndex(self, vec):
+        '''
+        Gets the linear indices in the raveled model coordinates, given
+        a <n by 2> array of n x,z coordinates or a <n by 3> array of
+        n x,y,z coordinates.
+        
+        Args:
+            vec (np.ndarray): Space coordinate array
+        
+        Returns:
+            np.ndarray: Grid coordinate array
+        '''
         
         if hasattr(self, 'ny'):
             return vec[:,0] * self.nx * self.ny + vec[:,1] * self.nx + vec[:,2]
@@ -230,6 +299,15 @@ class BaseModelDependent(AttributeMapper):
             return vec[:,0] * self.nx + vec[:,1]
 
     def toVecIndex(self, lind):
+        '''
+        Gets the vectorized index for each linear index.
+        
+        Args:
+            lind (np.ndarray): Grid coordinate array
+        
+        Returns:
+            np.ndarray: nD grid coordinate array
+        '''
         
         if hasattr(self, 'ny'):
             return np.array([lind / (self.nx * self.ny), np.mod(lind, self.nx), np.mod(lind, self.ny * self.nx)]).T
