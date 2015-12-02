@@ -13,8 +13,10 @@ clean:
 	rm -rf .autodocs/.build
 	rm -rf .autodocs/*.rst
 
-test:
+tests:
 	nosetests
+
+test: tests
 
 docs:
 	rm -f docs
