@@ -364,7 +364,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
                           (((     L_x4) * coeff1x) * ( - b_SQ2_x - b_SQ1_x))
                         + (((     L_x4) * coeff2x) * ( - b_SQ2_z + b_SQ1_z))
                         + (((     L_z4) * coeff1z) * (   b_SQ2_x - b_SQ1_x))
-                        + (((     L_z4) * coeff2z) * (   b_SQ2_z + b_SQ2_z))
+                        + (((     L_z4) * coeff2z) * (   b_SQ2_z + b_SQ1_z))
                           )
                         + (1-w1)
                         * (
