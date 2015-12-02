@@ -1,3 +1,6 @@
+'''
+Distribution wrappers for composite problems
+'''
 
 import numpy as np
 from .discretization import DiscretizationWrapper
@@ -25,6 +28,8 @@ class BaseDist(DiscretizationWrapper):
     
     @property
     def remDists(self):
+        'Remaining distributor objects in the call graph'
+
         return getattr(self, '_remDists', [])
     @remDists.setter
     def remDists(self, value):
@@ -34,9 +39,13 @@ class BaseDist(DiscretizationWrapper):
     
     @property
     def disc(self):
+        'The discretization to instantiate'
+
         return getattr(self, '_discOverride', self._disc)
     
     def addFields(self):
+        'Returns additional fields for the subProblem systemConfigs'
+
         return {'remDists': self.remDists}
     
     @property
@@ -54,11 +63,14 @@ class BaseMPDist(BaseDist):
     
     @property
     def parallel(self):
+        'Determines whether to operate in parallel' 
+
         return PARALLEL and getattr(self, '_parallel', True)
     
     @property
     def pool(self):
-        
+        'Returns a configured multiprocessing Pool'
+
         if self.parallel:
             pool = multiprocessing.Pool(self.nWorkers)
         else:
@@ -66,17 +78,22 @@ class BaseMPDist(BaseDist):
     
     @property
     def nWorkers(self):
+        'Returns the configured number of parallel workers'
+
         return min(getattr(self, '_nWorkers', 100), self.cpuCount)
     
     @property
     def cpuCount(self):
+        'Returns the multiprocessing CPU count'
+
         if self.parallel:
             return multiprocessing.cpu_count()
         else:
             return 1
         
     def addFields(self):
-        
+        'Returns additional fields for the subProblem systemConfigs'
+
         fields = super(BaseMPDist, self).addFields()
         
         remCap = self.cpuCount / self.nWorkers
@@ -87,6 +104,16 @@ class BaseMPDist(BaseDist):
         return fields
     
     def __mul__(self, rhs):
+        '''
+        Carries out the multiplication of the composite system
+        by the right-hand-side vector(s).
+        
+        Args:
+            rhs (array-like or list thereof): Source vectors
+        
+        Returns:
+            u (iterator over np.ndarrays): Wavefields
+        '''
         
         if isinstance(rhs, list):
             getRHS = lambda i: rhs[i]
@@ -119,10 +146,14 @@ class BaseIPYDist(BaseDist):
     
     @property
     def profile(self):
+        'Returns the IPython parallel profile'
+
         return getattr(self, '_profile', 'default')
     
     @property
     def pClient(self):
+        'Returns the IPython parallel client'
+
         if not hasattr(self, '_pClient'):
             from ipyparallel import Client
             self._pClient = Client(self.profile)
@@ -130,22 +161,32 @@ class BaseIPYDist(BaseDist):
 
     @property
     def dView(self):
+        'Returns a direct (multiplexing) view on the IPython parallel client'
+
         if not hasattr(self, '_dView'):
             self._dView = self.pClient[:]
         return self._dView
     
     @property
     def lView(self):
+        'Returns a load-balanced view on the IPython parallel client'
+
         if not hasattr(self, '_lView'):
             self._lView = self.pClient.load_balanced_view()
         return self._lView
     
     @property
     def nWorkers(self):
+        'Returns the configured number of parallel workers'
+
         return len(self.pClient.ids)
 
 
 class MultiFreq(BaseMPDist):
+    '''
+    Wrapper to carry out forward-modelling using the stored
+    discretization over a series of frequencies.
+    '''
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
@@ -156,6 +197,8 @@ class MultiFreq(BaseMPDist):
     
     @property
     def spUpdates(self):
+        'Updates for frequency subProblems'
+
         vals = []
         for freq in self.freqs:
             vals.append({'freq': freq})
@@ -167,8 +210,12 @@ class SerialMultiFreq(MultiFreq):
     
     @property
     def parallel(self):
+        'Determines whether to operate in parallel' 
+
         return False
     
     @property
     def addFields(self):
+        'Returns additional fields for the subProblem systemConfigs'
+
         return {}
