@@ -1,3 +1,6 @@
+'''
+Sparse system solvers for Zephyr
+'''
 
 import types
 import numpy as np
@@ -7,24 +10,39 @@ import scipy.sparse.linalg
 DEFAULT_SOLVER = scipy.sparse.linalg.splu
     
 class DirectSolver(object):
+    '''
+    Wrapper around a direct sparse system solver.
+    '''
     
     def __init__(self, Solver=None):
+        '''
+        Initialize solver
+        
+        Args:
+            Solver (class): The class to instantiate as the low-level solver
+        '''
+        
         self._Solver = Solver
     
     @property
     def Solver(self):
+        'Returns the solver class of choice'
         if getattr(self, '_Solver', None) is None:
             self._Solver = DEFAULT_SOLVER
         return self._Solver
     
     @property
     def Ainv(self):
+        'Returns a Solver instance'
+        
         if getattr(self, '_Ainv', None) is None:
             self._Ainv = self.Solver(self.A)
         return self._Ainv
             
     @property
     def A(self):
+        'The system matrix'
+        
         if not hasattr(self, '_A'):
             raise Exception('System matrix has not been set')
         return self._A
@@ -40,6 +58,15 @@ class DirectSolver(object):
         return self.A.T.shape
     
     def __mul__(self, rhs):
+        '''
+        Carries out the action of solving for wavefields.
+        
+        Args:
+            rhs (sparse matrix): Right-hand side vector(s)
+        
+        Returns:
+            np.ndarray: Wavefields
+        '''
         
         if hasattr(self.Ainv, '__mul__'):
             action = lambda b: self.Ainv * b

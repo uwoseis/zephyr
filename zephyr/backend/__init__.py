@@ -1,8 +1,9 @@
+'''Zephyr's backend code for handling forward modelling'''
 
-from .analytical import AnalyticalHelmholtz
-from .discretization import BaseDiscretization, DiscretizationWrapper, MultiFreq
-from .minizephyr import MiniZephyr, MiniZephyr25D
-from .eurus import Eurus
-from .source import BaseSource, SimpleSource, StackedSimpleSource, KaiserSource, SparseKaiserSource, FakeSource
-from .meta import BaseModelDependent, BaseSCCache, AttributeMapper, SCFilter
+from .analytical import *
+from .discretization import *
+from .minizephyr import *
+from .eurus import *
+from .source import *
+from .meta import *
 
