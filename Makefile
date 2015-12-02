@@ -17,6 +17,7 @@ test:
 	nosetests
 
 docs:
+	rm -f docs
 	sphinx-apidoc -o .autodocs zephyr
 	$(MAKE) -C .autodocs html
 	ln -s .autodocs/.build/html ./docs
