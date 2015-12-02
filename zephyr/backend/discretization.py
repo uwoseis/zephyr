@@ -1,4 +1,8 @@
 
+'''
+Discretization base classes for Zephyr
+'''
+
 import copy
 import numpy as np
 import scipy.sparse as sp
@@ -15,6 +19,9 @@ else:
 PARTASK_TIMEOUT = 60
 
 class BaseDiscretization(BaseModelDependent):
+    '''
+    Base class for all discretizations.
+    '''
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
@@ -26,6 +33,7 @@ class BaseDiscretization(BaseModelDependent):
     
     @property
     def c(self):
+        'Complex wave velocity'
         if isinstance(self._c, np.ndarray):
             return self._c
         else:
@@ -33,6 +41,7 @@ class BaseDiscretization(BaseModelDependent):
     
     @property
     def rho(self):
+        'Bulk density'
         if getattr(self, '_rho', None) is None:
             self._rho = 310. * self.c**0.25
             
@@ -47,12 +56,15 @@ class BaseDiscretization(BaseModelDependent):
     
     @property
     def Ainv(self):
+        'Instance of a Solver class that implements forward modelling'
+        
         if not hasattr(self, '_Ainv'):
             self._Ainv = DirectSolver(getattr(self, '_Solver', None))
             self._Ainv.A = self.A.tocsc()
         return self._Ainv
     
     def __mul__(self, rhs):
+        'Action of multiplying the inverted system by a right-hand side'
         return self.Ainv * rhs
     
     def __call__(self, value):
@@ -60,6 +72,11 @@ class BaseDiscretization(BaseModelDependent):
 
 
 class DiscretizationWrapper(BaseSCCache):
+    '''
+    Base class for objects that wrap around discretizations, for example
+    in order to model multiple subproblems and distribute configurations
+    to different systems.
+    '''
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
@@ -71,10 +88,16 @@ class DiscretizationWrapper(BaseSCCache):
     
     @property
     def scaleTerm(self):
+        'A scaling term to apply to the output wavefield.'
+        
         return getattr(self, '_scaleTerm', 1.)
     
     @property
     def _spConfigs(self):
+        '''
+        Returns subProblem configurations based on the stored
+        systemConfig and any subProblem updates.
+        '''
         
         def duplicateUpdate(spu):
             nsc = copy.copy(self.systemConfig)
@@ -85,6 +108,8 @@ class DiscretizationWrapper(BaseSCCache):
     
     @property
     def subProblems(self):
+        'Returns subProblem instances based on the discretization.'
+        
         if getattr(self, '_subProblems', None) is None:
             
             self._subProblems = map(self.disc, self._spConfigs)
@@ -99,6 +124,10 @@ class DiscretizationWrapper(BaseSCCache):
 
 
 class MultiFreq(DiscretizationWrapper):
+    '''
+    Wrapper to carry out forward-modelling using the stored
+    discretization over a series of frequencies.
+    '''
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
@@ -111,17 +140,33 @@ class MultiFreq(DiscretizationWrapper):
     
     @property
     def parallel(self):
+        'Determines whether to operate in parallel'
+        
         return PARALLEL and getattr(self, '_parallel', True)
     
     @property
     def spUpdates(self):
+        'Updates for frequency subProblems'
+        
         return [{'freq': freq} for freq in self.freqs]
     
     @property
     def disc(self):
+        'The discretization to instantiate'
+        
         return self._disc
 
     def __mul__(self, rhs):
+        '''
+        Carries out the multiplication of the composite system
+        by the right-hand-side vector(s).
+        
+        Args:
+            rhs (array-like or list thereof): Source vectors
+        
+        Returns:
+            u (iterator over np.ndarrays): Wavefields
+        '''
         
         if isinstance(rhs, list):
             getRHS = lambda i: rhs[i]

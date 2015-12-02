@@ -73,6 +73,24 @@ def model(projnm):
     print('projnm: \t%s'%projnm)
 zephyr.add_command(model)
 
+@click.command()
+@click.argument('projnm')
+def pack(projnm):
+    '''Collect configuration into an HDF5 datafile'''
+    
+    print('Collecting project!')
+    print('projnm: \t%s'%projnm)
+zephyr.add_command(pack)
+
+@click.command()
+@click.argument('projnm')
+def unpack(projnm):
+    '''Extract configuration from an HDF5 datafile'''
+    
+    print('Extracting project!')
+    print('projnm: \t%s'%projnm)
+zephyr.add_command(unpack)
+
 
 if __name__ == "__main__":
     zephyr()

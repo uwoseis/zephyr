@@ -58,3 +58,4 @@ target/
 
 # IPython Notebooks
 .ipynb_checkpoints
+docs
