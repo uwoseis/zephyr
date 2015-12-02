@@ -1,19 +1,17 @@
 
+from .meta import BaseAnisotropic
 from .discretization import BaseDiscretization
 
 import numpy as np
 import scipy.sparse as sp
 
-class Eurus(BaseDiscretization):
+class Eurus(BaseDiscretization, BaseAnisotropic):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'nPML':         (False,     '_nPML',        np.int64),
         'freq':         (True,      None,           np.complex128),
         'mord':         (False,     '_mord',        tuple),
-        'theta':        (False,     '_theta',       np.float64),
-        'eps':          (False,     '_eps',         np.float64),
-        'delta':        (False,     '_delta',       np.float64),
         'cPML':         (False,     '_cPML',        np.float64),
         'tau':          (False,     '_tau',         np.float64),
     }
@@ -234,9 +232,9 @@ class Eurus(BaseDiscretization):
 
         # 9-point fd star
 
-        wm1 = 0.6291844;
-        wm2 = 0.3708126;
-        w1 = 0.4258673;
+        wm1 = 0.6291844
+        wm2 = 0.3708126
+        w1 = 0.4258673
 
         # Mass Averaging Term
 
@@ -333,7 +331,7 @@ class Eurus(BaseDiscretization):
                         + (((-1 * L_z4) * coeff2z) * (   b_SQ1_z + b_SQ2_z + b_SQ3_z + b_SQ4_z))
                           )
                         + (1-w1)
-                        * (
+                        * ( 
                           (((      L_x) * coeff1x) * ( - b_LN2 - b_LN3))
                         + (((      L_z) * coeff2z) * ( - b_LN1 - b_LN4))
                           ),
@@ -366,7 +364,7 @@ class Eurus(BaseDiscretization):
                           (((     L_x4) * coeff1x) * ( - b_SQ2_x - b_SQ1_x))
                         + (((     L_x4) * coeff2x) * ( - b_SQ2_z + b_SQ1_z))
                         + (((     L_z4) * coeff1z) * (   b_SQ2_x - b_SQ1_x))
-                        + (((     L_z4) * coeff2z) * (   b_SQ2_z + b_SQ2_z))
+                        + (((     L_z4) * coeff2z) * (   b_SQ2_z + b_SQ1_z))
                           )
                         + (1-w1)
                         * (
@@ -440,36 +438,6 @@ class Eurus(BaseDiscretization):
     @property
     def nPML(self):
         return getattr(self, '_nPML', 10)
-    
-    @property
-    def theta(self):
-        if getattr(self, '_theta', None) is None:
-            self._theta = np.zeros((self.nz, self.nx))
-            
-        if isinstance(self._theta, np.ndarray):
-            return self._theta
-        else:
-            return self._theta * np.ones((self.nz, self.nx), dtype=np.float64)
-
-    @property
-    def eps(self):
-        if getattr(self, '_eps', None) is None:
-            self._eps = np.zeros((self.nz, self.nx))
-            
-        if isinstance(self._eps, np.ndarray):
-            return self._eps
-        else:
-            return self._eps * np.ones((self.nz, self.nx), dtype=np.float64)
-
-    @property
-    def delta(self):
-        if getattr(self, '_delta', None) is None:
-            self._delta = np.zeros((self.nz, self.nx))
-            
-        if isinstance(self._delta, np.ndarray):
-            return self._delta
-        else:
-            return self._delta * np.ones((self.nz, self.nx), dtype=np.float64)
     
     @property
     def dampcoeff(self):
