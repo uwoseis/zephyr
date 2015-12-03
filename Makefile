@@ -9,6 +9,7 @@ install:
 clean:
 	python setup.py clean
 	rm -rf build
+	rm -rf zephyr.egg-info
 	rm -rf docs
 	rm -rf .autodocs/.build
 	rm -rf .autodocs/*.rst
