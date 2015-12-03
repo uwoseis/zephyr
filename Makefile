@@ -13,6 +13,7 @@ clean:
 	rm -rf docs
 	rm -rf .autodocs/.build
 	rm -rf .autodocs/*.rst
+	rm -rf graphs
 
 tests:
 	nosetests
