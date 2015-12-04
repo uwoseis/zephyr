@@ -1,4 +1,4 @@
-.PHONY: all install clean test tests docs pnggraphs dotgraphs graphs
+.PHONY: all install clean test tests docs pnggraphs epsgraphs svggraphs dotgraphs graphs
 
 all:
 	python setup.py build
@@ -28,6 +28,12 @@ docs:
     
 pnggraphs:
 	mkdir -p graphs && cd graphs && pyreverse -my -A -o png -p zephyr ../zephyr/**/**.py
+
+svggraphs:
+	mkdir -p graphs && cd graphs && pyreverse -my -A -o svg -p zephyr ../zephyr/**/**.py
+
+epsgraphs:
+	mkdir -p graphs && cd graphs && pyreverse -my -A -o eps -p zephyr ../zephyr/**/**.py
 
 dotgraphs:
 	mkdir -p graphs && cd graphs && pyreverse -my -A -o dot -p zephyr ../zephyr/**/**.py
