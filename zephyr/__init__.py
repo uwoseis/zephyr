@@ -1,3 +1,6 @@
+'''
+Zephyr: Open-source seismic waveform modelling and inversion code written in Python
+'''
 
 __version__   = 'devel'
 __author__    = 'Brendan Smithyman'
