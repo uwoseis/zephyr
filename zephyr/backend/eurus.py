@@ -51,9 +51,9 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.dx
         dz  = self.dz
-        dxx = dx**2
-        dzz = dz**2
-        dxz = (dxx+dzz)/2
+        dxx = dx**2.
+        dzz = dz**2.
+        dxz = (dxx+dzz)/2.
         dd  = np.sqrt(dxz)
         omegaDamped = omega + self.dampcoeff
 
@@ -168,8 +168,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         b_AA = 1. / rhoPad[2:  ,0:-2] # top    left
         b_BB = 1. / rhoPad[2:  ,1:-1] # top    centre
         b_CC = 1. / rhoPad[2:  ,2:  ] # top    right
-
-
+        
+        
         # Initialize averaged buoyancies on most of the grid
 
         # Here we will use the convention of 'sq' to represent the averaged bouyancy over 4 grid points,
@@ -198,8 +198,10 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         b_SQ3_z = ((b_DD + b_EE + b_GG + b_HH) / 4) / Xi_z_P
         b_SQ4_z = ((b_EE + b_FF + b_HH + b_II) / 4) / Xi_z_P
 
+       
+        
         # Lines
-
+          
         # Lines are in 1D, so no PML dim required
         # We use the Suffix 'C' for those terms where PML is not
         # calulated
@@ -268,7 +270,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         Ax = 1. + (2.*delta)*(np.cos(theta)**2.)
         Bx = (-1.*delta)*np.sin(2.*theta)
         Cx = (1.+(2.*delta))*(np.cos(theta)**2.)
-        Dx = (-1*(1.+(2.*delta)))*((np.sin(2.*theta))/2.)
+        Dx = (-0.5*(1.+(2.*delta)))*((np.sin(2.*theta)))
         Ex = (2.*(eps-delta))*(np.cos(theta)**2.)
         Fx = (-1.*(eps-delta))*(np.sin(2.*theta))
         Gx = Ex
