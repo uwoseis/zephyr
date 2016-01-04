@@ -3,7 +3,7 @@ import numpy as np
 
 # Code in str2bool and readini pulled from github.com/bsmithyman/pygeo/pygeo/fullpy.py
 # Original code is licensed LGPL; I am explicitly re-licensing this under the umbrella
-# of the windtunnel MIT license. –– Brendan Smithyman
+# of the windtunnel MIT license. -- Brendan Smithyman
 
 def str2bool(v):
     '''
