@@ -51,9 +51,9 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.dx
         dz  = self.dz
-        dxx = dx**2
-        dzz = dz**2
-        dxz = (dxx+dzz)/2
+        dxx = dx**2.
+        dzz = dz**2.
+        dxz = (dxx+dzz)/2.
         dd  = np.sqrt(dxz)
         omegaDamped = omega + self.dampcoeff
 
@@ -168,8 +168,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         b_AA = 1. / rhoPad[2:  ,0:-2] # top    left
         b_BB = 1. / rhoPad[2:  ,1:-1] # top    centre
         b_CC = 1. / rhoPad[2:  ,2:  ] # top    right
-
-
+        
+        
         # Initialize averaged buoyancies on most of the grid
 
         # Here we will use the convention of 'sq' to represent the averaged bouyancy over 4 grid points,
@@ -198,8 +198,10 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         b_SQ3_z = ((b_DD + b_EE + b_GG + b_HH) / 4) / Xi_z_P
         b_SQ4_z = ((b_EE + b_FF + b_HH + b_II) / 4) / Xi_z_P
 
+       
+        
         # Lines
-
+          
         # Lines are in 1D, so no PML dim required
         # We use the Suffix 'C' for those terms where PML is not
         # calulated
@@ -213,36 +215,50 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         b_LN2_C = ((b_DD + b_EE) / 2) / Xi_z_C
         b_LN3_C = ((b_EE + b_FF) / 2) / Xi_z_C
         b_LN4_C = ((b_EE + b_HH) / 2) / Xi_x_C
-
-
+          
         # Model parameter M
-        K = (omegaDamped**2) / (rhoPad * cPad**2)
-
+        #K = (omegaDamped**2) / (rhoPad * cPad**2)
+        K = (omega**2) / (rhoPad * cPad**2)
+        
         # K = omega^2/(c^2 . rho)
 
-        K_GG = K[0:-2,0:-2] # bottom left
-        K_HH = K[0:-2,1:-1] # bottom centre
-        K_II = K[0:-2,2:  ] # bottom centre
-        K_DD = K[1:-1,0:-2] # middle left
-        K_EE = K[1:-1,1:-1] # middle centre
-        K_FF = K[1:-1,2:  ] # middle right
-        K_AA = K[2:  ,0:-2] # top    left
-        K_BB = K[2:  ,1:-1] # top    centre
-        K_CC = K[2:  ,2:  ] # top    right
+        KGG = K[0:-2,0:-2] # bottom left
+        KHH = K[0:-2,1:-1] # bottom centre
+        KII = K[0:-2,2:  ] # bottom centre
+        KDD = K[1:-1,0:-2] # middle left
+        KEE = K[1:-1,1:-1] # middle centre
+        KFF = K[1:-1,2:  ] # middle right
+        KAA = K[2:  ,0:-2] # top    left
+        KBB = K[2:  ,1:-1] # top    centre
+        KCC = K[2:  ,2:  ] # top    right
 
         # 9-point fd star
 
-        wm1 = 0.6291844
-        wm2 = 0.3708126
-        w1 = 0.4258673
-
+        wm1 = 0.6287326
+        wm2 = 0.3712667
+        wm3 = 1.- wm1 -wm2
+        wm2 = 0.25 * wm2
+        wm3 = 0.25 * wm3
+        
+        w1 = 0.4382634
+        #w1 = 0.
         # Mass Averaging Term
 
-        # From Operto et al.(2009), anti-limped mass is calculted from 9 ponts and applied
-        # ONLY to the diagonal terms
+        # From Operto et al.(2009), anti-limped mass is calculted from 9 ponts
+        # 
 
-        K_avg = (wm1*K_EE) + ((wm2/4)*(K_BB + K_DD + K_FF + K_HH)) + (((1-wm1-wm2)/4)*(K_AA + K_CC + K_GG + K_II))
-
+        #K_avg = (wm1*K_EE) + ((wm2/4)*(K_BB + K_DD + K_FF + K_HH)) + (((1-wm1-wm2)/4)*(K_AA + K_CC + K_GG + K_II))
+        
+        KGG = wm3 * KGG
+        KHH = wm2 * KHH
+        KII = wm3 * KII
+        KDD = wm2 * KDD
+        KEE = wm1 * KEE
+        KFF = wm2 * KFF
+        KAA = wm3 * KAA
+        KBB = wm2 * KBB
+        KCC = wm3 * KCC
+        
         # For now, set eps and delta to be constant
 
         theta   = self.theta
@@ -254,7 +270,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         Ax = 1. + (2.*delta)*(np.cos(theta)**2.)
         Bx = (-1.*delta)*np.sin(2.*theta)
         Cx = (1.+(2.*delta))*(np.cos(theta)**2.)
-        Dx = (-1*(1.+(2.*delta)))*((np.sin(2.*theta))/2.)
+        Dx = (-0.5*(1.+(2.*delta)))*((np.sin(2.*theta)))
         Ex = (2.*(eps-delta))*(np.cos(theta)**2.)
         Fx = (-1.*(eps-delta))*(np.sin(2.*theta))
         Gx = Ex
@@ -268,13 +284,15 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         Fz = (2.*(eps-delta))*(np.sin(theta)**2.)
         Gz = Fx
         Hz = Fz
+        
 
         keys = ['GG', 'HH', 'II', 'DD', 'EE', 'FF', 'AA', 'BB', 'CC']
-
-        def generateDiagonals(massTerm, coeff1x, coeff1z, coeff2x, coeff2z):
-
+    
+        def generateDiagonals(massTerm, coeff1x, coeff1z, coeff2x, coeff2z, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII):
+            
             diagonals = {
-                'GG':  w1
+                'GG':  (massTerm * KGG) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ3_x))
                         + (((-1 * L_x4) * coeff2x) * (   b_SQ3_z))
@@ -286,7 +304,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
                           (((-1 * L_x4) * coeff2x) * (   b_LN2_C))
                         + (((-1 * L_z4) * coeff1z) * (   b_LN4_C))
                         ),
-                'HH':  w1
+                'HH':  (massTerm * KHH) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * ( - b_SQ3_x - b_SQ4_x))
                         + (((     L_x4) * coeff2x) * ( - b_SQ3_z + b_SQ4_z))
@@ -298,7 +317,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
                           (((     L_x4) * coeff2x) * ( - b_LN2_C + b_LN3_C))
                         + (((      L_z) * coeff2z) * (   b_LN4))
                         ),
-                'II':  w1
+                'II':  (massTerm * KII) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ4_x))
                         + (((     L_x4) * coeff2x) * (   b_SQ4_z))
@@ -310,7 +330,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
                           (((     L_x4) * coeff2x) * (   b_LN3_C))
                         + (((     L_z4) * coeff1z) * (   b_LN4_C))
                         ),
-                'DD':  w1
+                'DD':   (massTerm * KDD) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ3_x + b_SQ1_x))
                         + (((     L_x4) * coeff2x) * (   b_SQ3_z - b_SQ1_z))
@@ -322,7 +343,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
                           (((      L_x) * coeff1x) * (   b_LN2))
                         + (((     L_z4) * coeff1z) * ( - b_LN4_C +  b_LN1_C))
                         ),
-                'EE':  massTerm
+                'EE':   (massTerm * KEE) 
                         + w1
                         * (
                           (((-1 * L_x4) * coeff1x) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
@@ -331,11 +352,12 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
                         + (((-1 * L_z4) * coeff2z) * (   b_SQ1_z + b_SQ2_z + b_SQ3_z + b_SQ4_z))
                           )
                         + (1-w1)
-                        * ( 
+                        * (
                           (((      L_x) * coeff1x) * ( - b_LN2 - b_LN3))
                         + (((      L_z) * coeff2z) * ( - b_LN1 - b_LN4))
                           ),
-                'FF':  w1
+                'FF':  (massTerm * KFF) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ2_x + b_SQ4_x))
                         + (((     L_x4) * coeff2x) * (   b_SQ2_z - b_SQ4_z))
@@ -347,7 +369,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
                           (((      L_x) * coeff1x) * (   b_LN3))
                         + (((     L_z4) * coeff1z) * (   b_LN4_C - b_LN1_C))
                         ),
-                'AA':  w1
+                'AA':  (massTerm * KAA) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ1_x))
                         + (((     L_x4) * coeff2x) * (   b_SQ1_z))
@@ -359,7 +382,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
                           (((     L_x4) * coeff2x) * (   b_LN2_C))
                         + (((     L_z4) * coeff1z) * (   b_LN1_C))
                         ),
-                'BB':  w1
+                'BB':  (massTerm * KBB) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * ( - b_SQ2_x - b_SQ1_x))
                         + (((     L_x4) * coeff2x) * ( - b_SQ2_z + b_SQ1_z))
@@ -371,7 +395,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
                           (((     L_x4) * coeff2x) * ( - b_LN3_C + b_LN2_C))
                         + (((      L_z) * coeff2z) * (   b_LN1))
                         ),
-                'CC': w1
+                'CC': (massTerm * KCC) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ2_x))
                         + (((-1 * L_x4) * coeff2x) * (   b_SQ2_z))
@@ -387,19 +412,18 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
             return diagonals
 
-        M1_diagonals = generateDiagonals(K_avg, Ax, Az, Bx, Bz)
+        M1_diagonals = generateDiagonals(1., Ax, Az, Bx, Bz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
         prepareDiagonals(M1_diagonals)
-
-        M2_diagonals = generateDiagonals(0.   , Gx, Gz, Hx, Hz)
+ 
+        M2_diagonals = generateDiagonals(0. , Cx, Cz, Dx, Dz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
         prepareDiagonals(M2_diagonals)
-
-        M3_diagonals = generateDiagonals(0.   , Ex, Ez, Fx, Fz)
+        
+        M3_diagonals = generateDiagonals(0. , Ex, Ez, Fx, Fz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
         prepareDiagonals(M3_diagonals)
 
-        M4_diagonals = generateDiagonals(K_avg, Cx, Cz, Dx, Dz)
+        M4_diagonals = generateDiagonals(1. ,Gx, Gz, Hx, Hz,  KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
         prepareDiagonals(M4_diagonals)
 
-        # self._setupBoundary(diagonals, freeSurf)
         offsets = [offsets[key] for key in keys]
 
         M1_diagonals = [M1_diagonals[key] for key in keys]
@@ -414,7 +438,6 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         M4_diagonals = [M4_diagonals[key] for key in keys]
         M4_A = sp.diags(M4_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
-        # Need to switch these matrices together
         # A = [M1_A M2_A
         #      M3_A M4_A]
 
