@@ -475,7 +475,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
             if isinstance(rhs, sp.spmatrix):
                 rhs = sp.vstack([rhs, sp.csr_matrix(rhs.shape, dtype=np.complex128)])
             else:
-                rhs = np.vstack([rhs, np.zeros(rhs.shape)])
+                rhs = np.vstack([rhs, np.zeros(rhs.shape, dtype=np.complex128)])
             
             clipResult = True
                 
@@ -485,6 +485,6 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         result = self.Ainv * rhs
         
         if clipResult:
-            result = result[:self.shape[0]/2,:]
+            result = result[:self.shape[1]/2,:]
             
         return result
