@@ -1,4 +1,4 @@
-.PHONY: all install clean test docs
+.PHONY: all install clean test tests docs pnggraphs epsgraphs svggraphs dotgraphs graphs
 
 all:
 	python setup.py build
@@ -9,9 +9,11 @@ install:
 clean:
 	python setup.py clean
 	rm -rf build
+	rm -rf zephyr.egg-info
 	rm -rf docs
 	rm -rf .autodocs/.build
 	rm -rf .autodocs/*.rst
+	rm -rf graphs
 
 tests:
 	nosetests
@@ -24,3 +26,16 @@ docs:
 	$(MAKE) -C .autodocs html
 	ln -s .autodocs/.build/html ./docs
     
+pnggraphs:
+	mkdir -p graphs && cd graphs && pyreverse -my -A -o png -p zephyr ../zephyr/**/**.py
+
+svggraphs:
+	mkdir -p graphs && cd graphs && pyreverse -my -A -o svg -p zephyr ../zephyr/**/**.py
+
+epsgraphs:
+	mkdir -p graphs && cd graphs && pyreverse -my -A -o eps -p zephyr ../zephyr/**/**.py
+
+dotgraphs:
+	mkdir -p graphs && cd graphs && pyreverse -my -A -o dot -p zephyr ../zephyr/**/**.py
+
+graphs: dotgraphs pnggraphs
