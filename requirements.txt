@@ -1,3 +1,2 @@
 click
 -e git://github.com/simpeg/simpeg.git#egg=simpeg
--e git://github.com/uwoseis/anemoi.git@windtunnel#egg=anemoi

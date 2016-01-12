@@ -9,14 +9,6 @@ import scipy.sparse as sp
 from .meta import AttributeMapper, BaseSCCache, BaseModelDependent
 from .solver import DirectSolver
 
-try:
-    from multiprocessing import Pool, Process
-except ImportError:
-    PARALLEL = False
-else:
-    PARALLEL = True
-
-PARTASK_TIMEOUT = 60
 
 class BaseDiscretization(BaseModelDependent):
     '''
@@ -84,6 +76,8 @@ class DiscretizationWrapper(BaseSCCache):
         'scaleTerm':    (False,     '_scaleTerm',   np.complex128),
     }
     
+    maskKeys = {'scaleTerm'}
+    
     cacheItems = ['_subProblems']
     
     @property
@@ -121,70 +115,3 @@ class DiscretizationWrapper(BaseSCCache):
     
     def __mul__(self, rhs):
         raise NotImplementedError
-
-
-class MultiFreq(DiscretizationWrapper):
-    '''
-    Wrapper to carry out forward-modelling using the stored
-    discretization over a series of frequencies.
-    '''
-    
-    initMap = {
-    #   Argument        Required    Rename as ...   Store as type
-        'disc':         (True,      '_disc',        None),
-        'freqs':        (True,      None,           list),
-        'parallel':     (False,     '_parallel',    bool),
-    }
-    
-    maskKeys = ['disc', 'freqs', 'parallel']
-    
-    @property
-    def parallel(self):
-        'Determines whether to operate in parallel'
-        
-        return PARALLEL and getattr(self, '_parallel', True)
-    
-    @property
-    def spUpdates(self):
-        'Updates for frequency subProblems'
-        
-        return [{'freq': freq} for freq in self.freqs]
-    
-    @property
-    def disc(self):
-        'The discretization to instantiate'
-        
-        return self._disc
-
-    def __mul__(self, rhs):
-        '''
-        Carries out the multiplication of the composite system
-        by the right-hand-side vector(s).
-        
-        Args:
-            rhs (array-like or list thereof): Source vectors
-        
-        Returns:
-            u (iterator over np.ndarrays): Wavefields
-        '''
-        
-        if isinstance(rhs, list):
-            getRHS = lambda i: rhs[i]
-        else:
-            getRHS = lambda i: rhs
-        
-        if self.parallel:
-            pool = Pool()
-            plist = []
-            for i, sp in enumerate(self.subProblems):
-                
-                p = pool.apply_async(sp, (getRHS(i),))
-                plist.append(p)
-            
-            u = (self.scaleTerm*p.get(PARTASK_TIMEOUT) for p in plist)
-            pool.close()
-            pool.join()
-        else:
-            u = (self.scaleTerm*(sp*getRHS(i)) for i, sp in enumerate(self.subProblems))
-        
-        return u
