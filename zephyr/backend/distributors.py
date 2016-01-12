@@ -43,6 +43,7 @@ class BaseDist(DiscretizationWrapper):
 
         return getattr(self, '_discOverride', self._disc)
     
+    @property
     def addFields(self):
         'Returns additional fields for the subProblem systemConfigs'
 
@@ -72,7 +73,10 @@ class BaseMPDist(BaseDist):
         'Returns a configured multiprocessing Pool'
 
         if self.parallel:
-            pool = multiprocessing.Pool(self.nWorkers)
+            if not hasattr(self, '_pool'):
+                self._pool = multiprocessing.Pool(self.nWorkers)
+            return self._pool            
+            
         else:
             raise Exception('Cannot start parallel pool; multiprocessing seems to be unavailable')
     
@@ -90,11 +94,12 @@ class BaseMPDist(BaseDist):
             return multiprocessing.cpu_count()
         else:
             return 1
-        
+    
+    @property
     def addFields(self):
         'Returns additional fields for the subProblem systemConfigs'
 
-        fields = super(BaseMPDist, self).addFields()
+        fields = super(BaseMPDist, self).addFields
         
         remCap = self.cpuCount / self.nWorkers
         if (self.nWorkers < self.cpuCount) and remCap > 1:
