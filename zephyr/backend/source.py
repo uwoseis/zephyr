@@ -38,14 +38,14 @@ class SimpleSource(BaseSource):
         if hasattr(self, 'ny'):
             raise NotImplementedError('Sources not implemented for 3D case')
             self._z, self._y, self._x = np.mgrid[
-                self.zorig : self.dz * self.nz : self.dz,
-                self.yorig : self.dy * self.ny : self.dy,
-                self.xorig : self.dx * self.nx : self.dx
+                self.zorig : self.zorig + self.dz * self.nz : self.dz,
+                self.yorig : self.yorig + self.dy * self.ny : self.dy,
+                self.xorig : self.xorig + self.dx * self.nx : self.dx
             ]
         else:
             self._z, self._x = np.mgrid[
-                self.zorig : self.dz * self.nz : self.dz,
-                self.xorig : self.dx * self.nx : self.dx
+                self.zorig : self.zorig + self.dz * self.nz : self.dz,
+                self.xorig : self.xorig + self.dx * self.nx : self.dx
             ]
     
     def dist(self, loc):
