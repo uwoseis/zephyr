@@ -12,7 +12,7 @@ except ImportError:
 else:
     PARALLEL = True
 
-PARTASK_TIMEOUT = 60
+PARTASK_TIMEOUT = None
 
 class BaseDist(DiscretizationWrapper):
     
