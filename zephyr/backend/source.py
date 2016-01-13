@@ -229,7 +229,7 @@ class SparseKaiserSource(SimpleSource):
         if ireg == 0:
             # Closest gridpoint
 
-            q = sp.coo_matrix((srcScale, (np.arange(N), qI)), shape=(N, M))
+            q = sp.coo_matrix((srcScale*np.ones(N), (np.arange(N), qI)), shape=(N, M))
 
         else:
 
