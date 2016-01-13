@@ -66,7 +66,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         #Operto et al.(2009) PML implementation taken from Hudstedt et al.(2004)
         pmldx   = dx*(nPML - 1)
         pmldz   = dz*(nPML - 1)
-        c_PML   = self.cPML
+        cPML   = self.cPML
 
         gamma_x = np.zeros(nx, dtype=np.complex128)
         gamma_z = np.zeros(nz, dtype=np.complex128)
@@ -74,11 +74,17 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         x_vals  = np.arange(0,pmldx+dx,dx)
         z_vals  = np.arange(0,pmldz+dz,dz)
 
-        gamma_x[:nPML]  = c_PML * (np.cos((np.pi/2)* (x_vals/pmldx)))
-        gamma_x[-nPML:] = c_PML * (np.cos((np.pi/2)* (x_vals[::-1]/pmldx)))
+        
+        cMin = c.min()
+        lambdaMin = cMin / self.freq
+        waveNum = 1. / lambdaMin
+        cPML = cPML * waveNum
+        
+        gamma_x[:nPML]  = cPML * (np.cos((np.pi/2)* (x_vals/pmldx)))
+        gamma_x[-nPML:] = cPML * (np.cos((np.pi/2)* (x_vals[::-1]/pmldx)))
 
-        gamma_z[:nPML]  = c_PML * (np.cos((np.pi/2)* (z_vals/pmldz)))
-        gamma_z[-nPML:] = c_PML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
+        gamma_z[:nPML]  = cPML * (np.cos((np.pi/2)* (z_vals/pmldz)))
+        gamma_z[-nPML:] = cPML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
 
         gamma_x = np.pad(gamma_x.real, **padopts) + 1j * np.pad(gamma_x.imag, **padopts)
         gamma_z = np.pad(gamma_z.real, **padopts) + 1j * np.pad(gamma_z.imag, **padopts)
