@@ -55,7 +55,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         dzz = dz**2.
         dxz = (dxx+dzz)/2.
         dd  = np.sqrt(dxz)
-        omegaDamped = omega + self.dampcoeff
+        omegaDamped = omega + self.dampCoeff
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
@@ -223,8 +223,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         b_LN4_C = ((b_EE + b_HH) / 2) / Xi_x_C
           
         # Model parameter M
-        #K = (omegaDamped**2) / (rhoPad * cPad**2)
-        K = (omega**2) / (rhoPad * cPad**2)
+        K = (omegaDamped * omegaDamped) / (rhoPad * cPad**2)
+        #K = (omega**2) / (rhoPad * cPad**2)
         
         # K = omega^2/(c^2 . rho)
 
@@ -469,7 +469,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         return getattr(self, '_nPML', 10)
     
     @property
-    def dampcoeff(self):
+    def dampCoeff(self):
         return 1j / getattr(self, '_tau', np.inf)
     
     def __mul__(self, rhs):
