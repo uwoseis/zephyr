@@ -418,16 +418,21 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
             return diagonals
 
+        freeSurf = self.freeSurf
         M1_diagonals = generateDiagonals(1., Ax, Az, Bx, Bz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M1_diagonals, freeSurf)
         prepareDiagonals(M1_diagonals)
  
         M2_diagonals = generateDiagonals(0. , Cx, Cz, Dx, Dz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M2_diagonals, freeSurf)
         prepareDiagonals(M2_diagonals)
         
         M3_diagonals = generateDiagonals(0. , Ex, Ez, Fx, Fz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M3_diagonals, freeSurf)
         prepareDiagonals(M3_diagonals)
 
         M4_diagonals = generateDiagonals(1. ,Gx, Gz, Hx, Hz,  KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M4_diagonals, freeSurf)
         prepareDiagonals(M4_diagonals)
 
         offsets = [offsets[key] for key in keys]
@@ -449,6 +454,49 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
         A = sp.bmat([[M1_A, M2_A],[M3_A,M4_A]])
         return A
+    
+    def _setupBoundary(self, diagonals, freeSurf):
+        '''
+        Function to set up boundary regions for the Seismic FDFD problem
+        using the 9-point finite-difference stencil from OMEGA/FULLWV.
+        
+        Args:
+            diagonals (dict): The diagonal vectors, indexed by appropriate string keys
+            freeSurf (tuple): Determines which free-surface conditions are active
+        
+        The diagonals are modified in-place.
+        '''
+
+        keys = diagonals.keys()
+        pickDiag = lambda x: -1. if freeSurf[x] else 1.
+
+        # Left
+        for key in keys:
+            if key is 'EE':
+                diagonals[key][:,0] = pickDiag(3)
+            else:
+                diagonals[key][:,0] = 0.
+
+        # Right
+        for key in keys:
+            if key is 'EE':
+                diagonals[key][:,-1] = pickDiag(1)
+            else:
+                diagonals[key][:,-1] = 0.
+
+        # Bottom
+        for key in keys:
+            if key is 'EE':
+                diagonals[key][0,:] = pickDiag(0)
+            else:
+                diagonals[key][0,:] = 0.
+
+        # Top
+        for key in keys:
+            if key is 'EE':
+                diagonals[key][-1,:] = pickDiag(2)
+            else:
+                diagonals[key][-1,:] = 0.
 
     @property
     def A(self):
