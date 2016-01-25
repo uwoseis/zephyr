@@ -2,7 +2,8 @@
 Zephyr's middleware layer for handling inverse problems
 '''
 
-from .survey import *
-from .problem import *
+from .db import *
 from .fields import *
+from .problem import *
+from .survey import *
 from .util import *
