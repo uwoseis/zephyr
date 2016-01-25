@@ -5,6 +5,7 @@ import glob
 # import h5py
 import numpy as np
 from pygeo.segyread import SEGYFile
+import cPickle
 
 from .util import compileDict, readini
 
@@ -22,8 +23,16 @@ ftypeRegex = {
 
 
 class BaseDatastore():
+    
+    def __init__(self, projnm):
+        
+        pass
 
-    pass
+    @property
+    def systemConfig(self):
+        
+        raise NotImplementedError
+
 
 class FullwvDatastore(BaseDatastore):
 
@@ -36,7 +45,7 @@ class FullwvDatastore(BaseDatastore):
             raise Exception('Project file %s does not exist'%(inifile,))
 
         ini = readini(inifile)
-        self.nativeConfig = ini
+        self.ini = ini
 
         redict = compileDict(projnm, ftypeRegex)
 
@@ -77,10 +86,18 @@ class FullwvDatastore(BaseDatastore):
             assert type(key) is str
             assert (type(sl) is slice) or (type(sl) is int)
 
+        if key.find(self.projnm) != 0:
+            key = self.projnm + key
+            
         if key in self:
             return self.handled[key][sl]
+        else:
+            raise KeyError(key)
 
     def __contains__(self, key):
+        
+        if key.find(self.projnm) != 0:
+            key = self.projnm + key
         return key in self.handled
 
     def keys(self):
@@ -93,7 +110,63 @@ class FullwvDatastore(BaseDatastore):
             'nfiles': len(self.handled),
         }
         return '<%(name)s(%(projnm)s) comprising %(nfiles)d files>'%report
-
+    
+    @property
+    def systemConfig(self):
+        
+        transferKeys = {
+            'nx':       None,
+            'nz':       None,
+            'dx':       None,
+            'dz':       None,
+            'xorig':    None,
+            'zorig':    None,
+            'freqs':    None,
+            'nky':      None,
+            'tau':      None,
+            'isreg':    'ireg',
+        }
+        
+        sc = {key if transferKeys[key] is None else transferKeys[key]: self.ini[key] for key in transferKeys}
+                
+        sc['freeSurf'] = (
+            self.ini['fst'],
+            self.ini['fsr'],
+            self.ini['fsb'],
+            self.ini['fsl'],
+        )
+        
+        sc['geom'] = {
+            'src':      self.ini['srcs'][:,:2],
+            'rec':      self.ini['recs'][:,:2],
+            'mode':     'fixed',
+        }
+        
+        fn = '.vp'
+        if fn in self:
+            sc['c'] = self[fn].T
+        
+        fn = '.qp'
+        if fn in self:
+            sc['Q'] = 1./self[fn].T
+        
+        fn = '.rho'
+        if fn in self:
+            sc['rho'] = self[fn].T
+        
+        fn = '.eps2d'
+        if fn in self:
+            sc['eps'] = self[fn].T
+        
+        fn = '.del2d'
+        if fn in self:
+            sc['delta'] = self[fn].T
+        
+        fn = '.theta'
+        if fn in self:
+            sc['theta'] = self[fn].T
+        
+        return sc
 
     # def toHDF5(self, filename):
 
@@ -101,6 +174,11 @@ class FullwvDatastore(BaseDatastore):
 class FlatDatastore(BaseDatastore):
 
     pass
+
+class PickleDatastore(BaseDatastore):
+    
+    pass
+    
 
 # class HDF5Datastore(BaseDatastore):
 
