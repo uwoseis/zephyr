@@ -1,7 +1,7 @@
 
 import os
 import glob
-import pymongo
+# import pymongo
 # import h5py
 import numpy as np
 from pygeo.segyread import SEGYFile
