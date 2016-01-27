@@ -206,12 +206,18 @@ class MultiFreq(BaseMPDist):
 
         vals = []
         for freq in self.freqs:
-            vals.append({'freq': freq})
-            vals[-1].update(self.addFields)
+            spUpdate = {'freq': freq}
+            spUpdate.update(self.addFields)
+            vals.append(spUpdate)
         return vals
     
 
 class SerialMultiFreq(MultiFreq):
+    '''
+    Wrapper to carry out forward-modelling using the stored
+    discretization over a series of frequencies. Enforces
+    serial execution.
+    '''
     
     @property
     def parallel(self):
