@@ -13,10 +13,14 @@ ftypeRegex = {
     'vp':       '^%s(?P<iter>[0-9]*)\.vp(?P<freq>[0-9]*\.?[0-9]+)?[^i]*$',
     'qp':       '^%s(?P<iter>[0-9]*)\.qp(?P<freq>[0-9]*\.?[0-9]+)?.*$',
     'vpi':      '^%s(?P<iter>[0-9]*)\.vpi(?P<freq>[0-9]*\.?[0-9]+)?.*$',
+    'rho':      '^%s\.rho$',
+    'eps2d':    '^%s\.eps2d$',
+    'del2d':    '^%s\.del2d$',
+    'theta':    '^%s\.theta$',
     'src':      '^%s\.(new)?src(\.avg)?$',
-    'gvp':      '^%s(?P<iter>[0-9]*)\.gvp[a-z]?(?P<freq>[0-9]*\.?[0-9]+)?.*$',
-    'utest':    '^%s\.(ut|vz|vx)[ifoOesrcbt]+(?P<freq>[0-9]*\.?[0-9]+).*$',
-    'udiff':    '^%s\.ud[ifoOesrcbt]+(?P<freq>[0-9]*\.?[0-9]+).*$',
+    'grad':     '^%s(?P<iter>[0-9]*)\.gvp[a-z]?(?P<freq>[0-9]*\.?[0-9]+)?.*$',
+    'data':     '^%s\.(ut|vz|vx)[ifoOesrcbt]+(?P<freq>[0-9]*\.?[0-9]+).*$',
+    'diff':     '^%s\.ud[ifoOesrcbt]+(?P<freq>[0-9]*\.?[0-9]+).*$',
     'wave':     '^%s(?P<iter>[0-9]*)\.(wave|bwave)(?P<freq>[0-9]*\.?[0-9]+).*$',
     'slice':    '^%s\.sl(?P<iter>[0-9]*)',
 }
@@ -167,6 +171,28 @@ class FullwvDatastore(BaseDatastore):
             sc['theta'] = self[fn].T
         
         return sc
+    
+    def dataFiles(self, ftype):
+        
+        dKeep = self.keepers['data']
+        fns = [fn for fn in dKeep if fn.find(ftype) > -1]
+        ffreqs = [float(dKeep[fn]['freq']) for fn in fns]
+        order = np.argsort(ffreqs)
+        fns = [fns[i] for i in order]
+        ffreqs = [ffreqs[i] for i in order]
+        
+        return fns, ffreqs
+    
+    def spoolData(self, fid=slice(None), ftype='utobs'):
+        
+        ifreqs = self.ini['freqs'][fid]
+        fns, ffreqs = self.dataFiles(ftype)
+        sffreqs = ['%0.3f'%freq for freq in ffreqs]
+        finds = [sffreqs.index('%0.3f'%freq) for freq in ifreqs]
+
+        for fi in finds:
+            fdata = self[fns[fi]]
+            yield fdata[::2].T + 1j*fdata[1::2].T
 
     # def toHDF5(self, filename):
 
