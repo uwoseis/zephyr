@@ -324,7 +324,7 @@ class MiniZephyr(BaseDiscretization):
     def __mul__(self, value):
         'The action of the inverse of the matrix A'
         
-        return self.premul * super(MiniZephyr, self).__mul__(value).conjugate()
+        return super(MiniZephyr, self).__mul__(self.premul * value).conjugate()
 
 class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
     '''
@@ -413,7 +413,7 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
     def scaleTerm(self):
         'A scaling term to apply to the output wavefield'
         
-        return getattr(self, '_scaleTerm', np.exp(1j * np.pi) /(4*np.pi))
+        return getattr(self, '_scaleTerm', 1.) * np.exp(1j * np.pi) / (4*np.pi)
     
     def __mul__(self, rhs):
         '''
