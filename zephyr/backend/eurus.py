@@ -55,7 +55,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         dzz = dz**2.
         dxz = (dxx+dzz)/2.
         dd  = np.sqrt(dxz)
-        omegaDamped = omega + self.dampcoeff
+        omegaDamped = omega + self.dampCoeff
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
@@ -66,7 +66,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         #Operto et al.(2009) PML implementation taken from Hudstedt et al.(2004)
         pmldx   = dx*(nPML - 1)
         pmldz   = dz*(nPML - 1)
-        c_PML   = self.cPML
+        cPML   = self.cPML
 
         gamma_x = np.zeros(nx, dtype=np.complex128)
         gamma_z = np.zeros(nz, dtype=np.complex128)
@@ -74,11 +74,17 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         x_vals  = np.arange(0,pmldx+dx,dx)
         z_vals  = np.arange(0,pmldz+dz,dz)
 
-        gamma_x[:nPML]  = c_PML * (np.cos((np.pi/2)* (x_vals/pmldx)))
-        gamma_x[-nPML:] = c_PML * (np.cos((np.pi/2)* (x_vals[::-1]/pmldx)))
+        
+        cMin = c.min()
+        lambdaMin = cMin / self.freq
+        waveNum = 1. / lambdaMin
+        cPML = cPML * waveNum
+        
+        gamma_x[:nPML]  = cPML * (np.cos((np.pi/2)* (x_vals/pmldx)))
+        gamma_x[-nPML:] = cPML * (np.cos((np.pi/2)* (x_vals[::-1]/pmldx)))
 
-        gamma_z[:nPML]  = c_PML * (np.cos((np.pi/2)* (z_vals/pmldz)))
-        gamma_z[-nPML:] = c_PML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
+        gamma_z[:nPML]  = cPML * (np.cos((np.pi/2)* (z_vals/pmldz)))
+        gamma_z[-nPML:] = cPML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
 
         gamma_x = np.pad(gamma_x.real, **padopts) + 1j * np.pad(gamma_x.imag, **padopts)
         gamma_z = np.pad(gamma_z.real, **padopts) + 1j * np.pad(gamma_z.imag, **padopts)
@@ -217,8 +223,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         b_LN4_C = ((b_EE + b_HH) / 2) / Xi_x_C
           
         # Model parameter M
-        #K = (omegaDamped**2) / (rhoPad * cPad**2)
-        K = (omega**2) / (rhoPad * cPad**2)
+        K = (omegaDamped * omegaDamped) / (rhoPad * cPad**2)
+        #K = (omega**2) / (rhoPad * cPad**2)
         
         # K = omega^2/(c^2 . rho)
 
@@ -412,16 +418,21 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
             return diagonals
 
+       
         M1_diagonals = generateDiagonals(1., Ax, Az, Bx, Bz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M1_diagonals)
         prepareDiagonals(M1_diagonals)
  
         M2_diagonals = generateDiagonals(0. , Cx, Cz, Dx, Dz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M2_diagonals)
         prepareDiagonals(M2_diagonals)
         
         M3_diagonals = generateDiagonals(0. , Ex, Ez, Fx, Fz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M3_diagonals)
         prepareDiagonals(M3_diagonals)
 
         M4_diagonals = generateDiagonals(1. ,Gx, Gz, Hx, Hz,  KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M4_diagonals)
         prepareDiagonals(M4_diagonals)
 
         offsets = [offsets[key] for key in keys]
@@ -443,6 +454,26 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
         A = sp.bmat([[M1_A, M2_A],[M3_A,M4_A]])
         return A
+    
+    def _setupBoundary(self, diagonals):
+        '''
+        Function to set up boundary regions for the Seismic FDFD problem
+        using the 9-point finite-difference stencil from OMEGA/FULLWV.
+        
+        Args:
+            diagonals (dict): The diagonal vectors, indexed by appropriate string keys
+            freeSurf (tuple): Determines which free-surface conditions are active
+        
+        The diagonals are modified in-place.
+        '''
+
+        keys = [key for key in diagonals if key is not 'EE']
+
+        for key in keys:
+            diagonals[key][:,0] = 0.
+            diagonals[key][:,-1] = 0.
+            diagonals[key][0,:] = 0.
+            diagonals[key][-1,:] = 0.
 
     @property
     def A(self):
@@ -463,7 +494,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         return getattr(self, '_nPML', 10)
     
     @property
-    def dampcoeff(self):
+    def dampCoeff(self):
         return 1j / getattr(self, '_tau', np.inf)
     
     def __mul__(self, rhs):
@@ -475,7 +506,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
             if isinstance(rhs, sp.spmatrix):
                 rhs = sp.vstack([rhs, sp.csr_matrix(rhs.shape, dtype=np.complex128)])
             else:
-                rhs = np.vstack([rhs, np.zeros(rhs.shape)])
+                rhs = np.vstack([rhs, np.zeros(rhs.shape, dtype=np.complex128)])
             
             clipResult = True
                 
@@ -485,6 +516,6 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         result = self.Ainv * rhs
         
         if clipResult:
-            result = result[:self.shape[0]/2,:]
+            result = result[:self.shape[1]/2,:]
             
         return result

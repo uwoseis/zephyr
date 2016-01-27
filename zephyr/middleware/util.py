@@ -1,4 +1,5 @@
 
+import re
 import numpy as np
 
 # Code in str2bool and readini pulled from github.com/bsmithyman/pygeo/pygeo/fullpy.py
@@ -150,3 +151,24 @@ def readini (infile):
     settingsdict['zero2'] = [int(item) for item in lsplit]
 
     return settingsdict
+
+def compileDict(projnm, exprdict):
+    '''
+    Given a dictionary of regular expressions in text form, assembles a
+    corresponding dictionary of pre-compiled objects that can be used to
+    efficiently parse filenames.
+    '''
+  
+    # Form a dictionary to contain the regular expression objects
+    redict = {}
+    for key in exprdict:
+        # Try to insert the project name
+        try:
+            reentry = re.compile(exprdict[key]%projnm)
+        # Except for cases in which it doesn't get used
+        except TypeError:
+            reentry = re.compile(exprdict[key])
+    
+        redict[key] = reentry
+  
+    return redict
