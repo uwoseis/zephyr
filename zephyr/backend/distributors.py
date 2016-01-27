@@ -210,7 +210,92 @@ class MultiFreq(BaseMPDist):
             spUpdate.update(self.addFields)
             vals.append(spUpdate)
         return vals
-    
+
+
+class ViscoMultiFreq(MultiFreq):
+    '''
+    Wrapper to carry out forward-modelling using the stored
+    discretization over a series of frequencies. Preserves
+    causality by modelling velocity dispersion in the
+    presence of a non-infinite Q model.
+    '''
+
+    initMap = {
+    #   Argument        Required    Rename as ...   Store as type
+        # 'nky':          (False,     '_nky',         np.int64),
+        'c':            (True,      None,           np.float64),
+        'Q':            (False,     None,           np.float64),
+        'freqBase':     (False,     None,           np.float64),
+    }
+
+    maskKeys = {'freqs', 'c', 'Q', 'freqBase'}
+
+    @staticmethod
+    def _any(criteria):
+        'Check for criteria on a scalar or vector'
+
+        if type(criteria) in (bool, np.bool_):
+            return criteria
+        else:
+            return any(criteria)
+
+    @property
+    def freqBase(self):
+        return getattr(self, '_freqBase', 0.)
+    @freqBase.setter
+    def freqBase(self, value):
+        assert value >= 0
+        self._freqBase = value
+
+    @property
+    def Q(self):
+        return getattr(self, '_Q', np.inf)
+    @Q.setter
+    def Q(self, value):
+
+        criteria = value <= 0
+        try:
+            assert not criteria
+        except TypeError:
+            assert not self._any(criteria)
+
+        self._Q = value
+
+    @property
+    def disperseFreqs(self):
+        return self._any(self.Q != np.inf) and (self.freqBase > 0)
+
+    @property
+    def spUpdates(self):
+        'Updates for frequency subProblems'
+
+        vals = []
+        if self.disperseFreqs:
+            for freq in self.freqs:
+                fact = 1. + (np.log(freq / self.freqBase) / (np.pi * self.Q))
+                assert not self._any(fact < 0.1)
+                cR = fact * self.c
+                c = cR + (0.5j * cR / self.Q) # NB: + b/c of FT convention
+
+                spUpdate = {
+                    'freq': freq,
+                    'c':    c,
+                }
+                spUpdate.update(self.addFields)
+                vals.append(spUpdate)
+
+        else:
+            for freq in self.freqs:
+                c = self.c + (0.5j * self.c / self.Q) # NB: + b/c of FT convention
+                spUpdate = {
+                    'freq': freq,
+                    'c':    c,
+                }
+                spUpdate.update(self.addFields)
+                vals.append(spUpdate)
+
+        return vals
+
 
 class SerialMultiFreq(MultiFreq):
     '''
