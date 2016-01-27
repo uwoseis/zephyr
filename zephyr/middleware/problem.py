@@ -1,7 +1,7 @@
 
 import numpy as np
 import scipy.sparse as sp
-from ..backend import BaseModelDependent, BaseSCCache, MultiFreq, MiniZephyr, Eurus
+from ..backend import BaseModelDependent, BaseSCCache, ViscoMultiFreq, MiniZephyr, Eurus
 import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
 from .fields import HelmFields
@@ -17,7 +17,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 #    maskKeys = []
     
     surveyPair = HelmBaseSurvey
-    SystemWrapper = MultiFreq
+    SystemWrapper = ViscoMultiFreq
     cacheItems = ['_system']
     
     def __init__(self, systemConfig, *args, **kwargs):
