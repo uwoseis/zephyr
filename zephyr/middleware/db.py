@@ -4,6 +4,7 @@ import glob
 # import pymongo
 # import h5py
 import numpy as np
+import scipy.io as io
 from pygeo.segyread import SEGYFile
 import cPickle
 
@@ -193,6 +194,31 @@ class FullwvDatastore(BaseDatastore):
         for fi in finds:
             fdata = self[fns[fi]]
             yield fdata[::2].T + 1j*fdata[1::2].T
+
+    def utoutWrite(self, data, fid=slice(None), ftype='utout'):
+
+        ofreqs = self.ini['freqs'][fid]
+        outfile = '%s.%s'%(self.projnm, ftype)
+
+        nrec = self.ini['nr']
+        nsrc = self.ini['ns']
+        nfreq = len(ofreqs)
+
+        if data.ndim != 3:
+            data = data.reshape((nrec, nsrc, data.size / (nsrc*nrec)))
+
+        assert (data.shape[0] == nrec) and (data.shape[1] == nsrc) and (data.shape[2] == nfreq)
+
+        with io.FortranFile(outfile, 'w') as ff:
+            for i, freq in enumerate(ofreqs):
+                panel = np.empty((nsrc, nrec+1), dtype=np.complex64)
+                panel[:,:1] = 2*np.pi*freq
+                panel[:,1:] = data[:,:,i].T
+                ff.write_record(panel.ravel())
+
+    # def utoutRead(self, fid=slice(None), ftype='utout')
+
+        # write(50) (omega,(utest(ir,isrc),ir=1,nr),isrc=1,ns)
 
     # def toHDF5(self, filename):
 
