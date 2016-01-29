@@ -214,7 +214,7 @@ class FullwvDatastore(BaseDatastore):
                 panel = np.empty((nsrc, nrec+1), dtype=np.complex64)
                 panel[:,:1] = 2*np.pi*freq
                 panel[:,1:] = data[:,:,i].T
-                ff.write_record(panel.ravel(), dtype=np.complex64)
+                ff.write_record(panel.ravel())
 
     # def utoutRead(self, fid=slice(None), ftype='utout')
 
