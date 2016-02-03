@@ -141,9 +141,18 @@ class FullwvDatastore(BaseDatastore):
             self.ini['fsl'],
         )
         
+        if self.ini['srcs'].shape[1] <=3:
+            srcGeom = self.ini['srcs'][:,:2]
+            recGeom = self.ini['recs'][:,:2]
+        elif self.ini['srcs'].shape[1] == 4:
+            srcGeom = self.ini['srcs'][:,::2]
+            recGeom = self.ini['recs'][:,::2]
+        else:
+            raise Exception('Something went wrong!')
+        
         sc['geom'] = {
-            'src':      self.ini['srcs'][:,:2],
-            'rec':      self.ini['recs'][:,:2],
+            'src':      srcGeom,
+            'rec':      recGeom,
             'mode':     'fixed',
         }
         
