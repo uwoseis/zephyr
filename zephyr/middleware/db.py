@@ -189,7 +189,10 @@ class FullwvDatastore(BaseDatastore):
         ifreqs = self.ini['freqs'][fid]
         fns, ffreqs = self.dataFiles(ftype)
         sffreqs = ['%0.3f'%freq for freq in ffreqs]
-        finds = [sffreqs.index('%0.3f'%freq) for freq in ifreqs]
+        try:
+            finds = [sffreqs.index('%0.3f'%freq) for freq in ifreqs]
+        except ValueError as e:
+            raise ValueError('Could not find data from all requested frequencies: %s'%e)
 
         for fi in finds:
             fdata = self[fns[fi]]
