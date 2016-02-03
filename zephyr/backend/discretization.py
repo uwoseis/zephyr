@@ -72,7 +72,7 @@ class DiscretizationWrapper(BaseSCCache):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        'disc':         (True,      None,           None),
+        'Disc':         (True,      None,           None),
         'scaleTerm':    (False,     '_scaleTerm',   np.complex128),
     }
     
@@ -106,7 +106,7 @@ class DiscretizationWrapper(BaseSCCache):
         
         if getattr(self, '_subProblems', None) is None:
             
-            self._subProblems = map(self.disc, self._spConfigs)
+            self._subProblems = map(self.Disc, self._spConfigs)
         return self._subProblems
     
     @property

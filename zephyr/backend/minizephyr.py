@@ -355,22 +355,22 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        'disc':         (False,     '_disc',        None),
+        'Disc':         (False,     '_Disc',        None),
         'nky':          (True,      '_nky',         np.int64),
         'parallel':     (False,     '_parallel',    bool),
         'cmin':         (False,     '_cmin',        np.float64),
     }
     
-    maskKeys = ['nky', 'disc', 'parallel']
+    maskKeys = ['nky', 'Disc', 'parallel']
     
     @property
-    def disc(self):
+    def Disc(self):
         'The discretization to be applied to each wavenumber subproblem'
         
-        if getattr(self, '_disc', None) is None:
+        if getattr(self, '_Disc', None) is None:
             from minizephyr import MiniZephyr
-            self._disc = MiniZephyr
-        return self._disc
+            self._Disc = MiniZephyr
+        return self._Disc
     
     @property
     def nky(self):
