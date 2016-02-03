@@ -21,7 +21,23 @@ class BaseDiscretization(BaseModelDependent):
         'rho':          (False,     '_rho',         np.float64),
         'freq':         (True,      None,           np.complex128),
         'Solver':       (False,     '_Solver',      None),
+        'tau':          (False,     '_tau',         np.float64),
+        'premul':       (False,     '_premul',      np.complex128),
     }
+    
+    @property
+    def tau(self):
+        return getattr(self, '_tau', np.inf)
+    
+    @property
+    def dampCoeff(self):
+        return 1j / self.tau
+    
+    @property
+    def premul(self):
+        'A premultiplication factor, used by 2.5D and half differentiation'
+        
+        return getattr(self, '_premul', 1.)
     
     @property
     def c(self):
