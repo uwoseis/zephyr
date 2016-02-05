@@ -130,6 +130,7 @@ class FullwvDatastore(BaseDatastore):
             'nky':      None,
             'tau':      None,
             'isreg':    'ireg',
+            'freqbase': 'freqBase',
         }
         
         sc = {key if transferKeys[key] is None else transferKeys[key]: self.ini[key] for key in transferKeys}
