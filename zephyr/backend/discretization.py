@@ -27,10 +27,12 @@ class BaseDiscretization(BaseModelDependent):
     
     @property
     def tau(self):
+        'Laplace-domain damping time constant'
         return getattr(self, '_tau', np.inf)
     
     @property
     def dampCoeff(self):
+        'Computed damping coefficient to be added to real omega'
         return 1j / self.tau
     
     @property
