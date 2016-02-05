@@ -508,12 +508,12 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         elif rhs.shape[0] != self.shape[1]:
             raise ValueError('dimension mismatch')
         
-        result = self.Ainv * rhs
+        result = super(Eurus, self).__mul__(rhs)
         
         if clipResult:
             result = result[:self.shape[1]/2,:]
             
-        return self.premul * result
+        return result
 
 
 class EurusHD(Eurus):
