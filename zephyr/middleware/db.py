@@ -130,6 +130,7 @@ class FullwvDatastore(BaseDatastore):
             'nky':      None,
             'tau':      None,
             'isreg':    'ireg',
+            'freqbase': 'freqBase',
         }
         
         sc = {key if transferKeys[key] is None else transferKeys[key]: self.ini[key] for key in transferKeys}
@@ -141,9 +142,18 @@ class FullwvDatastore(BaseDatastore):
             self.ini['fsl'],
         )
         
+        if self.ini['srcs'].shape[1] <=3:
+            srcGeom = self.ini['srcs'][:,:2]
+            recGeom = self.ini['recs'][:,:2]
+        elif self.ini['srcs'].shape[1] == 4:
+            srcGeom = self.ini['srcs'][:,::2]
+            recGeom = self.ini['recs'][:,::2]
+        else:
+            raise Exception('Something went wrong!')
+        
         sc['geom'] = {
-            'src':      self.ini['srcs'][:,:2],
-            'rec':      self.ini['recs'][:,:2],
+            'src':      srcGeom,
+            'rec':      recGeom,
             'mode':     'fixed',
         }
         
@@ -189,7 +199,10 @@ class FullwvDatastore(BaseDatastore):
         ifreqs = self.ini['freqs'][fid]
         fns, ffreqs = self.dataFiles(ftype)
         sffreqs = ['%0.3f'%freq for freq in ffreqs]
-        finds = [sffreqs.index('%0.3f'%freq) for freq in ifreqs]
+        try:
+            finds = [sffreqs.index('%0.3f'%freq) for freq in ifreqs]
+        except ValueError as e:
+            raise ValueError('Could not find data from all requested frequencies: %s'%e)
 
         for fi in finds:
             fdata = self[fns[fi]]

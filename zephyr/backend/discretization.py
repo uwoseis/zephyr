@@ -21,7 +21,25 @@ class BaseDiscretization(BaseModelDependent):
         'rho':          (False,     '_rho',         np.float64),
         'freq':         (True,      None,           np.complex128),
         'Solver':       (False,     '_Solver',      None),
+        'tau':          (False,     '_tau',         np.float64),
+        'premul':       (False,     '_premul',      np.complex128),
     }
+    
+    @property
+    def tau(self):
+        'Laplace-domain damping time constant'
+        return getattr(self, '_tau', np.inf)
+    
+    @property
+    def dampCoeff(self):
+        'Computed damping coefficient to be added to real omega'
+        return 1j / self.tau
+    
+    @property
+    def premul(self):
+        'A premultiplication factor, used by 2.5D and half differentiation'
+        
+        return getattr(self, '_premul', 1.)
     
     @property
     def c(self):
@@ -57,7 +75,7 @@ class BaseDiscretization(BaseModelDependent):
     
     def __mul__(self, rhs):
         'Action of multiplying the inverted system by a right-hand side'
-        return self.Ainv * rhs
+        return self.Ainv * (self.premul * rhs)
     
     def __call__(self, value):
         return self*value
@@ -72,7 +90,7 @@ class DiscretizationWrapper(BaseSCCache):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        'disc':         (True,      None,           None),
+        'Disc':         (True,      None,           None),
         'scaleTerm':    (False,     '_scaleTerm',   np.complex128),
     }
     
@@ -106,7 +124,7 @@ class DiscretizationWrapper(BaseSCCache):
         
         if getattr(self, '_subProblems', None) is None:
             
-            self._subProblems = map(self.disc, self._spConfigs)
+            self._subProblems = map(self.Disc, self._spConfigs)
         return self._subProblems
     
     @property

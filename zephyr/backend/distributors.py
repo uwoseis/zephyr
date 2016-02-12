@@ -18,7 +18,7 @@ class BaseDist(DiscretizationWrapper):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        'disc':         (True,      '_disc',        None),
+        'Disc':         (True,      '_Disc',        None),
         'parallel':     (False,     '_parallel',    bool),
         'nWorkers':     (False,     '_nWorkers',    np.int64),
         'remDists':     (False,     None,           list),
@@ -34,14 +34,14 @@ class BaseDist(DiscretizationWrapper):
     @remDists.setter
     def remDists(self, value):
         if value:
-            self._discOverride = value.pop(0)
+            self._DiscOverride = value.pop(0)
         self._remDists = value
     
     @property
-    def disc(self):
+    def Disc(self):
         'The discretization to instantiate'
 
-        return getattr(self, '_discOverride', self._disc)
+        return getattr(self, '_DiscOverride', self._Disc)
     
     @property
     def addFields(self):
