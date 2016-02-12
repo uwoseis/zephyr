@@ -1,7 +1,7 @@
 
 import numpy as np
 import scipy.sparse as sp
-from ..backend import BaseModelDependent, BaseSCCache, ViscoMultiFreq, MiniZephyr, Eurus
+from ..backend import BaseModelDependent, BaseSCCache, MultiFreq, ViscoMultiFreq
 import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
 from .fields import HelmFields
@@ -10,14 +10,14 @@ EPS = 1e-15
 
 class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCache):
     
-#    initMap = {
-#    #   Argument        Required    Rename as ...   Store as type
-#    }
+    initMap = {
+    #   Argument            Required    Rename as ...   Store as type
+        'SystemWrapper':    (True,      None,           None),
+    }
 
 #    maskKeys = []
     
     surveyPair = HelmBaseSurvey
-    SystemWrapper = ViscoMultiFreq
     cacheItems = ['_system']
     
     def __init__(self, systemConfig, *args, **kwargs):
@@ -132,13 +132,25 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             fields[:,'u',ifreq] = uFsub
         
         return fields
-    
+
 
 class Helm2DProblem(HelmBaseProblem):
-    
+
     surveyPair = Helm2DSurvey
+    SystemWrapper = MultiFreq
+
+
+class Helm2DViscoProblem(Helm2DProblem):
+    
+    SystemWrapper = ViscoMultiFreq
 
     
 class Helm25DProblem(HelmBaseProblem):
     
     surveyPair = Helm25DSurvey
+    SystemWrapper = MultiFreq
+
+
+class Helm25DViscoProblem(Helm25DProblem):
+
+    SystemWrapper = ViscoMultiFreq

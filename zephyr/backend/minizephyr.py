@@ -29,7 +29,6 @@ class MiniZephyr(BaseDiscretization):
         'nPML':         (False,     '_nPML',        np.int64),
         'ky':           (False,     '_ky',          np.float64),
         'mord':         (False,     '_mord',        tuple),
-        'premul':       (False,     '_premul',      np.complex128),
     }
 
     def _initHelmholtzNinePoint(self):
@@ -59,6 +58,7 @@ class MiniZephyr(BaseDiscretization):
 
         # Set up physical properties in matrices with padding
         omega   = 2*np.pi * self.freq
+        omegaDamped = omega + self.dampCoeff
         padopts = {'pad_width': 1, 'mode': 'edge'}
         cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
         rhoPad  = np.pad(rho, **padopts)
@@ -74,7 +74,7 @@ class MiniZephyr(BaseDiscretization):
         dzz = dz**2
         dxz = (dxx+dzz)/2
         dd  = np.sqrt(dxz)
-        iom = 1j * omega
+        iom = 1j * omegaDamped
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
@@ -181,7 +181,7 @@ class MiniZephyr(BaseDiscretization):
         bPP = (bEE + bPP) / 2 # c2
 
         # Model parameter M
-        K = ((omega**2 / cPad**2) - aky**2) / rhoPad
+        K = ((omegaDamped**2 / cPad**2) - aky**2) / rhoPad
 
         # K = omega^2/(c^2 . rho)
         kMM = K[0:-2,0:-2] # bottom left
@@ -315,16 +315,10 @@ class MiniZephyr(BaseDiscretization):
         
         return getattr(self, '_ky', 0.)
 
-    @property
-    def premul(self):
-        'A premultiplication factor, used by 2.5D'
-        
-        return getattr(self, '_premul', 1.)
-
     def __mul__(self, value):
         'The action of the inverse of the matrix A'
         
-        return super(MiniZephyr, self).__mul__(self.premul * value).conjugate()
+        return super(MiniZephyr, self).__mul__(value).conjugate()
 
 
 class MiniZephyrHD(MiniZephyr):
@@ -355,22 +349,22 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        'disc':         (False,     '_disc',        None),
+        'Disc':         (False,     '_Disc',        None),
         'nky':          (True,      '_nky',         np.int64),
         'parallel':     (False,     '_parallel',    bool),
         'cmin':         (False,     '_cmin',        np.float64),
     }
     
-    maskKeys = ['nky', 'disc', 'parallel']
+    maskKeys = ['nky', 'Disc', 'parallel']
     
     @property
-    def disc(self):
+    def Disc(self):
         'The discretization to be applied to each wavenumber subproblem'
         
-        if getattr(self, '_disc', None) is None:
+        if getattr(self, '_Disc', None) is None:
             from minizephyr import MiniZephyr
-            self._disc = MiniZephyr
-        return self._disc
+            self._Disc = MiniZephyr
+        return self._Disc
     
     @property
     def nky(self):

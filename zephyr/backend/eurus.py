@@ -13,7 +13,6 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         'freq':         (True,      None,           np.complex128),
         'mord':         (False,     '_mord',        tuple),
         'cPML':         (False,     '_cPML',        np.float64),
-        'tau':          (False,     '_tau',         np.float64),
     }
 
     def _initHelmholtzNinePoint(self):
@@ -493,10 +492,6 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
     def nPML(self):
         return getattr(self, '_nPML', 10)
     
-    @property
-    def dampCoeff(self):
-        return 1j / getattr(self, '_tau', np.inf)
-    
     def __mul__(self, rhs):
         
         clipResult = False
@@ -513,9 +508,27 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         elif rhs.shape[0] != self.shape[1]:
             raise ValueError('dimension mismatch')
         
-        result = self.Ainv * rhs
+        result = super(Eurus, self).__mul__(rhs)
         
         if clipResult:
             result = result[:self.shape[1]/2,:]
             
         return result
+
+
+class EurusHD(Eurus):
+    '''
+    Implements acoustic anisotropic physics.
+
+    Includes half-differentiation of the source by default.
+    '''
+
+    @property
+    def premul(self):
+        '''
+        A premultiplication factor, used by 2.5D. The default value implements
+        half-differentiation of the source, which corrects for 3D spreading.
+        '''
+
+        cfact = np.sqrt(-2j*np.pi * self.freq)
+        return getattr(self, '_premul', cfact)
