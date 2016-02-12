@@ -54,7 +54,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         dzz = dz**2.
         dxz = (dxx+dzz)/2.
         dd  = np.sqrt(dxz)
-        omegaDamped = omega + self.dampCoeff
+        omegaDamped = omega - self.dampCoeff
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
