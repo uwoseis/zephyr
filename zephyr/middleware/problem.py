@@ -136,6 +136,11 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 
 class Helm2DProblem(HelmBaseProblem):
 
+    initMap = {
+    #   Argument            Required    Rename as ...   Store as type
+        'SystemWrapper':    (False,     None,           None),
+    }
+
     surveyPair = Helm2DSurvey
     SystemWrapper = MultiFreq
 
@@ -146,6 +151,11 @@ class Helm2DViscoProblem(Helm2DProblem):
 
     
 class Helm25DProblem(HelmBaseProblem):
+    
+    initMap = {
+    #   Argument            Required    Rename as ...   Store as type
+        'SystemWrapper':    (False,     None,           None),
+    }
     
     surveyPair = Helm25DSurvey
     SystemWrapper = MultiFreq
