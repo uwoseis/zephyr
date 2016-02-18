@@ -54,7 +54,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         dzz = dz**2.
         dxz = (dxx+dzz)/2.
         dd  = np.sqrt(dxz)
-        omegaDamped = omega + self.dampCoeff
+        omegaDamped = omega - self.dampCoeff
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
@@ -73,12 +73,6 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         x_vals  = np.arange(0,pmldx+dx,dx)
         z_vals  = np.arange(0,pmldz+dz,dz)
 
-        
-        cMin = c.min()
-        lambdaMin = cMin / self.freq
-        waveNum = 1. / lambdaMin
-        cPML = cPML * waveNum
-        
         gamma_x[:nPML]  = cPML * (np.cos((np.pi/2)* (x_vals/pmldx)))
         gamma_x[-nPML:] = cPML * (np.cos((np.pi/2)* (x_vals[::-1]/pmldx)))
 
@@ -88,8 +82,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         gamma_x = np.pad(gamma_x.real, **padopts) + 1j * np.pad(gamma_x.imag, **padopts)
         gamma_z = np.pad(gamma_z.real, **padopts) + 1j * np.pad(gamma_z.imag, **padopts)
 
-        Xi_x     = 1 + ((1j *gamma_x.reshape((1,nx+2)))/omegaDamped)
-        Xi_z     = 1 + ((1j *gamma_z.reshape((nz+2,1)))/omegaDamped)
+        Xi_x     = 1 - ((1j *gamma_x.reshape((1,nx+2)))/omegaDamped)
+        Xi_z     = 1 - ((1j *gamma_z.reshape((nz+2,1)))/omegaDamped)
 
 
         # Visual key for finite-difference terms
