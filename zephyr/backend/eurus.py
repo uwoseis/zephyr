@@ -291,12 +291,11 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         keys = ['GG', 'HH', 'II', 'DD', 'EE', 'FF', 'AA', 'BB', 'CC']
     
         def generateDiagonals(massTerm, coeff1x, coeff1z, coeff2x, coeff2z, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII):
-        '''
-        Generates the sparse diagonals that comprise the 9-point mixed-grid anisotropic stencil. 
+            '''
+            Generates the sparse diagonals that comprise the 9-point mixed-grid anisotropic stencil. 
         
-        See Appendix of Operto et a. (2009)
-        
-        '''
+            See Appendix of Operto et a. (2009) 
+            '''
         
             diagonals = {
                 'GG':  (massTerm * KGG) 
@@ -479,31 +478,31 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
     @property
     def A(self):
-    'The sparse system matrix'   
+        'The sparse system matrix'   
         if getattr(self, '_A', None) is None:
             self._A = self._initHelmholtzNinePoint()
         return self._A
 
     @property
     def mord(self):
-    'Determines matrix ordering'  
+        'Determines matrix ordering'  
     
         return getattr(self, '_mord', ('-nx', '+1'))
 
     @property
     def cPML(self):
-    'The convolutional PML coefficient. It is experimentally determined for each project.'
+        'The convolutional PML coefficient. It is experimentally determined for each project.'
         
         return getattr(self, '_cPML', 1e3)
 
     @property
     def nPML(self):
-    'The depth of the PML (Perfectly Matched Layer) region in gridpoints'
+        'The depth of the PML (Perfectly Matched Layer) region in gridpoints'
         
         return getattr(self, '_nPML', 10)
     
     def __mul__(self, rhs):
-    'The action of the inverse of the matrix A'    
+        'The action of the inverse of the matrix A'    
         clipResult = False
         
         if 2*rhs.shape[0] == self.shape[1]:
