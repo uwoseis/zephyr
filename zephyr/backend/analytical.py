@@ -19,6 +19,7 @@ class AnalyticalHelmholtz(object):
 
         self.omega      = 2 * np.pi * systemConfig['freq']
         self.c          = systemConfig['c']
+        self.rho        = systemConfig.get('rho', 1.)
         self.k          = self.omega / self.c
         self.stretch    = 1. / (1 + (2.*systemConfig.get('eps', 0.)))
         self.theta      = systemConfig.get('theta', 0.)
@@ -45,13 +46,13 @@ class AnalyticalHelmholtz(object):
         'Model the 2D Green\'s function'
 
         # Correct: -0.5j * hankel2(0, self.k*r)
-        return self.scaleterm * (-0.5j * hankel1(0, self.k*r))
+        return self.scaleterm * self.rho * (-0.5j * hankel1(0, self.k*r))
     
     def Green3D(self, r):
         'Model the 3D Green\'s function'
 
         # Correct: (1./(4*np.pi*r)) * np.exp(-1j*self.k*r)
-        return self.scaleterm * (1./(4*np.pi*r)) * np.exp(1j*self.k*r)
+        return self.scaleterm * self.rho * (1./(4*np.pi*r)) * np.exp(1j*self.k*r)
 
     def __call__(self, q):
         'Model the appropriate Green\'s function, given a source location'
