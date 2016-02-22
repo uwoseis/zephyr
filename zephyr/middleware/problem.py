@@ -116,6 +116,8 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         self.updateModel(m)
         
         qs = self.survey.sVecs
+        if isinstance(self.survey.tsTerms, list) or isinstance(self.survey.tsTerms, np.ndarray):
+            qs = [qs * sterm.conjugate() for sterm in self.survey.tsTerms]
         uF = self.system * qs
         
         if not np.iterable(uF):
