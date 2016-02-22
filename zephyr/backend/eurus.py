@@ -6,6 +6,10 @@ import numpy as np
 import scipy.sparse as sp
 
 class Eurus(BaseDiscretization, BaseAnisotropic):
+    '''
+    Implements Transversely Isotropic 2D (visco)acoustic frequency-domain wave physics using a mixed-grid 
+    finite-difference approach (Originally Proposed by Operto et al. (2009)).
+    '''
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
@@ -135,8 +139,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         Xi_z3= Xi_z[2:  ,:] #right
 
         # Here we will use the following notation
-        #
-
+        
         # Xi_x_M = (Xi_x(i)+Xi_(i-1))/2 --- M = 'minus'
         # Xi_x_C = (Xi_x(i)             --- C = 'centre'
         # Xi_x_P = (Xi_x(i)+Xi_(i+1))/2 --- P = 'plus'
@@ -288,7 +291,12 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         keys = ['GG', 'HH', 'II', 'DD', 'EE', 'FF', 'AA', 'BB', 'CC']
     
         def generateDiagonals(massTerm, coeff1x, coeff1z, coeff2x, coeff2z, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII):
-            
+            '''
+            Generates the sparse diagonals that comprise the 9-point mixed-grid anisotropic stencil. 
+        
+            See Appendix of Operto et a. (2009) 
+            '''
+        
             diagonals = {
                 'GG':  (massTerm * KGG) 
                         + w1
@@ -470,24 +478,31 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
     @property
     def A(self):
+        'The sparse system matrix'   
         if getattr(self, '_A', None) is None:
             self._A = self._initHelmholtzNinePoint()
         return self._A
 
     @property
     def mord(self):
+        'Determines matrix ordering'  
+    
         return getattr(self, '_mord', ('-nx', '+1'))
 
     @property
     def cPML(self):
+        'The convolutional PML coefficient. It is experimentally determined for each project.'
+        
         return getattr(self, '_cPML', 1e3)
 
     @property
     def nPML(self):
+        'The depth of the PML (Perfectly Matched Layer) region in gridpoints'
+        
         return getattr(self, '_nPML', 10)
     
     def __mul__(self, rhs):
-        
+        'The action of the inverse of the matrix A'    
         clipResult = False
         
         if 2*rhs.shape[0] == self.shape[1]:
@@ -512,7 +527,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
 class EurusHD(Eurus):
     '''
-    Implements acoustic anisotropic physics.
+    Implements Transversely Isotropic 2D (visco)acoustic frequency-domain wave physics using a mixed-grid 
+    finite-difference approach (Originally Proposed by Operto et al. (2009)).
 
     Includes half-differentiation of the source by default.
     '''
