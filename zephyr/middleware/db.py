@@ -128,13 +128,14 @@ class FullwvDatastore(BaseDatastore):
             'zorig':    None,
             'freqs':    None,
             'nky':      None,
-            'tau':      None,
             'isreg':    'ireg',
             'freqbase': 'freqBase',
         }
         
         sc = {key if transferKeys[key] is None else transferKeys[key]: self.ini[key] for key in transferKeys}
-                
+
+        sc['tau'] = self.ini['tau'] if abs(np.float(self.ini['tau']) - 999.999) > 1e-2 else np.inf
+
         sc['freeSurf'] = (
             self.ini['fst'],
             self.ini['fsr'],
