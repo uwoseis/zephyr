@@ -211,6 +211,7 @@ class FullwvDatastore(BaseDatastore):
     def utoutWrite(self, data, fid=slice(None), ftype='utout'):
 
         ofreqs = self.ini['freqs'][fid]
+        ofreqs = [(2*np.pi * freq) + (1j / self.ini['tau']) for freq in ofreqs]
         outfile = '%s.%s'%(self.projnm, ftype)
 
         nrec = self.ini['nr']
@@ -225,7 +226,7 @@ class FullwvDatastore(BaseDatastore):
         with io.FortranFile(outfile, 'w') as ff:
             for i, freq in enumerate(ofreqs):
                 panel = np.empty((nsrc, nrec+1), dtype=np.complex64)
-                panel[:,:1] = 2*np.pi*freq
+                panel[:,:1] = freq
                 panel[:,1:] = data[:,:,i].T
                 ff.write_record(panel.ravel())
 
