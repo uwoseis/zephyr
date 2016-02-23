@@ -315,11 +315,6 @@ class MiniZephyr(BaseDiscretization):
         
         return getattr(self, '_ky', 0.)
 
-    def __mul__(self, value):
-        'The action of the inverse of the matrix A'
-        
-        return super(MiniZephyr, self).__mul__(value).conjugate()
-
 
 class MiniZephyrHD(MiniZephyr):
     '''
