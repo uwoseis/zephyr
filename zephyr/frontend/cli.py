@@ -67,7 +67,6 @@ zephyr.add_command(migrate)
 @click.command()
 @click.argument('projnm')
 @click.option('--job', default='OmegaJob', help='The job to run')
-@click.option('--count', default=1, help='Number of greetings.')
 def model(projnm, job):
     '''Run a forward model'''
 
