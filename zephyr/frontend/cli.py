@@ -66,11 +66,17 @@ zephyr.add_command(migrate)
 
 @click.command()
 @click.argument('projnm')
-def model(projnm):
+@click.option('--job', default='OmegaJob', help='The job to run')
+def model(projnm, job):
     '''Run a forward model'''
-    
-    print('Running project!')
-    print('projnm: \t%s'%projnm)
+
+    from . import jobs
+
+    jClass = eval('jobs.%s'%(job,))
+    assert issubclass(jClass, jobs.Job)
+
+    j = jClass(projnm)
+    j.run()
 zephyr.add_command(model)
 
 @click.command()
