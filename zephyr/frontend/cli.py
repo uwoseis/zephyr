@@ -73,7 +73,7 @@ def model(projnm, job):
     from . import jobs
 
     jClass = eval('jobs.%s'%(job,))
-    assert isinstance(jClass, jobs.Job)
+    assert issubclass(jClass, jobs.Job)
 
     j = jClass(projnm)
     j.run()
