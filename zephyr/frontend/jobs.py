@@ -12,14 +12,23 @@ class Job(object):
     Survey = None
     SystemWrapper = None
     Disc = None
+    Solver = None
 
     def __init__(self, projnm, supplementalConfig=None):
+
+        try:
+            from pymatsolver import MumpsSolver
+        except ImportError:
+            print('NB: Can\'t import MumpsSolver; falling back to SuperLU')
+        else:
+            self.Solver = MumpsSolver
 
         self.projnm = projnm
 
         print('Setting up composite job "%s":'%(self.__class__.__name__,))
         for item in self.__class__.__mro__[:-1][::-1]:
             print('\t%s'%(item.__name__,))
+        print()
 
         proj = self.getProject(projnm)
         systemConfig = proj.systemConfig
@@ -30,6 +39,9 @@ class Job(object):
 
         if self.Disc is not None:
             update['Disc'] = self.Disc
+
+        if self.Solver is not None:
+            update['Solver'] = self.Solver
 
         systemConfig.update(update)
         if supplementalConfig is not None:
