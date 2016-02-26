@@ -1,4 +1,6 @@
 
+import cPickle
+
 from zephyr import backend
 from zephyr import middleware
 from zephyr import frontend
@@ -13,6 +15,7 @@ class Job(object):
     SystemWrapper = None
     Disc = None
     Solver = None
+    projnm = None
 
     def __init__(self, projnm, supplementalConfig=None):
 
@@ -30,8 +33,7 @@ class Job(object):
             print('\t%s'%(item.__name__,))
         print
 
-        proj = self.getProject(projnm)
-        systemConfig = proj.systemConfig
+        systemConfig = self.getSystemConfig(projnm)
         update = {}
 
         if self.SystemWrapper is not None:
@@ -47,12 +49,16 @@ class Job(object):
         if supplementalConfig is not None:
             systemConfig.update(supplementalConfig)
 
+        if not 'projnm' in systemConfig:
+            systemConfig['projnm'] = projnm
+
         # Set up problem and survey objects
+        self.systemConfig = systemConfig
         self.problem = self.Problem(systemConfig)
         self.survey = self.Survey(systemConfig)
         self.problem.pair(self.survey)
 
-    def getProject(self, projnm):
+    def getSystemConfig(self, projnm):
         '''
         Get the project
         '''
@@ -90,6 +96,7 @@ class ForwardModelingJob(Job):
 
         print('\t- solving system')
         data = self.survey.dpred()
+        data.shape = (self.survey.nrec, self.survey.nsrc, self.survey.nfreq)
 
         print('\t- saving data')
         self.saveData(data)
@@ -124,34 +131,95 @@ class AnisotropicVisco2DJob(Visco2DJob):
     Disc = backend.EurusHD
 
 
-class FullwvIOJob(Job):
+class IniInputJob(Job):
+    '''
+    An input job profile that reads configuration from a projnm.ini
+    file and SEG-Y model / data files
+    '''
+
+    def getSystemConfig(self, projnm):
+
+        self.ds = middleware.FullwvDatastore(projnm)
+        return self.ds.systemConfig
+
+
+class PythonInputJob(Job):
+    '''
+    An input job profile that gets configuration from a projnm.py file
+    '''
+
+    def getSystemConfig(self, projnm):
+
+        self.ds = middleware.FlatDatastore(projnm)
+        return self.ds.systemConfig
+
+
+class PickleInputJob(Job):
+    '''
+    An input job profile that gets configuration from a projnm.pickle file
+    '''
+
+    def getSystemConfig(self, projnm):
+
+        self.ds = middleware.PickleDatastore(projnm)
+        return self.ds.systemConfig
+
+
+class UtoutOutputJob(Job):
     '''
     An output job profile that saves results to a projnm.utout file
     '''
 
-    def getProject(self, projnm):
+    def saveData(self, data):
 
-        self.fds = middleware.FullwvDatastore(projnm)
-        return self.fds
+        utow = middleware.UtoutWriter(self.systemConfig)
+        utow(data)
+
+
+class PickleOutputJob(Job):
+    '''
+    An output job profile that saves results to a projnm.pickle file
+    '''
 
     def saveData(self, data):
 
-        self.fds.utoutWrite(data)
+        with open(self.projnm, 'wb') as fp:
+            pickler = cPickle.Pickler(fp)
+            pickler.dump(data)
 
-class OmegaJob(IsotropicVisco2DJob, ForwardModelingJob, FullwvIOJob):
+
+class OmegaIOJob(IniInputJob, UtoutOutputJob):
+    '''
+    An input/output job profile that emulates Omega
+    '''
+
+
+class OmegaJob(IsotropicVisco2DJob, ForwardModelingJob, OmegaIOJob):
 
     '''
     A 2D viscoacoustic parallel job on the local machine.
     Roughly equivalent to the default behaviour of OMEGA.
     '''
-    pass
 
-class AnisoOmegaJob(AnisotropicVisco2DJob, ForwardModelingJob, FullwvIOJob):
+
+class PythonUtoutJob(IsotropicVisco2DJob, ForwardModelingJob, PythonInputJob, UtoutOutputJob):
+    '''
+    A 2D viscoacoustic parallel job on the local machine.
+    Constructs systemConfig from a Python file, but outputs to projnm.utout.
+    '''
+
+
+class AnisoOmegaJob(AnisotropicVisco2DJob, ForwardModelingJob, OmegaIOJob):
 
     '''
     A 2D viscoacoustic parallel job on the local machine.
     Roughly equivalent to the default behaviour of OMEGA.
     Replaces isotropic solver with TTI anisotropic solver.
     '''
-    pass
 
+
+class AnisoPythonUtoutJob(AnisotropicVisco2DJob, ForwardModelingJob, PythonInputJob, UtoutOutputJob):
+    '''
+    A 2D viscoacoustic parallel job on the local machine.
+    Constructs systemConfig from a Python file, but outputs to projnm.utout.
+    '''
