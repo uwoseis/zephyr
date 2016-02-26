@@ -9,6 +9,7 @@ from pygeo.segyread import SEGYFile
 import cPickle
 
 from .util import compileDict, readini
+from .time import BaseTimeSensitive
 
 ftypeRegex = {
     'vp':       '^%s(?P<iter>[0-9]*)\.vp(?P<freq>[0-9]*\.?[0-9]+)?[^i]*$',
@@ -26,8 +27,41 @@ ftypeRegex = {
     'slice':    '^%s\.sl(?P<iter>[0-9]*)',
 }
 
+class UtoutWriter(BaseTimeSensitive):
+    '''
+    AttributeMapper subclass that implements writing frequency-domain
+    data to a .utout file.
+    '''
+    
+    initMap = {
+    #   Argument        Required    Rename as ...   Store as type
+        'projnm':       (True,      None,           str),
+    }
 
-class BaseDatastore():
+    def __call__(self, data, fid=slice(None), ftype='utout'):
+
+        ofreqs = self.freqs[fid]
+        ofreqs = [(2*np.pi * freq) + self.dampCoeff for freq in ofreqs]
+        outfile = '%s.%s'%(self.projnm, ftype)
+
+        nfreq = len(ofreqs)
+
+        if data.ndim != 3:
+            raise Exception('Data must be of shape (nrec, nsrc, nfreq)')
+
+        assert data.shape[2] == nfreq
+        nrec = data.shape[0]
+        nsrc = data.shape[1]
+
+        with io.FortranFile(outfile, 'w') as ff:
+            for i, freq in enumerate(ofreqs):
+                panel = np.empty((nsrc, nrec+1), dtype=np.complex64)
+                panel[:,:1] = freq
+                panel[:,1:] = data[:,:,i].T
+                ff.write_record(panel.ravel())
+
+
+class BaseDatastore(object):
     
     def __init__(self, projnm):
         
@@ -181,6 +215,8 @@ class FullwvDatastore(BaseDatastore):
         fn = '.theta'
         if fn in self:
             sc['theta'] = self[fn].T
+
+        sc['projnm'] = self.projnm
         
         return sc
     
@@ -211,25 +247,8 @@ class FullwvDatastore(BaseDatastore):
 
     def utoutWrite(self, data, fid=slice(None), ftype='utout'):
 
-        ofreqs = self.ini['freqs'][fid]
-        ofreqs = [(2*np.pi * freq) + (1j / self.ini['tau']) for freq in ofreqs]
-        outfile = '%s.%s'%(self.projnm, ftype)
-
-        nrec = self.ini['nr']
-        nsrc = self.ini['ns']
-        nfreq = len(ofreqs)
-
-        if data.ndim != 3:
-            data = data.reshape((nrec, nsrc, data.size / (nsrc*nrec)))
-
-        assert (data.shape[0] == nrec) and (data.shape[1] == nsrc) and (data.shape[2] == nfreq)
-
-        with io.FortranFile(outfile, 'w') as ff:
-            for i, freq in enumerate(ofreqs):
-                panel = np.empty((nsrc, nrec+1), dtype=np.complex64)
-                panel[:,:1] = freq
-                panel[:,1:] = data[:,:,i].T
-                ff.write_record(panel.ravel())
+        utow = UtoutWriter(self.systemConfig)
+        utow(data, fid, ftype)
 
     # def utoutRead(self, fid=slice(None), ftype='utout')
 
@@ -240,11 +259,35 @@ class FullwvDatastore(BaseDatastore):
 
 class FlatDatastore(BaseDatastore):
 
-    pass
+    def __init__(self, projnm):
+
+        infile = '%s.py'%(projnm,)
+        with open(infile, 'r') as fp:
+            contents = fp.read()
+
+        #execfile(infile)
+        exec contents in locals()
+
+        self.systemConfig = systemConfig
+
+    @property
+    def systemConfig(self):
+        return self._systemConfig
+    @systemConfig.setter
+    def systemConfig(self, value):
+        self._systemConfig = value
+
 
 class PickleDatastore(BaseDatastore):
     
-    pass
+    def __init__(self, projnm):
+
+        infile = '%s.pickle'%(projnm,)
+        with open(infile, 'rb') as fp:
+            unp = cPickle.Unpickler(fp)
+            systemConfig = unp.load()
+
+        self.systemConfig = systemConfig
     
 
 # class HDF5Datastore(BaseDatastore):
