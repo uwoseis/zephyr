@@ -73,18 +73,32 @@ def idftreal(A, N, M):
     return a
 
 
-class TimeMachine(AttributeMapper):
+class BaseTimeSensitive(AttributeMapper):
 
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        'tau':          (False,     None,           np.float64),
         'freqs':        (True,      None,           list),
+        'tau':          (False,     '_tau',         np.float64),
+    }
+
+    @property
+    def tau(self):
+        'Laplace-domain damping time constant'
+        return getattr(self, '_tau', np.inf)
+    
+    @property
+    def dampCoeff(self):
+        'Computed damping coefficient to be added to real omega'
+        return 1j / self.tau
+
+
+class TimeMachine(BaseTimeSensitive):
+
+    initMap = {
+    #   Argument        Required    Rename as ...   Store as type
         'dt':           (False,     None,           np.float64),
         'freqBase':     (False,     None,           np.float64),
     }
-
-    # @classmethod
-    # def freqsFromTimes(cls, )
 
     @property
     def dt(self):
@@ -136,24 +150,11 @@ class TimeMachine(AttributeMapper):
 
     @property
     def freqBase(self):
-        return getattr(self, '_freqBase', 0.)
+        return getattr(self, '_freqBase', self.freqs[0])
     @freqBase.setter
     def freqBase(self, value):
         assert value >= 0
         self._freqBase = value
-
-    @property
-    def tau(self):
-        'Laplace-domain damping time constant'
-        return getattr(self, '_tau', np.inf)
-    @tau.setter
-    def tau(self, value):
-        self._tau = value
-    
-    @property
-    def dampCoeff(self):
-        'Computed damping coefficient to be added to real omega'
-        return 1j / self.tau 
 
     def keuper(self, freq=None, nexc=2, dt=None):
         '''
