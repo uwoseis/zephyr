@@ -1,21 +1,22 @@
 
+from .meta import BaseAnisotropic
 from .discretization import BaseDiscretization
 
 import numpy as np
 import scipy.sparse as sp
 
-class Eurus(BaseDiscretization):
+class Eurus(BaseDiscretization, BaseAnisotropic):
+    '''
+    Implements Transversely Isotropic 2D (visco)acoustic frequency-domain wave physics using a mixed-grid 
+    finite-difference approach (Originally Proposed by Operto et al. (2009)).
+    '''
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'nPML':         (False,     '_nPML',        np.int64),
         'freq':         (True,      None,           np.complex128),
         'mord':         (False,     '_mord',        tuple),
-        'theta':        (False,     '_theta',       np.float64),
-        'eps':          (False,     '_eps',         np.float64),
-        'delta':        (False,     '_delta',       np.float64),
         'cPML':         (False,     '_cPML',        np.float64),
-        'tau':          (False,     '_tau',         np.float64),
     }
 
     def _initHelmholtzNinePoint(self):
@@ -53,11 +54,11 @@ class Eurus(BaseDiscretization):
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.dx
         dz  = self.dz
-        dxx = dx**2
-        dzz = dz**2
-        dxz = (dxx+dzz)/2
+        dxx = dx**2.
+        dzz = dz**2.
+        dxz = (dxx+dzz)/2.
         dd  = np.sqrt(dxz)
-        omegaDamped = omega + self.dampcoeff
+        omegaDamped = omega - self.dampCoeff
 
         # PML decay terms
         # NB: Arrays are padded later, but 'c' in these lines
@@ -68,7 +69,7 @@ class Eurus(BaseDiscretization):
         #Operto et al.(2009) PML implementation taken from Hudstedt et al.(2004)
         pmldx   = dx*(nPML - 1)
         pmldz   = dz*(nPML - 1)
-        c_PML   = self.cPML
+        cPML   = self.cPML
 
         gamma_x = np.zeros(nx, dtype=np.complex128)
         gamma_z = np.zeros(nz, dtype=np.complex128)
@@ -76,17 +77,17 @@ class Eurus(BaseDiscretization):
         x_vals  = np.arange(0,pmldx+dx,dx)
         z_vals  = np.arange(0,pmldz+dz,dz)
 
-        gamma_x[:nPML]  = c_PML * (np.cos((np.pi/2)* (x_vals/pmldx)))
-        gamma_x[-nPML:] = c_PML * (np.cos((np.pi/2)* (x_vals[::-1]/pmldx)))
+        gamma_x[:nPML]  = cPML * (np.cos((np.pi/2)* (x_vals/pmldx)))
+        gamma_x[-nPML:] = cPML * (np.cos((np.pi/2)* (x_vals[::-1]/pmldx)))
 
-        gamma_z[:nPML]  = c_PML * (np.cos((np.pi/2)* (z_vals/pmldz)))
-        gamma_z[-nPML:] = c_PML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
+        gamma_z[:nPML]  = cPML * (np.cos((np.pi/2)* (z_vals/pmldz)))
+        gamma_z[-nPML:] = cPML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
 
         gamma_x = np.pad(gamma_x.real, **padopts) + 1j * np.pad(gamma_x.imag, **padopts)
         gamma_z = np.pad(gamma_z.real, **padopts) + 1j * np.pad(gamma_z.imag, **padopts)
 
-        Xi_x     = 1 + ((1j *gamma_x.reshape((1,nx+2)))/omegaDamped)
-        Xi_z     = 1 + ((1j *gamma_z.reshape((nz+2,1)))/omegaDamped)
+        Xi_x     = 1 - ((1j *gamma_x.reshape((1,nx+2)))/omegaDamped)
+        Xi_z     = 1 - ((1j *gamma_z.reshape((nz+2,1)))/omegaDamped)
 
 
         # Visual key for finite-difference terms
@@ -138,8 +139,7 @@ class Eurus(BaseDiscretization):
         Xi_z3= Xi_z[2:  ,:] #right
 
         # Here we will use the following notation
-        #
-
+        
         # Xi_x_M = (Xi_x(i)+Xi_(i-1))/2 --- M = 'minus'
         # Xi_x_C = (Xi_x(i)             --- C = 'centre'
         # Xi_x_P = (Xi_x(i)+Xi_(i+1))/2 --- P = 'plus'
@@ -170,8 +170,8 @@ class Eurus(BaseDiscretization):
         b_AA = 1. / rhoPad[2:  ,0:-2] # top    left
         b_BB = 1. / rhoPad[2:  ,1:-1] # top    centre
         b_CC = 1. / rhoPad[2:  ,2:  ] # top    right
-
-
+        
+        
         # Initialize averaged buoyancies on most of the grid
 
         # Here we will use the convention of 'sq' to represent the averaged bouyancy over 4 grid points,
@@ -200,8 +200,10 @@ class Eurus(BaseDiscretization):
         b_SQ3_z = ((b_DD + b_EE + b_GG + b_HH) / 4) / Xi_z_P
         b_SQ4_z = ((b_EE + b_FF + b_HH + b_II) / 4) / Xi_z_P
 
+       
+        
         # Lines
-
+          
         # Lines are in 1D, so no PML dim required
         # We use the Suffix 'C' for those terms where PML is not
         # calulated
@@ -215,36 +217,50 @@ class Eurus(BaseDiscretization):
         b_LN2_C = ((b_DD + b_EE) / 2) / Xi_z_C
         b_LN3_C = ((b_EE + b_FF) / 2) / Xi_z_C
         b_LN4_C = ((b_EE + b_HH) / 2) / Xi_x_C
-
-
+          
         # Model parameter M
-        K = (omegaDamped**2) / (rhoPad * cPad**2)
-
+        K = (omegaDamped * omegaDamped) / (rhoPad * cPad**2)
+        #K = (omega**2) / (rhoPad * cPad**2)
+        
         # K = omega^2/(c^2 . rho)
 
-        K_GG = K[0:-2,0:-2] # bottom left
-        K_HH = K[0:-2,1:-1] # bottom centre
-        K_II = K[0:-2,2:  ] # bottom centre
-        K_DD = K[1:-1,0:-2] # middle left
-        K_EE = K[1:-1,1:-1] # middle centre
-        K_FF = K[1:-1,2:  ] # middle right
-        K_AA = K[2:  ,0:-2] # top    left
-        K_BB = K[2:  ,1:-1] # top    centre
-        K_CC = K[2:  ,2:  ] # top    right
+        KGG = K[0:-2,0:-2] # bottom left
+        KHH = K[0:-2,1:-1] # bottom centre
+        KII = K[0:-2,2:  ] # bottom centre
+        KDD = K[1:-1,0:-2] # middle left
+        KEE = K[1:-1,1:-1] # middle centre
+        KFF = K[1:-1,2:  ] # middle right
+        KAA = K[2:  ,0:-2] # top    left
+        KBB = K[2:  ,1:-1] # top    centre
+        KCC = K[2:  ,2:  ] # top    right
 
         # 9-point fd star
 
-        wm1 = 0.6291844;
-        wm2 = 0.3708126;
-        w1 = 0.4258673;
-
+        wm1 = 0.6287326
+        wm2 = 0.3712667
+        wm3 = 1.- wm1 -wm2
+        wm2 = 0.25 * wm2
+        wm3 = 0.25 * wm3
+        
+        w1 = 0.4382634
+        #w1 = 0.
         # Mass Averaging Term
 
-        # From Operto et al.(2009), anti-limped mass is calculted from 9 ponts and applied
-        # ONLY to the diagonal terms
+        # From Operto et al.(2009), anti-limped mass is calculted from 9 ponts
+        # 
 
-        K_avg = (wm1*K_EE) + ((wm2/4)*(K_BB + K_DD + K_FF + K_HH)) + (((1-wm1-wm2)/4)*(K_AA + K_CC + K_GG + K_II))
-
+        #K_avg = (wm1*K_EE) + ((wm2/4)*(K_BB + K_DD + K_FF + K_HH)) + (((1-wm1-wm2)/4)*(K_AA + K_CC + K_GG + K_II))
+        
+        KGG = wm3 * KGG
+        KHH = wm2 * KHH
+        KII = wm3 * KII
+        KDD = wm2 * KDD
+        KEE = wm1 * KEE
+        KFF = wm2 * KFF
+        KAA = wm3 * KAA
+        KBB = wm2 * KBB
+        KCC = wm3 * KCC
+        
         # For now, set eps and delta to be constant
 
         theta   = self.theta
@@ -256,7 +272,7 @@ class Eurus(BaseDiscretization):
         Ax = 1. + (2.*delta)*(np.cos(theta)**2.)
         Bx = (-1.*delta)*np.sin(2.*theta)
         Cx = (1.+(2.*delta))*(np.cos(theta)**2.)
-        Dx = (-1*(1.+(2.*delta)))*((np.sin(2.*theta))/2.)
+        Dx = (-0.5*(1.+(2.*delta)))*((np.sin(2.*theta)))
         Ex = (2.*(eps-delta))*(np.cos(theta)**2.)
         Fx = (-1.*(eps-delta))*(np.sin(2.*theta))
         Gx = Ex
@@ -270,13 +286,20 @@ class Eurus(BaseDiscretization):
         Fz = (2.*(eps-delta))*(np.sin(theta)**2.)
         Gz = Fx
         Hz = Fz
+        
 
         keys = ['GG', 'HH', 'II', 'DD', 'EE', 'FF', 'AA', 'BB', 'CC']
-
-        def generateDiagonals(massTerm, coeff1x, coeff1z, coeff2x, coeff2z):
-
+    
+        def generateDiagonals(massTerm, coeff1x, coeff1z, coeff2x, coeff2z, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII):
+            '''
+            Generates the sparse diagonals that comprise the 9-point mixed-grid anisotropic stencil. 
+        
+            See Appendix of Operto et a. (2009) 
+            '''
+        
             diagonals = {
-                'GG':  w1
+                'GG':  (massTerm * KGG) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ3_x))
                         + (((-1 * L_x4) * coeff2x) * (   b_SQ3_z))
@@ -288,7 +311,8 @@ class Eurus(BaseDiscretization):
                           (((-1 * L_x4) * coeff2x) * (   b_LN2_C))
                         + (((-1 * L_z4) * coeff1z) * (   b_LN4_C))
                         ),
-                'HH':  w1
+                'HH':  (massTerm * KHH) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * ( - b_SQ3_x - b_SQ4_x))
                         + (((     L_x4) * coeff2x) * ( - b_SQ3_z + b_SQ4_z))
@@ -300,7 +324,8 @@ class Eurus(BaseDiscretization):
                           (((     L_x4) * coeff2x) * ( - b_LN2_C + b_LN3_C))
                         + (((      L_z) * coeff2z) * (   b_LN4))
                         ),
-                'II':  w1
+                'II':  (massTerm * KII) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ4_x))
                         + (((     L_x4) * coeff2x) * (   b_SQ4_z))
@@ -312,7 +337,8 @@ class Eurus(BaseDiscretization):
                           (((     L_x4) * coeff2x) * (   b_LN3_C))
                         + (((     L_z4) * coeff1z) * (   b_LN4_C))
                         ),
-                'DD':  w1
+                'DD':   (massTerm * KDD) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ3_x + b_SQ1_x))
                         + (((     L_x4) * coeff2x) * (   b_SQ3_z - b_SQ1_z))
@@ -324,7 +350,7 @@ class Eurus(BaseDiscretization):
                           (((      L_x) * coeff1x) * (   b_LN2))
                         + (((     L_z4) * coeff1z) * ( - b_LN4_C +  b_LN1_C))
                         ),
-                'EE':  massTerm
+                'EE':   (massTerm * KEE) 
                         + w1
                         * (
                           (((-1 * L_x4) * coeff1x) * (   b_SQ1_x + b_SQ2_x + b_SQ3_x + b_SQ4_x))
@@ -337,7 +363,8 @@ class Eurus(BaseDiscretization):
                           (((      L_x) * coeff1x) * ( - b_LN2 - b_LN3))
                         + (((      L_z) * coeff2z) * ( - b_LN1 - b_LN4))
                           ),
-                'FF':  w1
+                'FF':  (massTerm * KFF) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ2_x + b_SQ4_x))
                         + (((     L_x4) * coeff2x) * (   b_SQ2_z - b_SQ4_z))
@@ -349,7 +376,8 @@ class Eurus(BaseDiscretization):
                           (((      L_x) * coeff1x) * (   b_LN3))
                         + (((     L_z4) * coeff1z) * (   b_LN4_C - b_LN1_C))
                         ),
-                'AA':  w1
+                'AA':  (massTerm * KAA) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ1_x))
                         + (((     L_x4) * coeff2x) * (   b_SQ1_z))
@@ -361,19 +389,21 @@ class Eurus(BaseDiscretization):
                           (((     L_x4) * coeff2x) * (   b_LN2_C))
                         + (((     L_z4) * coeff1z) * (   b_LN1_C))
                         ),
-                'BB':  w1
+                'BB':  (massTerm * KBB) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * ( - b_SQ2_x - b_SQ1_x))
                         + (((     L_x4) * coeff2x) * ( - b_SQ2_z + b_SQ1_z))
                         + (((     L_z4) * coeff1z) * (   b_SQ2_x - b_SQ1_x))
-                        + (((     L_z4) * coeff2z) * (   b_SQ2_z + b_SQ2_z))
+                        + (((     L_z4) * coeff2z) * (   b_SQ2_z + b_SQ1_z))
                           )
                         + (1-w1)
                         * (
                           (((     L_x4) * coeff2x) * ( - b_LN3_C + b_LN2_C))
                         + (((      L_z) * coeff2z) * (   b_LN1))
                         ),
-                'CC': w1
+                'CC': (massTerm * KCC) 
+                        + w1
                         * (
                           (((     L_x4) * coeff1x) * (   b_SQ2_x))
                         + (((-1 * L_x4) * coeff2x) * (   b_SQ2_z))
@@ -389,19 +419,23 @@ class Eurus(BaseDiscretization):
 
             return diagonals
 
-        M1_diagonals = generateDiagonals(K_avg, Ax, Az, Bx, Bz)
+       
+        M1_diagonals = generateDiagonals(1., Ax, Az, Bx, Bz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M1_diagonals)
         prepareDiagonals(M1_diagonals)
-
-        M2_diagonals = generateDiagonals(0.   , Gx, Gz, Hx, Hz)
+ 
+        M2_diagonals = generateDiagonals(0. , Cx, Cz, Dx, Dz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M2_diagonals)
         prepareDiagonals(M2_diagonals)
-
-        M3_diagonals = generateDiagonals(0.   , Ex, Ez, Fx, Fz)
+        
+        M3_diagonals = generateDiagonals(0. , Ex, Ez, Fx, Fz, KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M3_diagonals)
         prepareDiagonals(M3_diagonals)
 
-        M4_diagonals = generateDiagonals(K_avg, Cx, Cz, Dx, Dz)
+        M4_diagonals = generateDiagonals(1. ,Gx, Gz, Hx, Hz,  KAA, KBB, KCC, KDD, KEE, KFF, KGG, KHH, KII)
+        self._setupBoundary(M4_diagonals)
         prepareDiagonals(M4_diagonals)
 
-        # self._setupBoundary(diagonals, freeSurf)
         offsets = [offsets[key] for key in keys]
 
         M1_diagonals = [M1_diagonals[key] for key in keys]
@@ -416,67 +450,59 @@ class Eurus(BaseDiscretization):
         M4_diagonals = [M4_diagonals[key] for key in keys]
         M4_A = sp.diags(M4_diagonals, offsets, shape=(nrows, nrows), format='csr', dtype=np.complex128)
 
-        # Need to switch these matrices together
         # A = [M1_A M2_A
         #      M3_A M4_A]
 
         A = sp.bmat([[M1_A, M2_A],[M3_A,M4_A]])
         return A
+    
+    def _setupBoundary(self, diagonals):
+        '''
+        Function to set up boundary regions for the Seismic FDFD problem
+        using the 9-point finite-difference stencil from OMEGA/FULLWV.
+        
+        Args:
+            diagonals (dict): The diagonal vectors, indexed by appropriate string keys
+            freeSurf (tuple): Determines which free-surface conditions are active
+        
+        The diagonals are modified in-place.
+        '''
+
+        keys = [key for key in diagonals if key is not 'EE']
+
+        for key in keys:
+            diagonals[key][:,0] = 0.
+            diagonals[key][:,-1] = 0.
+            diagonals[key][0,:] = 0.
+            diagonals[key][-1,:] = 0.
 
     @property
     def A(self):
+        'The sparse system matrix'   
         if getattr(self, '_A', None) is None:
             self._A = self._initHelmholtzNinePoint()
         return self._A
 
     @property
     def mord(self):
+        'Determines matrix ordering'  
+    
         return getattr(self, '_mord', ('-nx', '+1'))
 
     @property
     def cPML(self):
+        'The convolutional PML coefficient. It is experimentally determined for each project.'
+        
         return getattr(self, '_cPML', 1e3)
 
     @property
     def nPML(self):
+        'The depth of the PML (Perfectly Matched Layer) region in gridpoints'
+        
         return getattr(self, '_nPML', 10)
     
-    @property
-    def theta(self):
-        if getattr(self, '_theta', None) is None:
-            self._theta = np.zeros((self.nz, self.nx))
-            
-        if isinstance(self._theta, np.ndarray):
-            return self._theta
-        else:
-            return self._theta * np.ones((self.nz, self.nx), dtype=np.float64)
-
-    @property
-    def eps(self):
-        if getattr(self, '_eps', None) is None:
-            self._eps = np.zeros((self.nz, self.nx))
-            
-        if isinstance(self._eps, np.ndarray):
-            return self._eps
-        else:
-            return self._eps * np.ones((self.nz, self.nx), dtype=np.float64)
-
-    @property
-    def delta(self):
-        if getattr(self, '_delta', None) is None:
-            self._delta = np.zeros((self.nz, self.nx))
-            
-        if isinstance(self._delta, np.ndarray):
-            return self._delta
-        else:
-            return self._delta * np.ones((self.nz, self.nx), dtype=np.float64)
-    
-    @property
-    def dampcoeff(self):
-        return 1j / getattr(self, '_tau', np.inf)
-    
     def __mul__(self, rhs):
-        
+        'The action of the inverse of the matrix A'    
         clipResult = False
         
         if 2*rhs.shape[0] == self.shape[1]:
@@ -484,16 +510,35 @@ class Eurus(BaseDiscretization):
             if isinstance(rhs, sp.spmatrix):
                 rhs = sp.vstack([rhs, sp.csr_matrix(rhs.shape, dtype=np.complex128)])
             else:
-                rhs = np.vstack([rhs, np.zeros(rhs.shape)])
+                rhs = np.vstack([rhs, np.zeros(rhs.shape, dtype=np.complex128)])
             
             clipResult = True
                 
         elif rhs.shape[0] != self.shape[1]:
             raise ValueError('dimension mismatch')
         
-        result = self.Ainv * rhs
+        result = super(Eurus, self).__mul__(rhs)
         
         if clipResult:
-            result = result[:self.shape[0]/2,:]
+            result = result[:self.shape[1]/2,:]
             
         return result
+
+
+class EurusHD(Eurus):
+    '''
+    Implements Transversely Isotropic 2D (visco)acoustic frequency-domain wave physics using a mixed-grid 
+    finite-difference approach (Originally Proposed by Operto et al. (2009)).
+
+    Includes half-differentiation of the source by default.
+    '''
+
+    @property
+    def premul(self):
+        '''
+        A premultiplication factor, used by 2.5D. The default value implements
+        half-differentiation of the source, which corrects for 3D spreading.
+        '''
+
+        cfact = np.sqrt(-2j*np.pi * self.freq)
+        return getattr(self, '_premul', cfact)

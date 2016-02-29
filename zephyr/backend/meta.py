@@ -30,8 +30,14 @@ class AMMetaClass(type):
             for key in initMap:
                 if initMap[key] is None:
                     del(initMap[key])
-        
+         
         attrs['initMap'] = initMap
+        
+        baseMasks = reduce(set.union, (getattr(base, 'maskKeys', set()) for base in bases))
+        maskKeys = set.union(baseMasks, attrs.get('maskKeys', set()))
+        
+        if maskKeys:
+            attrs['maskKeys'] = maskKeys
         
         return type.__new__(mcs, name, bases, attrs)
     
@@ -191,7 +197,7 @@ class BaseSCCache(AttributeMapper):
     systemConfig object used to initialize it.
     '''
     
-    maskKeys = []
+    maskKeys = set()
     cacheItems = []
     
     def __init__(self, systemConfig):
@@ -314,3 +320,42 @@ class BaseModelDependent(AttributeMapper):
         else:
             return np.array([lind / self.nx, np.mod(lind, self.nx)]).T
 
+
+class BaseAnisotropic(BaseModelDependent):
+
+    initMap = {
+    #   Argument        Required    Rename as ...   Store as type
+        'theta':        (False,     '_theta',       np.float64),
+        'eps':          (False,     '_eps',         np.float64),
+        'delta':        (False,     '_delta',       np.float64),
+    }
+
+    @property
+    def theta(self):
+        if getattr(self, '_theta', None) is None:
+            self._theta = np.zeros((self.nz, self.nx))
+            
+        if isinstance(self._theta, np.ndarray):
+            return self._theta
+        else:
+            return self._theta * np.ones((self.nz, self.nx), dtype=np.float64)
+
+    @property
+    def eps(self):
+        if getattr(self, '_eps', None) is None:
+            self._eps = np.zeros((self.nz, self.nx))
+            
+        if isinstance(self._eps, np.ndarray):
+            return self._eps
+        else:
+            return self._eps * np.ones((self.nz, self.nx), dtype=np.float64)
+
+    @property
+    def delta(self):
+        if getattr(self, '_delta', None) is None:
+            self._delta = np.zeros((self.nz, self.nx))
+            
+        if isinstance(self._delta, np.ndarray):
+            return self._delta
+        else:
+            return self._delta * np.ones((self.nz, self.nx), dtype=np.float64)

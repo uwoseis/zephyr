@@ -9,14 +9,6 @@ import scipy.sparse as sp
 from .meta import AttributeMapper, BaseSCCache, BaseModelDependent
 from .solver import DirectSolver
 
-try:
-    from multiprocessing import Pool, Process
-except ImportError:
-    PARALLEL = False
-else:
-    PARALLEL = True
-
-PARTASK_TIMEOUT = 60
 
 class BaseDiscretization(BaseModelDependent):
     '''
@@ -29,7 +21,25 @@ class BaseDiscretization(BaseModelDependent):
         'rho':          (False,     '_rho',         np.float64),
         'freq':         (True,      None,           np.complex128),
         'Solver':       (False,     '_Solver',      None),
+        'tau':          (False,     '_tau',         np.float64),
+        'premul':       (False,     '_premul',      np.complex128),
     }
+    
+    @property
+    def tau(self):
+        'Laplace-domain damping time constant'
+        return getattr(self, '_tau', np.inf)
+    
+    @property
+    def dampCoeff(self):
+        'Computed damping coefficient to be added to real omega'
+        return 1j / self.tau
+    
+    @property
+    def premul(self):
+        'A premultiplication factor, used by 2.5D and half differentiation'
+        
+        return getattr(self, '_premul', 1.)
     
     @property
     def c(self):
@@ -65,7 +75,7 @@ class BaseDiscretization(BaseModelDependent):
     
     def __mul__(self, rhs):
         'Action of multiplying the inverted system by a right-hand side'
-        return self.Ainv * rhs
+        return (self.Ainv * (self.premul * rhs)).conjugate()
     
     def __call__(self, value):
         return self*value
@@ -80,9 +90,11 @@ class DiscretizationWrapper(BaseSCCache):
     
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        'disc':         (True,      None,           None),
+        'Disc':         (True,      None,           None),
         'scaleTerm':    (False,     '_scaleTerm',   np.complex128),
     }
+    
+    maskKeys = {'scaleTerm'}
     
     cacheItems = ['_subProblems']
     
@@ -112,7 +124,7 @@ class DiscretizationWrapper(BaseSCCache):
         
         if getattr(self, '_subProblems', None) is None:
             
-            self._subProblems = map(self.disc, self._spConfigs)
+            self._subProblems = map(self.Disc, self._spConfigs)
         return self._subProblems
     
     @property
@@ -121,70 +133,3 @@ class DiscretizationWrapper(BaseSCCache):
     
     def __mul__(self, rhs):
         raise NotImplementedError
-
-
-class MultiFreq(DiscretizationWrapper):
-    '''
-    Wrapper to carry out forward-modelling using the stored
-    discretization over a series of frequencies.
-    '''
-    
-    initMap = {
-    #   Argument        Required    Rename as ...   Store as type
-        'disc':         (True,      '_disc',        None),
-        'freqs':        (True,      None,           list),
-        'parallel':     (False,     '_parallel',    bool),
-    }
-    
-    maskKeys = ['disc', 'freqs', 'parallel']
-    
-    @property
-    def parallel(self):
-        'Determines whether to operate in parallel'
-        
-        return PARALLEL and getattr(self, '_parallel', True)
-    
-    @property
-    def spUpdates(self):
-        'Updates for frequency subProblems'
-        
-        return [{'freq': freq} for freq in self.freqs]
-    
-    @property
-    def disc(self):
-        'The discretization to instantiate'
-        
-        return self._disc
-
-    def __mul__(self, rhs):
-        '''
-        Carries out the multiplication of the composite system
-        by the right-hand-side vector(s).
-        
-        Args:
-            rhs (array-like or list thereof): Source vectors
-        
-        Returns:
-            u (iterator over np.ndarrays): Wavefields
-        '''
-        
-        if isinstance(rhs, list):
-            getRHS = lambda i: rhs[i]
-        else:
-            getRHS = lambda i: rhs
-        
-        if self.parallel:
-            pool = Pool()
-            plist = []
-            for i, sp in enumerate(self.subProblems):
-                
-                p = pool.apply_async(sp, (getRHS(i),))
-                plist.append(p)
-            
-            u = (self.scaleTerm*p.get(PARTASK_TIMEOUT) for p in plist)
-            pool.close()
-            pool.join()
-        else:
-            u = (self.scaleTerm*(sp*getRHS(i)) for i, sp in enumerate(self.subProblems))
-        
-        return u

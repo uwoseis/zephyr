@@ -27,6 +27,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
     #   Argument        Required    Rename as ...   Store as type
         'geom':         (True,      None,           dict),
         'freqs':        (True,      None,           tuple),
+        'sterms':       (False,     '_sterms',      np.complex128),
     }
     
     def __init__(self, *args, **kwargs):
@@ -69,12 +70,16 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
         return self.geom.get('rec', None)
     
     @property
-    def sTerms(self):
+    def ssTerms(self):
         return self.geom.get('sterms', np.ones((self.nsrc,), dtype=np.complex128))
     
     @property
-    def rTerms(self):
+    def srTerms(self):
         return self.geom.get('rterms', np.ones((self.nrec,), dtype=np.complex128))
+
+    @property
+    def tsTerms(self):
+        return getattr(self, '_sterms', 1.)
     
     @property
     def nsrc(self):
@@ -100,20 +105,20 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
     @property
     def sVecs(self):
         if not hasattr(self, '_sVecs'):
-            self._sVecs = self.rhsGenerator(self.sLocs) * sp.diags(self.sTerms, 0)
+            self._sVecs = self.rhsGenerator(self.sLocs) * sp.diags(self.ssTerms, 0)
         return self._sVecs
     
     def rVec(self, isrc):
         if self.mode == 'fixed':
             if not hasattr(self, '_rVecs'):
-                self._rVecs = (self.rhsGenerator(self.rLocs) * sp.diags(self.rTerms, 0)).T
+                self._rVecs = (self.rhsGenerator(self.rLocs) * sp.diags(self.srTerms, 0)).T
             return self._rVecs
         
         elif self.mode == 'relative':
             if not hasattr(self, '_rVecs'):
                 self._rVecs = {}
             if isrc not in self._rVecs:
-                self._rVecs[isrc] = (self.rhsGenerator(self.rLocs + self.sLocs[isrc]) * sp.diags(self.rTerms, 0)).T
+                self._rVecs[isrc] = (self.rhsGenerator(self.rLocs + self.sLocs[isrc]) * sp.diags(self.srTerms, 0)).T
             return self._rVecs[isrc]
     
     @property
