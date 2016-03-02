@@ -221,8 +221,10 @@ class FullwvDatastore(BaseDatastore):
             src = self[fn]
             nsrc = srcGeom.shape[0]
             tm = TimeMachine(sc)
-            assert src.shape[0] == 1 or src.shape[0] == nsrc
-            assert src.shape[1] == tm.ns
+            if src.shape[0] != 1 and src.shape[0] != nsrc:
+                print('Source nsrc does not match project nsrc; using first term for all sources')
+                src = src[:0,:]
+            assert src.shape[1] == tm.ns, 'Source ns does not match computed ns'
             sterm = tm.dft(src)
             sc['sterm'] = sterm
 
