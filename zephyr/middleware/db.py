@@ -9,7 +9,7 @@ from pygeo.segyread import SEGYFile
 import cPickle
 
 from .util import compileDict, readini
-from .time import BaseTimeSensitive
+from .time import BaseTimeSensitive, TimeMachine
 
 ftypeRegex = {
     'vp':       '^%s(?P<iter>[0-9]*)\.vp(?P<freq>[0-9]*\.?[0-9]+)?[^i]*$',
@@ -185,7 +185,7 @@ class FullwvDatastore(BaseDatastore):
             recGeom = self.ini['recs'][:,::2]
         else:
             raise Exception('Something went wrong!')
-        
+
         sc['geom'] = {
             'src':      srcGeom,
             'rec':      recGeom,
@@ -215,6 +215,18 @@ class FullwvDatastore(BaseDatastore):
         fn = '.theta'
         if fn in self:
             sc['theta'] = self[fn].T
+
+        fn = '.src'
+        if fn in self:
+            src = self[fn]
+            nsrc = srcGeom.shape[0]
+            tm = TimeMachine(sc)
+            if src.shape[0] != 1 and src.shape[0] != nsrc:
+                print('Source nsrc does not match project nsrc; using first term for all sources')
+                src = src[:0,:]
+            assert src.shape[1] == tm.ns, 'Source ns does not match computed ns'
+            sterm = tm.dft(src)
+            sc['sterm'] = sterm
 
         sc['projnm'] = self.projnm
         
