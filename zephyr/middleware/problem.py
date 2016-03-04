@@ -81,10 +81,48 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         # r.shape [<nrec, nelem> . nsrc]
                 
         resid = v.reshape((self.survey.nrec, self.survey.nsrc, self.survey.nfreq))
-        
-        if u is None:
-            u = self._lazyFields(m)
-            
+        qb = self._getVSrcs(resid)
+
+        mux = (u is None)
+        if mux:
+            qf = self._getSrcs(self.survey.tsTerms)
+            uMux = self.system * sp.hstack(qf, qb)
+            g = reduce(np.add, ((uMuxi[:,:self.survey.nsrc] * uMuxi[:,self.survey.nsrc:]).sum(axis=1) for uMuxi in uMux))
+
+        else:
+            uB = self.system * qb
+
+            if isinstance(u, HelmFields):
+                g = reduce(np.add, ((u[:,'u',ifreq] * uBi).sum(axis=1) for ifreq, uBi in enumerate(uB)))
+            else:
+                g = reduce(np.add, ((uFi * uBi).sum(axis=1) for uFi, uBi in zip(u, uB)))
+
+        return g
+
+    def _lazyFields(self, m=None):
+
+        if not self.ispaired:
+            raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
+
+        self.updateModel(m)
+
+        qf = self._getSrcs(self.survey.tsTerms)
+        uF = self.system * qf
+
+        if not np.iterable(uF):
+            uF = [uF]
+
+        return uF
+
+    def _getSrcs(self, sterms):
+        qs = self.survey.sVecs
+        if isinstance(sterms, list) or isinstance(sterms, np.ndarray):
+            qs = [qs * sterm.conjugate() for sterm in self.survey.tsTerms]
+
+        return qs
+
+    def _getVSrcs(self, resid):
+
         # Make a list of receiver vectors for each frequency, each of size <nelem, nsrc>
         qb = [
               sp.hstack(
@@ -99,31 +137,10 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
               ) # <-- Sparse matrix of size <nelem, nsrc> constructed by hstack from generator
               for ifreq in xrange(self.survey.nfreq) # <-- Outer list of size <nfreq>
              ]
-        
-        uB = self.system * qb
-        if isinstance(u, HelmFields):
-            g = reduce(np.add, ((u[:,'u',ifreq] * uBi).sum(axis=1) for ifreq, uBi in enumerate(uB)))
-        else:
-            g = reduce(np.add, ((uFi * uBi).sum(axis=1) for uFi, uBi in zip(u, uB)))
-        
-        return g
-    
-    def _lazyFields(self, m=None):
-        
-        if not self.ispaired:
-            raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
-        
-        self.updateModel(m)
-        
-        qs = self.survey.sVecs
-        if isinstance(self.survey.tsTerms, list) or isinstance(self.survey.tsTerms, np.ndarray):
-            qs = [qs * sterm.conjugate() for sterm in self.survey.tsTerms]
-        uF = self.system * qs
-        
-        if not np.iterable(uF):
-            uF = [uF]
-        
-        return uF
+
+        return qb
+
+
 
     def fields(self, m=None):
         
