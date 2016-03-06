@@ -4,6 +4,8 @@ Distribution wrappers for composite problems
 
 import numpy as np
 from .discretization import DiscretizationWrapper
+from .interpolation import SplineGridInterpolator
+from .meta import SCFilter, BaseModelDependent
 
 try:
     import multiprocessing
@@ -56,6 +58,14 @@ class BaseDist(DiscretizationWrapper):
     @systemConfig.setter
     def systemConfig(self, value):
         self._systemConfig = value
+
+    def postCall(self, i, value):
+        'Placeholder for field post-processing function'
+        return value
+
+    def preCall(self, i, value):
+        'Placeholder for RHS pre-processing function'
+        return value
 
 
 class BaseMPDist(BaseDist):
@@ -128,15 +138,15 @@ class BaseMPDist(BaseDist):
         if self.parallel:
             plist = []
             for i, sub in enumerate(self.subProblems):
-                
-                p = self.pool.apply_async(sub, (getRHS(i),))
+
+                p = self.pool.apply_async(sub, (self.preCall(i, getRHS(i)),))
                 plist.append(p)
-            
-            u = (self.scaleTerm*p.get(PARTASK_TIMEOUT) for p in plist)
-            
+
+            u = (self.scaleTerm*self.postCall(i, p.get(PARTASK_TIMEOUT)) for i, p in enumerate(plist))
+
         else:
-            u = (self.scaleTerm*(sub*getRHS(i)) for i, sub in enumerate(self.subProblems))
-        
+            u = (self.scaleTerm*self.postCall(i, sub*self.preCall(i, getRHS(i))) for i, sub in enumerate(self.subProblems))
+
         return u
 
 
@@ -209,6 +219,86 @@ class MultiFreq(BaseMPDist):
             spUpdate = {'freq': freq}
             spUpdate.update(self.addFields)
             vals.append(spUpdate)
+        return vals
+
+
+class MultiScaleMultiFreq(MultiFreq, BaseModelDependent):
+    '''
+    Wrapper to carry out forward-modelling using the stored
+    discretization over a series of frequencies, with multiple
+    computation grids based on a target number of gridpoints
+    per wavelength.
+    '''
+
+    initMap = {
+    #   Argument            Required    Rename as ...   Store as type
+        'c':                (True,      '_c',           np.complex128),
+        'freqs':            (True,      None,           list),
+        'targetGPW':        (True,      None,           np.float64),
+        'GridInterpolator': (False,     '_gi',          None),
+    }
+
+    maskKeys = {'freqs', 'c', 'gpwHigh', 'gpwLow'}
+
+    @property
+    def c(self):
+        'Complex wave velocity'
+        if isinstance(self._c, np.ndarray):
+            return self._c
+        else:
+            return self._c * np.ones((self.nz, self.nx), dtype=np.complex128)
+
+    @property
+    def GridInterpolator(self):
+        return getattr(self, '_gi', SplineGridInterpolator)
+
+    @property
+    def GIFilter(self):
+        if not hasattr(self, '_GIFilter'):
+            self._GIFilter = SCFilter(self.GridInterpolator)
+        return self._GIFilter
+
+    def postCall(self, i, field):
+        'Rescale field back to full size'
+        return self._postCall[i] * field
+
+    def preCall(self, i, RHS):
+        'Scale RHS down to reduced size'
+        return self._preCall[i] * RHS
+
+    @property
+    def spUpdates(self):
+        'Updates for frequency subProblems'
+
+        cMin = self.c.real.min()
+        cMax = self.c.real.max()
+
+        vals = []
+        preCall = []
+        postCall = []
+        for freq in self.freqs:
+            lMin = cMin / freq
+            minGPW = lMin / self.dx
+            print minGPW / self.targetGPW
+
+            scale = max(minGPW / self.targetGPW, 1.)
+            self.systemConfig['scale'] = scale
+            sc = self.GIFilter(self.systemConfig)
+            gi = self.GridInterpolator(sc)
+            c = gi * self.c
+
+            preCall.append(gi)
+            postCall.append(gi.T)
+
+            spUpdate = {
+                'freq':     freq,
+                'scale':    scale,
+                'c':        c,
+            }
+            spUpdate.update(self.addFields)
+            vals.append(spUpdate)
+        self._preCall = preCall
+        self._postCall = postCall
         return vals
 
 
