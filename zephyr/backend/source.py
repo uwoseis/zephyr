@@ -11,30 +11,30 @@ from scipy.special import i0 as bessi0
 
 class BaseSource(BaseModelDependent):
     'Trivial base class for sources'
-    
+
     pass
 
 
 class FakeSource(BaseSource):
     'Source that does nothing (for use with analytical systems)'
-    
+
     def __call__(self, loc):
-        
+
         return loc
 
-    
+
 class SimpleSource(BaseSource):
     '''
     A basic source-implementing class. This takes configuration
     from a systemConfig object, and calling it will return a set
     of right-hand-side vectors for the appropriate space locations.
     '''
-    
+
     def __init__(self, systemConfig):
         'Initialize based on systemConfig'
-        
+
         super(BaseSource, self).__init__(systemConfig)
-        
+
         if hasattr(self, 'ny'):
             raise NotImplementedError('Sources not implemented for 3D case')
             self._z, self._y, self._x = np.mgrid[
@@ -47,18 +47,18 @@ class SimpleSource(BaseSource):
                 self.zorig : self.zorig + self.dz * self.nz : self.dz,
                 self.xorig : self.xorig + self.dx * self.nx : self.dx
             ]
-    
+
     def dist(self, loc):
         '''
         Calculates the distance of each gridpoint from the source locations.
-        
+
         Args:
             loc (np.ndarray): Source locations in space
-        
+
         Returns:
             np.ndarray: The distance from each gridpoint
         '''
-        
+
         nsrc = len(loc)
         if hasattr(self, 'ny'):
             raise NotImplementedError('Sources not implemented for 3D case')
@@ -68,40 +68,40 @@ class SimpleSource(BaseSource):
         else:
             dist = np.sqrt((self._x.reshape((1, self.nz, self.nx)) - loc[:,0].reshape((nsrc, 1, 1)))**2
                          + (self._z.reshape((1, self.nz, self.nx)) - loc[:,1].reshape((nsrc, 1, 1)))**2)
-            
+
         return dist
-    
+
     def vecIndexOf(self, loc):
         'The vector index of each source location'
         return self.toVecIndex(self.linIndexOf(loc))
-    
+
     def linIndexOf(self, loc):
         'The linear index of each source location'
         nsrc = loc.shape[0]
-        
+
         dists = self.dist(loc).reshape((nsrc, self.nrow))
         return np.argmin(dists, axis=1)
-    
+
     def __call__(self, loc):
         '''
         Given source locations, return a set of right-hand-side vectors.
-        
+
         Args:
             loc (np.ndarray): Source locations in space
-        
+
         Returns:
             np.ndarray: Dense right-hand side vectors
         '''
-        
+
         nsrc = loc.shape[0]
         q = np.zeros((nsrc, self.nrow), dtype=np.complex128)
-        
+
         for i, index in enumerate(self.linIndexOf(loc)):
             q[i,index] = 1.
-        
+
         return q.T
-    
-    
+
+
 class StackedSimpleSource(SimpleSource):
     '''
     A SimpleSource subclass that returns source vectors twice the size,
@@ -123,13 +123,13 @@ class SparseKaiserSource(SimpleSource):
     Graham Hicks's Kaiser-Windowed Sinc Function sources, to allow
     for interpolating between grid points.
     '''
-    
+
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'ireg':         (False,     '_ireg',        np.int64),
         'freeSurf':     (False,     '_freeSurf',    tuple),
     }
-    
+
     HC_KAISER = {
         1:  1.24,
         2:  2.94,
@@ -142,9 +142,9 @@ class SparseKaiserSource(SimpleSource):
         9:  14.09,
         10: 14.18,
     }
-    
+
     def modifyGrid(self, Zi, Xi, aZi, aXi):
-        
+
         return Zi, Xi
 
     def kws(self, offset, aZi, aXi):
@@ -155,11 +155,11 @@ class SparseKaiserSource(SimpleSource):
         KaiserWindowedSinc(ireg, offset) --> 2D ndarray of size (2*ireg+1, 2*ireg+1)
         Input offset is the 2D offsets in fractional gridpoints between the source location and
         the nearest node on the modelling grid.
-        
+
         Args:
             offset (tuple): Distance of the centre of the source region from the true source
                             point (in 2D coordinates, in units of cells).
-        
+
         Returns:
             np.ndarray: Interpolated source region of size (2*ireg+1, 2*ireg+1)
         '''
@@ -169,14 +169,14 @@ class SparseKaiserSource(SimpleSource):
         except KeyError:
             print('Kaiser windowed sinc function not implemented for half-width of %d!'%(ireg,))
             raise
-        
+
         freg = 2*self.ireg+1
 
         xOffset, zOffset = offset
 
         # Grid from 0 to freg-1
         Zi, Xi = np.mgrid[:freg,:freg]
-        
+
         Zi, Xi = self.modifyGrid(Zi, Xi, aZi, aXi)
 
         # Distances from source point
@@ -203,25 +203,25 @@ class SparseKaiserSource(SimpleSource):
         result = responseX * responseZ
 
         return result
-    
+
     def __call__(self, sLocs):
         '''
         Given source locations, return a set of right-hand-side vectors.
-        
+
         Args:
             sLocs (np.ndarray): Source locations in space
-        
+
         Returns:
             np.ndarray: Dense right-hand side vectors
         '''
-        
+
         ireg = self.ireg
         freeSurf = self.freeSurf
         N = sLocs.shape[0]
         M = self.nz * self.nx
-        
+
         # Scale source based on the cellsize so that changing the grid doesn't
-        # change the overall source amplitude   
+        # change the overall source amplitude
         srcScale = 1. / (self.dx * self.dz)
 
         qI = self.linIndexOf(sLocs)
@@ -256,7 +256,7 @@ class SparseKaiserSource(SimpleSource):
                     index = ireg-Zi
                     if freeSurf[2]:
                         lift = np.flipud(sourceRegion[:index,:])
-                    
+
                     sourceRegion = sourceRegion[index:,:]
                     qshift = qshift[index:,:]
 
@@ -265,7 +265,7 @@ class SparseKaiserSource(SimpleSource):
 
                 if Zi > self.nz-ireg-1:
                     index = self.nz-ireg-1 - Zi
-                    if freeSurf[0]: 
+                    if freeSurf[0]:
                         lift = np.flipud(sourceRegion[index:,:])
 
                     sourceRegion = sourceRegion[:index,:]
@@ -309,7 +309,7 @@ class SparseKaiserSource(SimpleSource):
             q = sp.coo_matrix((entries[:dptr], (rows[:dptr],columns[:dptr])), shape=(N, M), dtype=np.complex128)
 
         return q.T
-    
+
     @property
     def ireg(self):
         'Half-width of the source region'
@@ -321,25 +321,25 @@ class KaiserSource(SparseKaiserSource):
     A simple wrapper class that generates dense sources
     using SparseKaiserSource.
     '''
-    
+
     def __call__(self, sLocs):
-        
+
         q = super(KaiserSource, self).__call__(sLocs)
         return q.toarray()
 
 
 class AnisotropicKaiserSource(SparseKaiserSource, BaseAnisotropic):
-    
+
     def modifyGrid(self, Zi, Xi, aZi, aXi):
-        
+
         theta   = self.theta[aZi,aXi]
         epsilon = self.eps[aZi,aXi]
         delta   = self.delta[aZi,aXi]
-        
+
         wx = (1. + (2*epsilon) +np.sqrt(1+(2*delta)))/(1 + epsilon + np.sqrt(1+(2*delta)))
         wz = (1.  + np.sqrt(1+(2*delta)))/(1 + epsilon + np.sqrt(1+(2*delta)))
-        
+
         Xi = Xi*(wx*np.cos(theta)) + Xi*(wz*np.sin(theta))
         Zi = Zi*(wx*np.sin(theta)) + Zi*(wz*np.cos(theta))
-        
+
         return Zi, Xi
