@@ -167,7 +167,7 @@ class SparseKaiserSource(SimpleSource):
         try:
             b = self.HC_KAISER.get(self.ireg)
         except KeyError:
-            print('Kaiser windowed sinc function not implemented for half-width of %d!'%(ireg,))
+            print('Kaiser windowed sinc function not implemented for half-width of %d!'%(self.ireg,))
             raise
 
         freg = 2*self.ireg+1

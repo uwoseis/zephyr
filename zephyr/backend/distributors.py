@@ -222,7 +222,6 @@ class ViscoMultiFreq(MultiFreq):
 
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        # 'nky':          (False,     '_nky',         np.int64),
         'c':            (True,      None,           np.float64),
         'Q':            (False,     None,           np.float64),
         'freqBase':     (False,     None,           np.float64),

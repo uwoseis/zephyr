@@ -167,9 +167,9 @@ class SCFilter(object):
 
         if not hasattr(clslist, '__contains__'):
             clslist = [clslist]
-        self.required = reduce(set.union, (cls.required for cls in clslist if issubclass(cls, AMMetaClass)))
-        self.optional = reduce(set.union, (cls.optional for cls in clslist if issubclass(cls, AMMetaClass)))
 
+        self.required = reduce(set.union, (cls.required for cls in clslist if issubclass(cls, AttributeMapper)))
+        self.optional = reduce(set.union, (cls.optional for cls in clslist if issubclass(cls, AttributeMapper)))
         self.optional.symmetric_difference_update(self.required)
 
     def __call__(self, systemConfig):
@@ -187,8 +187,8 @@ class SCFilter(object):
         for key in self.required:
             if key not in systemConfig:
                 raise ValueError('%s requires parameter \'%s\''%(cls.__name__, key))
-        return {key: systemConfig[key] for key in set.union(self.required, self.optional)}
 
+        return {key: systemConfig[key] for key in set.union(self.required, self.optional) if key in systemConfig}
 
 
 class BaseSCCache(AttributeMapper):
