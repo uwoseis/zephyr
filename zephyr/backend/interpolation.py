@@ -134,6 +134,8 @@ class BaseGridInterpolator(BaseModelDependent, BaseSCCache):
             systemConfigT['scale'] = 1. / self.scale
             systemConfigT['nx'] = self.snx
             systemConfigT['nz'] = self.snz
+            systemConfigT['dx'] = self.sdx
+            systemConfigT['dz'] = self.sdz
             self._T = self.__class__(systemConfigT)
 
             # assert self._T.shape[0] == self.shape[1]
@@ -141,9 +143,25 @@ class BaseGridInterpolator(BaseModelDependent, BaseSCCache):
 
         return self._T
 
+    @property
+    def scaleUpdate(self):
+
+        update = {
+            'nx':   self.snx,
+            'nz':   self.snz,
+            'dx':   self.sdx,
+            'dz':   self.sdz,
+        }
+
+        return update
+
     def __mul__(self, value):
 
         raise NotImplementedError
+
+    def __call__(self, value):
+
+        return self * value
 
 
 class SplineGridInterpolator(BaseGridInterpolator):
@@ -152,6 +170,21 @@ class SplineGridInterpolator(BaseGridInterpolator):
     '''
 
     def __mul__(self, rhs):
+
+        if self.shape[0] == self.shape[1]:
+            return rhs
+
+        if rhs.ndim == 2:
+            output = np.zeros((self.shape[0], rhs.shape[1]), dtype=rhs.dtype.type)
+            for i in xrange(rhs.shape[1]):
+                output[:,i] = self * rhs[:,i]
+            return output
+
+        elif rhs.ndim > 2:
+            raise NotImplementedError('%s does not support %dD inputs'%(self.__class__.__name__, rhs.ndim))
+
+        if issubclass(rhs.dtype.type, np.complex):
+            return (self * rhs.real) + 1j * (self * rhs.imag)
 
         rbs = RectBivariateSpline(self.Z, self.X, rhs.reshape((self.nz, self.nx)))
         result = rbs(self.sZ, self.sX, grid=True)

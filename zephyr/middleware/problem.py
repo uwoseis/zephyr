@@ -1,7 +1,7 @@
 
 import numpy as np
 import scipy.sparse as sp
-from ..backend import BaseModelDependent, BaseSCCache, MultiFreq, ViscoMultiFreq
+from ..backend import BaseModelDependent, BaseSCCache, MultiFreq, ViscoMultiFreq, ViscoMultiGridMultiFreq
 import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
 from .fields import HelmFields
@@ -81,21 +81,29 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         # r.shape [<nrec, nelem> . nsrc]
 
         resid = v.reshape((self.survey.nrec, self.survey.nsrc, self.survey.nfreq))
-        qb = self._getVSrcs(resid)
+        qb = self.survey.getResidualSources(resid)
 
         mux = (u is None)
         if mux:
-            qf = self._getSrcs(self.survey.tsTerms)
-            uMux = self.system * sp.hstack(qf, qb)
-            g = reduce(np.add, ((uMuxi[:,:self.survey.nsrc] * uMuxi[:,self.survey.nsrc:]).sum(axis=1) for uMuxi in uMux))
+            qf = self.survey.getSources()
+
+            if np.isiterable(qb):
+                qm = (sp.hstack(qFi, qBi) for qFi, qBi in zip(qf, qb))
+                uMux = self.system * qm
+            else:
+                uMux = self.system * sp.hstack(qf, qb)
+
+            g = reduce(np.add, (pp((uMuxi[:,:self.survey.nsrc] * uMuxi[:,self.survey.nsrc:]).sum(axis=1)) for uMuxi, pp in zip(uMux, self.survey.postProcessors)))
 
         else:
-            uB = self.system * qb
+            uB = (pp(uBi) for uBi, pp in zip(self.system * qb, self.survey.postProcessors))
 
             if isinstance(u, HelmFields):
-                g = reduce(np.add, ((u[:,'u',ifreq] * uBi).sum(axis=1) for ifreq, uBi in enumerate(uB)))
+                uIter = (u[:,'u',ifreq] for ifreq in xrange(self.survey.nfreq))
             else:
-                g = reduce(np.add, ((uFi * uBi).sum(axis=1) for uFi, uBi in zip(u, uB)))
+                uIter = u
+
+            g = reduce(np.add, ((uFi * uBi).sum(axis=1) for uFi, uBi in zip(uIter, uB)))
 
         return g
 
@@ -106,7 +114,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 
         self.updateModel(m)
 
-        qf = self._getSrcs(self.survey.tsTerms)
+        qf = self.survey.getSources()
         uF = self.system * qf
 
         if not np.iterable(uF):
@@ -114,37 +122,11 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 
         return uF
 
-    def _getSrcs(self, sterms):
-        qs = self.survey.sVecs
-        if isinstance(sterms, list) or isinstance(sterms, np.ndarray):
-            qs = [qs * sterm.conjugate() for sterm in self.survey.tsTerms]
-
-        return qs
-
-    def _getVSrcs(self, resid):
-
-        # Make a list of receiver vectors for each frequency, each of size <nelem, nsrc>
-        qb = [
-              sp.hstack(
-               [self.survey.rVec(isrc).T * # <-- <nelem, nrec>
-                sp.csc_matrix(resid[:,isrc, ifreq].reshape((self.survey.nrec,1))) # <-- <nrec, 1>
-                for isrc in xrange(self.survey.nsrc)
-               ] # <-- List comprehension creates sparse vectors of size <nelem, 1> for each source and all receivers
-#                (self.survey.rVec(isrc).T * # <-- <nelem, nrec>
-#                 sp.csc_matrix(resid[:,isrc, ifreq].reshape((self.survey.nrec,1))) # <-- <nrec, 1>
-#                 for isrc in xrange(self.survey.nsrc)
-#                ) # <-- Generator expression creates sparse vectors of size <nelem, 1> for each source and all receivers
-              ) # <-- Sparse matrix of size <nelem, nsrc> constructed by hstack from generator
-              for ifreq in xrange(self.survey.nfreq) # <-- Outer list of size <nfreq>
-             ]
-
-        return qb
-
-
-
     def fields(self, m=None):
 
         uF = self._lazyFields(m)
+        uF = (pp(uFi) for uFi, pp in zip(uF, self.survey.postProcessors))
+
         fields = HelmFields(self.mesh, self.survey)
 
         for ifreq, uFsub in enumerate(uF):
@@ -167,6 +149,10 @@ class Helm2DProblem(HelmBaseProblem):
 class Helm2DViscoProblem(Helm2DProblem):
 
     SystemWrapper = ViscoMultiFreq
+
+class Helm2DViscoMultiGridProblem(Helm2DProblem):
+
+    SystemWrapper = ViscoMultiGridMultiFreq
 
 
 class Helm25DProblem(HelmBaseProblem):
