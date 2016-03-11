@@ -225,8 +225,8 @@ class FullwvDatastore(BaseDatastore):
                 print('Source nsrc does not match project nsrc; using first term for all sources')
                 src = src[:0,:]
             assert src.shape[1] == tm.ns, 'Source ns does not match computed ns'
-            sterm = tm.dft(src)
-            sc['sterm'] = sterm
+            sterms = tm.dft(src)
+            sc['sterms'] = sterms[:,1:tm.ns/2+1]
 
         sc['projnm'] = self.projnm
         
