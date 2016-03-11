@@ -226,7 +226,7 @@ class FullwvDatastore(BaseDatastore):
                 src = src[:0,:]
             assert src.shape[1] == tm.ns, 'Source ns does not match computed ns'
             sterms = tm.dft(src)
-            sc['sterms'] = sterms[:,1:tm.ns/2+1]
+            sc['sterms'] = sterms[:,1:tm.ns/2+1].T
 
         sc['projnm'] = self.projnm
         
