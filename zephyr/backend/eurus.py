@@ -540,5 +540,5 @@ class EurusHD(Eurus):
         half-differentiation of the source, which corrects for 3D spreading.
         '''
 
-        cfact = np.sqrt(-2j*np.pi * self.freq)
+        cfact = np.sqrt(2j*np.pi * self.freq)
         return getattr(self, '_premul', cfact)
