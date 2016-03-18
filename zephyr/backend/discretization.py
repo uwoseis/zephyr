@@ -6,7 +6,7 @@ Discretization base classes for Zephyr
 import copy
 import numpy as np
 import scipy.sparse as sp
-from .meta import AttributeMapper, BaseSCCache, BaseModelDependent
+from .meta import BaseSCCache, BaseModelDependent
 from .solver import DirectSolver
 
 

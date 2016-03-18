@@ -61,7 +61,7 @@ class MiniZephyr(BaseDiscretization):
         omegaDamped = omega - self.dampCoeff
         padopts = {'pad_width': 1, 'mode': 'edge'}
         cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
-        rhoPad  = np.pad(rho, **padopts)
+        rhoPad  = np.pad(rho.real, **padopts)
 
         aky = 2*np.pi * self.ky
 
@@ -331,7 +331,7 @@ class MiniZephyrHD(MiniZephyr):
         half-differentiation of the source, which corrects for 3D spreading.
         '''
 
-        cfact = np.sqrt(-2j*np.pi * self.freq)
+        cfact = np.sqrt(2j*np.pi * self.freq)
         return getattr(self, '_premul', cfact)
 
 

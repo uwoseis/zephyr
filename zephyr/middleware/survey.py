@@ -285,11 +285,12 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
         return data
 
     def getSources(self):
-        if (isinstance(self.tsTerms, list) or isinstance(self.tsTerms, np.ndarray)):
-            qs = [self.sVecs(ifreq) * sterm.conjugate() for ifreq, sterm in enumerate(self.tsTerms)]
+
+        if isinstance(self.tsTerms, list) or isinstance(self.tsTerms, np.ndarray):
+            qs = [self.sVecs(ifreq) * sp.diags(sterm.conjugate(),0) if np.iterable(sterm) else sterm.conjugate() * self.sVecs(ifreq) for ifreq, sterm in enumerate(self.tsTerms)]
         else:
             sterm = self.tsTerms
-            qs = [self.sVecs(ifreq) * sterm.conjugate() for ifreq in xrange(self.nfreq)]
+            qs = [sterm.conjugate() * self.sVecs(ifreq) for ifreq in xrange(self.nfreq)]
 
         return qs
 
