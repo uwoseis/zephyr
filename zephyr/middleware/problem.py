@@ -65,6 +65,14 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             self._system = self.SystemWrapper(self.systemConfig)
         return self._system
 
+    @staticmethod
+    def gradientScaler(ifreq):
+
+        omega = 2*np.pi * self.survey.freqs[ifreq]
+        c = self.system.subProblems[ifreq].c
+
+        return -(omega**2 / c**3).ravel()
+
     @SimPEG.Utils.timeIt
     def Jtvec(self, m=None, v=None, u=None):
 
@@ -93,7 +101,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             else:
                 uMux = self.system * sp.hstack(qf, qb)
 
-            g = reduce(np.add, (pp((uMuxi[:,:self.survey.nsrc] * uMuxi[:,self.survey.nsrc:]).sum(axis=1)) for uMuxi, pp in zip(uMux, self.survey.postProcessors)))
+            g = reduce(np.add, (self.gradientScaler(ifreq) * pp((uMuxi[:,:self.survey.nsrc] * uMuxi[:,self.survey.nsrc:]).sum(axis=1)) for ifreq, uMuxi, pp in zip(xrange(self.survey.nfreq), uMux, self.survey.postProcessors)))
 
         else:
             uB = (pp(uBi) for uBi, pp in zip(self.system * qb, self.survey.postProcessors))
@@ -103,7 +111,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             else:
                 uIter = u
 
-            g = reduce(np.add, ((uFi * uBi).sum(axis=1) for uFi, uBi in zip(uIter, uB)))
+            g = reduce(np.add, (self.gradientScaler(ifreq) * (uFi * uBi).sum(axis=1) for ifreq, uFi, uBi in zip(xrange(self.survey.nfreq), uIter, uB))).real
 
         return g
 
