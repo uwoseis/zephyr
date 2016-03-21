@@ -1,6 +1,8 @@
 
 import SimPEG
 
+EPS = 1e-10
+
 class NodalIdentityMap(SimPEG.Maps.IdentityMap):
 
     @property
@@ -31,20 +33,24 @@ class NodalIdentityMap(SimPEG.Maps.IdentityMap):
 
 class SquaredSlownessMap(NodalIdentityMap):
 
+    @property
+    def eps(self):
+        return EPS
+
     def _transform(self, m):
 
         m = NodalIdentityMap._transform(self, m)
-        return 1. / m**2
 
+        return 1. / (m**2 + self.eps)
 
     def inverse(self, D):
-        D = 1. / np.sqrt(D)
 
+        D = 1. / (np.sqrt(D) + self.eps)
 
         return NodalIdentityMap._transform(self, D)
 
     def deriv(self, m):
 
         m = NodalIdentityMap._transform(self, m)
-        return 1. / m**2
 
+        return 1. / (m**2 + self.eps)
