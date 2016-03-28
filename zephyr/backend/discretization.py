@@ -52,13 +52,15 @@ class BaseDiscretization(BaseModelDependent):
     @property
     def rho(self):
         'Bulk density'
-        if getattr(self, '_rho', None) is None:
-            self._rho = 310. * self.c**0.25
-
-        if isinstance(self._rho, np.ndarray):
-            return self._rho
+        if not hasattr(self, '_rho':
+            self._rho = 310. * self.c.real**0.25
+        return self._rho
+    @rho.setter
+    def rho(self, value):
+        if isinstance(value, np.ndarray):
+            self._rho = value
         else:
-            return self._rho * np.ones((self.nz, self.nx), dtype=np.float64)
+            self._rho = value * np.ones((self.nz, self.nx), dtype=np.float64)
 
     @property
     def shape(self):
