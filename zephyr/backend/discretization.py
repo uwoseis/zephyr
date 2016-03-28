@@ -52,7 +52,7 @@ class BaseDiscretization(BaseModelDependent):
     @property
     def rho(self):
         'Bulk density'
-        if not hasattr(self, '_rho':
+        if not hasattr(self, '_rho'):
             self._rho = 310. * self.c.real**0.25
         return self._rho
     @rho.setter
