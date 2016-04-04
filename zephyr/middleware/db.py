@@ -32,7 +32,7 @@ class UtoutWriter(BaseTimeSensitive):
     AttributeMapper subclass that implements writing frequency-domain
     data to a .utout file.
     '''
-    
+
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'projnm':       (True,      None,           str),
@@ -62,14 +62,14 @@ class UtoutWriter(BaseTimeSensitive):
 
 
 class BaseDatastore(object):
-    
+
     def __init__(self, projnm):
-        
+
         pass
 
     @property
     def systemConfig(self):
-        
+
         raise NotImplementedError
 
 
@@ -127,14 +127,14 @@ class FullwvDatastore(BaseDatastore):
 
         if key.find(self.projnm) != 0:
             key = self.projnm + key
-            
+
         if key in self:
             return self.handled[key][sl]
         else:
             raise KeyError(key)
 
     def __contains__(self, key):
-        
+
         if key.find(self.projnm) != 0:
             key = self.projnm + key
         return key in self.handled
@@ -149,10 +149,10 @@ class FullwvDatastore(BaseDatastore):
             'nfiles': len(self.handled),
         }
         return '<%(name)s(%(projnm)s) comprising %(nfiles)d files>'%report
-    
+
     @property
     def systemConfig(self):
-        
+
         transferKeys = {
             'nx':       None,
             'nz':       None,
@@ -165,7 +165,7 @@ class FullwvDatastore(BaseDatastore):
             'isreg':    'ireg',
             'freqbase': 'freqBase',
         }
-        
+
         sc = {key if transferKeys[key] is None else transferKeys[key]: self.ini[key] for key in transferKeys}
 
         sc['tau'] = self.ini['tau'] if abs(np.float(self.ini['tau']) - 999.999) > 1e-2 else np.inf
@@ -176,7 +176,7 @@ class FullwvDatastore(BaseDatastore):
             self.ini['fsb'],
             self.ini['fsl'],
         )
-        
+
         if self.ini['srcs'].shape[1] <=3:
             srcGeom = self.ini['srcs'][:,:2]
             recGeom = self.ini['recs'][:,:2]
@@ -191,27 +191,27 @@ class FullwvDatastore(BaseDatastore):
             'rec':      recGeom,
             'mode':     'fixed',
         }
-        
+
         fn = '.vp'
         if fn in self:
             sc['c'] = self[fn].T
-        
+
         fn = '.qp'
         if fn in self:
             sc['Q'] = 1./self[fn].T
-        
+
         fn = '.rho'
         if fn in self:
             sc['rho'] = self[fn].T
-        
+
         fn = '.eps2d'
         if fn in self:
             sc['eps'] = self[fn].T
-        
+
         fn = '.del2d'
         if fn in self:
             sc['delta'] = self[fn].T
-        
+
         fn = '.theta'
         if fn in self:
             sc['theta'] = self[fn].T
@@ -229,22 +229,22 @@ class FullwvDatastore(BaseDatastore):
             sc['sterms'] = sterms[:,1:tm.ns/2+1].T
 
         sc['projnm'] = self.projnm
-        
+
         return sc
-    
+
     def dataFiles(self, ftype):
-        
+
         dKeep = self.keepers['data']
         fns = [fn for fn in dKeep if fn.find(ftype) > -1]
         ffreqs = [float(dKeep[fn]['freq']) for fn in fns]
         order = np.argsort(ffreqs)
         fns = [fns[i] for i in order]
         ffreqs = [ffreqs[i] for i in order]
-        
+
         return fns, ffreqs
-    
+
     def spoolData(self, fid=slice(None), ftype='utobs'):
-        
+
         ifreqs = self.ini['freqs'][fid]
         fns, ffreqs = self.dataFiles(ftype)
         sffreqs = ['%0.3f'%freq for freq in ffreqs]
@@ -291,7 +291,7 @@ class FlatDatastore(BaseDatastore):
 
 
 class PickleDatastore(BaseDatastore):
-    
+
     def __init__(self, projnm):
 
         infile = '%s.pickle'%(projnm,)
@@ -300,7 +300,7 @@ class PickleDatastore(BaseDatastore):
             systemConfig = unp.load()
 
         self.systemConfig = systemConfig
-    
+
 
 # class HDF5Datastore(BaseDatastore):
 
