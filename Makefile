@@ -38,4 +38,7 @@ epsgraphs:
 dotgraphs:
 	mkdir -p graphs && cd graphs && pyreverse -my -A -o dot -p zephyr ../zephyr/**/**.py
 
+pdfgraphs:
+	mkdir -p graphs && cd graphs && pyreverse -my -A -o pdf -p zephyr ../zephyr/**/**.py
+
 graphs: dotgraphs pnggraphs
