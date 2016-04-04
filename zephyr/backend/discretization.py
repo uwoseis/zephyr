@@ -18,7 +18,7 @@ class BaseDiscretization(BaseModelDependent):
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'c':            (True,      '_c',           np.complex128),
-        'rho':          (False,     '_rho',         np.float64),
+        'rho':          (False,     None,           np.float64),
         'freq':         (True,      None,           np.complex128),
         'Solver':       (False,     '_Solver',      None),
         'tau':          (False,     '_tau',         np.float64),
