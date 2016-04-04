@@ -49,7 +49,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         omega   = 2*np.pi * self.freq
         padopts = {'pad_width': 1, 'mode': 'edge'}
         cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
-        rhoPad  = np.pad(rho.real, **padopts)
+        rhoPad  = np.pad(rho, **padopts)
 
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.dx
