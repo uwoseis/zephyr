@@ -18,7 +18,7 @@ class BaseDiscretization(BaseModelDependent):
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'c':            (True,      '_c',           np.complex128),
-        'rho':          (False,     None,           np.float64),
+        'rho':          (False,     '_rho',         np.float64),
         'freq':         (True,      None,           np.complex128),
         'Solver':       (False,     '_Solver',      None),
         'tau':          (False,     '_tau',         np.float64),
@@ -52,15 +52,13 @@ class BaseDiscretization(BaseModelDependent):
     @property
     def rho(self):
         'Bulk density'
-        if not hasattr(self, '_rho'):
-            self._rho = 310. * self.c.real**0.25
-        return self._rho
-    @rho.setter
-    def rho(self, value):
-        if isinstance(value, np.ndarray):
-            self._rho = value
+        if hasattr(self, '_rho'):
+            if not isinstance(self._rho, np.ndarray):
+                return self._rho * np.ones((self.nz, self.nx), dtype=np.float64)
         else:
-            self._rho = value * np.ones((self.nz, self.nx), dtype=np.float64)
+            self._rho = 310. * self.c.real**0.25
+
+        return self._rho
 
     @property
     def shape(self):
