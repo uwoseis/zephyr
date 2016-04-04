@@ -65,13 +65,12 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             self._system = self.SystemWrapper(self.systemConfig)
         return self._system
 
-    @staticmethod
-    def gradientScaler(ifreq):
+    def gradientScaler(self, ifreq):
 
         omega = 2*np.pi * self.survey.freqs[ifreq]
         c = self.system.subProblems[ifreq].c
 
-        return -(omega**2 / c**3).ravel()
+        return self.survey.postProcessors[ifreq](-(omega**2 / c**3).ravel())
 
     @SimPEG.Utils.timeIt
     def Jtvec(self, m=None, v=None, u=None):

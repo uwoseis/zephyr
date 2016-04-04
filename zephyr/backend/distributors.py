@@ -214,7 +214,7 @@ class MultiFreq(BaseMPDist):
         return vals
 
 
-class ViscoMultiFreq(MultiFreq):
+class ViscoMultiFreq(MultiFreq, BaseModelDependent):
     '''
     Wrapper to carry out forward-modelling using the stored
     discretization over a series of frequencies. Preserves
