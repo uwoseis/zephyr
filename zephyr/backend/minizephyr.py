@@ -61,7 +61,7 @@ class MiniZephyr(BaseDiscretization):
         omegaDamped = omega - self.dampCoeff
         padopts = {'pad_width': 1, 'mode': 'edge'}
         cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
-        rhoPad  = np.pad(rho.real, **padopts)
+        rhoPad  = np.pad(rho, **padopts)
 
         aky = 2*np.pi * self.ky
 

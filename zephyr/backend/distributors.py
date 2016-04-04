@@ -130,6 +130,7 @@ class BaseMPDist(BaseDist):
         if self.parallel:
             plist = []
             for i, sub in enumerate(self.subProblems):
+
                 p = self.pool.apply_async(sub, (getRHS(i),))
                 plist.append(p)
 
@@ -249,16 +250,20 @@ class ViscoMultiFreq(MultiFreq):
 
     @property
     def Q(self):
-        return getattr(self, '_Q', np.inf)
+        if hasattr(self, '_Q'):
+            if not isinstance(self._Q, np.ndarray):
+                return self._Q * np.ones((self.nz, self.nx), dtype=np.float64)
+        else:
+            self._Q = np.inf
+
+        return self._Q
     @Q.setter
     def Q(self, value):
-
         criteria = value <= 0
         try:
             assert not criteria
         except TypeError:
             assert not self._any(criteria)
-
         self._Q = value
 
     @property
