@@ -238,7 +238,7 @@ class ViscoMultiFreq(MultiFreq, BaseModelDependent):
         if type(criteria) in (bool, np.bool_):
             return criteria
         else:
-            return any(criteria)
+            return np.any(criteria)
 
     @property
     def freqBase(self):
