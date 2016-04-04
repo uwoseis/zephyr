@@ -192,7 +192,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
 
     @property
     def postProcessors(self):
-        return (lambda x: x for _ in self.freqs)
+        return [lambda x: x for _ in self.freqs]
 
 
 class HelmMultiGridSurvey(HelmBaseSurvey):

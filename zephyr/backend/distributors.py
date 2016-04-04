@@ -291,7 +291,7 @@ class ViscoMultiFreq(MultiFreq, BaseModelDependent):
 
         else:
             for freq in self.freqs:
-                c = self.c + (0.5j * self.c / self.Q) # NB: + b/c of FT convention
+                c = self.c.ravel() + (0.5j * self.c.ravel() / self.Q.ravel()) # NB: + b/c of FT convention
                 spUpdate = {
                     'freq': freq,
                     'c':    c,
