@@ -434,8 +434,8 @@ class ViscoMultiGridMultiFreq(ViscoMultiFreq,MultiGridMultiFreq):
             for i in xrange(len(self.freqs)):
                 ds = self.mgHelper.downScalers[i]
 
-                c = self.c + (0.5j * self.c / self.Q) # NB: + b/c of FT convention
-                c = ds * c.ravel()
+                c = self.c.ravel() + (0.5j * self.c.ravel() / self.Q.ravel()) # NB: + b/c of FT convention
+                c = ds * c
 
                 spUpdate = {
                     'freq': self.freqs[i],
