@@ -141,6 +141,11 @@ class BaseMPDist(BaseDist):
 
         return u
 
+    def __del__(self):
+        if hasattr(self, '_pool'):
+            self._pool.close()
+            del self._pool
+
 
 class BaseIPYDist(BaseDist):
 
