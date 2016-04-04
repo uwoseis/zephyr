@@ -23,7 +23,7 @@ class MiniZephyr(BaseDiscretization):
     Implements 2D (visco)acoustic frequency-domain wave physics, with
     some accommodations for 2.5D wave modelling.
     '''
-        
+
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'nPML':         (False,     '_nPML',        np.int64),
@@ -38,7 +38,7 @@ class MiniZephyr(BaseDiscretization):
         second-order version based on work by a number of people in the mid-90s
         including Ivan Stekl. The boundary conditions are based on the PML
         implementation by Steve Roecker in fdfdpml.f.
-        
+
         Returns:
             a sparse system matrix
         '''
@@ -111,7 +111,7 @@ class MiniZephyr(BaseDiscretization):
         dpmlx[:,-nPML:] = (np.arange(1, nPML+1, 1)*dx).reshape((1,nPML))
         dnx     = pmlfx*c*dpmlx**2
         ddnx    = 2*pmlfx*c*dpmlx
-        denx    = dnx + iom 
+        denx    = dnx + iom
         r1x     = iom / denx
         r1xsq   = r1x**2
         r2x     = isnx*r1xsq*ddnx/denx
@@ -250,11 +250,11 @@ class MiniZephyr(BaseDiscretization):
         '''
         Function to set up boundary regions for the Seismic FDFD problem
         using the 9-point finite-difference stencil from OMEGA/FULLWV.
-        
+
         Args:
             diagonals (dict): The diagonal vectors, indexed by appropriate string keys
             freeSurf (tuple): Determines which free-surface conditions are active
-        
+
         The diagonals are modified in-place.
         '''
 
@@ -292,7 +292,7 @@ class MiniZephyr(BaseDiscretization):
     @property
     def A(self):
         'The sparse system matrix'
-        
+
         if getattr(self, '_A', None) is None:
             self._A = self._initHelmholtzNinePoint()
         return self._A
@@ -300,19 +300,19 @@ class MiniZephyr(BaseDiscretization):
     @property
     def mord(self):
         'Determines matrix ordering'
-        
+
         return getattr(self, '_mord', ('+nx', '+1'))
-    
+
     @property
     def nPML(self):
         'The depth of the PML (Perfectly Matched Layer) region in gridpoints'
-        
+
         return getattr(self, '_nPML', 10)
 
     @property
     def ky(self):
         'The cross-line wavenumber for 2.5D operation'
-        
+
         return getattr(self, '_ky', 0.)
 
 
@@ -341,7 +341,7 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
     by carrying out a Fourier summation over cross-line wavenumbers.
     Wraps a series of MiniZephyr instances.
     '''
-    
+
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'Disc':         (False,     '_Disc',        None),
@@ -349,26 +349,26 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
         'parallel':     (False,     '_parallel',    bool),
         'cmin':         (False,     '_cmin',        np.float64),
     }
-    
+
     maskKeys = ['nky', 'Disc', 'parallel']
-    
+
     @property
     def Disc(self):
         'The discretization to be applied to each wavenumber subproblem'
-        
+
         if getattr(self, '_Disc', None) is None:
             from minizephyr import MiniZephyr
             self._Disc = MiniZephyr
         return self._Disc
-    
+
     @property
     def nky(self):
         'The number of y-directional (cross-line) wavenumber components'
-        
+
         if getattr(self, '_nky', None) is None:
             self._nky = 1
         return self._nky
-    
+
     @property
     def pkys(self):
         '''
@@ -376,7 +376,7 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
         The regular sampling of these wavenumbers corresponds to
         Fourier quadrature; i.e., an inverse DFT.
         '''
-        
+
         # By regular sampling strategy
         indices = np.arange(self.nky)
         if self.nky > 1:
@@ -384,70 +384,70 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
         else:
             dky = 0.
         return indices * dky
-    
+
     @property
     def kyweights(self):
         '''
         The weights used for each corresponding ky term (i.e., .pkys).
         Equal weights for each sample correspond to an inverse DFT.
         '''
-        
+
         indices = np.arange(self.nky)
         weights = 1. + (indices > 0)
         return weights
-    
+
     @property
     def cmin(self):
         'The minimum velocity in the model, or a representative equivalent'
-        
+
         if getattr(self, '_cmin', None) is None:
             return np.min(self.c)
         else:
             return self._cmin
-    
+
     @property
     def spUpdates(self):
         'A list of dictionaries that override the systemConfig for each subProblem'
-        
+
         weightfac = 1./(2*self.nky - 1) if self.nky > 1 else 1.
         return [{'ky': ky, 'premul': weightfac*(1. + (ky > 0))} for ky in self.pkys]
-    
+
     @property
     def parallel(self):
         'Determines whether to operate in parallel'
-        
+
         return PARALLEL and getattr(self, '_parallel', True)
 
     @property
     def scaleTerm(self):
         'A scaling term to apply to the output wavefield'
-        
+
         return getattr(self, '_scaleTerm', 1.) * np.exp(1j * np.pi) / (4*np.pi)
-    
+
     def __mul__(self, rhs):
         '''
         Carries out the multiplication of the composite system
         by the right-hand-side vector(s).
-        
+
         Args:
             rhs (array-like or list thereof): Source vectors
-        
+
         Returns:
             u (iterator over np.ndarrays): Wavefields
         '''
-        
+
         if self.parallel:
             pool = Pool()
             plist = []
             for sp in self.subProblems:
                 p = pool.apply_async(sp, (rhs,))
                 plist.append(p)
-            
+
             u = (p.get(PARTASK_TIMEOUT) for p in plist)
             pool.close()
             pool.join()
         else:
             u = (sp*rhs for sp in self.subProblems)
-        
+
         return self.scaleTerm * reduce(np.add, u)
 

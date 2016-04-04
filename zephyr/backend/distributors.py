@@ -4,6 +4,8 @@ Distribution wrappers for composite problems
 
 import numpy as np
 from .discretization import DiscretizationWrapper
+from .interpolation import SplineGridInterpolator
+from .meta import SCFilter, BaseModelDependent, BaseSCCache
 
 try:
     import multiprocessing
@@ -15,7 +17,7 @@ else:
 PARTASK_TIMEOUT = None
 
 class BaseDist(DiscretizationWrapper):
-    
+
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'Disc':         (True,      '_Disc',        None),
@@ -23,9 +25,9 @@ class BaseDist(DiscretizationWrapper):
         'nWorkers':     (False,     '_nWorkers',    np.int64),
         'remDists':     (False,     None,           list),
     }
-    
+
     maskKeys = {'remDists'}
-    
+
     @property
     def remDists(self):
         'Remaining distributor objects in the call graph'
@@ -36,19 +38,19 @@ class BaseDist(DiscretizationWrapper):
         if value:
             self._DiscOverride = value.pop(0)
         self._remDists = value
-    
+
     @property
     def Disc(self):
         'The discretization to instantiate'
 
         return getattr(self, '_DiscOverride', self._Disc)
-    
+
     @property
     def addFields(self):
         'Returns additional fields for the subProblem systemConfigs'
 
         return {'remDists': self.remDists}
-    
+
     @property
     def systemConfig(self):
         self._systemConfig.update(self.remDists)
@@ -59,15 +61,15 @@ class BaseDist(DiscretizationWrapper):
 
 
 class BaseMPDist(BaseDist):
-    
+
     maskKeys = {'parallel'}
-    
+
     @property
     def parallel(self):
-        'Determines whether to operate in parallel' 
+        'Determines whether to operate in parallel'
 
         return PARALLEL and getattr(self, '_parallel', True)
-    
+
     @property
     def pool(self):
         'Returns a configured multiprocessing Pool'
@@ -75,17 +77,17 @@ class BaseMPDist(BaseDist):
         if self.parallel:
             if not hasattr(self, '_pool'):
                 self._pool = multiprocessing.Pool(self.nWorkers)
-            return self._pool            
-            
+            return self._pool
+
         else:
             raise Exception('Cannot start parallel pool; multiprocessing seems to be unavailable')
-    
+
     @property
     def nWorkers(self):
         'Returns the configured number of parallel workers'
 
         return min(getattr(self, '_nWorkers', 100), self.cpuCount)
-    
+
     @property
     def cpuCount(self):
         'Returns the multiprocessing CPU count'
@@ -94,67 +96,67 @@ class BaseMPDist(BaseDist):
             return multiprocessing.cpu_count()
         else:
             return 1
-    
+
     @property
     def addFields(self):
         'Returns additional fields for the subProblem systemConfigs'
 
         fields = super(BaseMPDist, self).addFields
-        
+
         remCap = self.cpuCount / self.nWorkers
         if (self.nWorkers < self.cpuCount) and remCap > 1:
-            
+
             fields.update({'parallel': True, 'nWorkers': remCap})
-            
+
         return fields
-    
+
     def __mul__(self, rhs):
         '''
         Carries out the multiplication of the composite system
         by the right-hand-side vector(s).
-        
+
         Args:
             rhs (array-like or list thereof): Source vectors
-        
+
         Returns:
             u (iterator over np.ndarrays): Wavefields
         '''
-        
+
         if isinstance(rhs, list):
             getRHS = lambda i: rhs[i]
         else:
             getRHS = lambda i: rhs
-        
+
         if self.parallel:
             plist = []
             for i, sub in enumerate(self.subProblems):
-                
+
                 p = self.pool.apply_async(sub, (getRHS(i),))
                 plist.append(p)
-            
+
             u = (self.scaleTerm*p.get(PARTASK_TIMEOUT) for p in plist)
-            
+
         else:
             u = (self.scaleTerm*(sub*getRHS(i)) for i, sub in enumerate(self.subProblems))
-        
+
         return u
 
 
 class BaseIPYDist(BaseDist):
-    
+
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'profile':      (False,     '_profile',     str),
     }
-    
+
     maskKeys = {'profile'}
-    
+
     @property
     def profile(self):
         'Returns the IPython parallel profile'
 
         return getattr(self, '_profile', 'default')
-    
+
     @property
     def pClient(self):
         'Returns the IPython parallel client'
@@ -171,7 +173,7 @@ class BaseIPYDist(BaseDist):
         if not hasattr(self, '_dView'):
             self._dView = self.pClient[:]
         return self._dView
-    
+
     @property
     def lView(self):
         'Returns a load-balanced view on the IPython parallel client'
@@ -179,7 +181,7 @@ class BaseIPYDist(BaseDist):
         if not hasattr(self, '_lView'):
             self._lView = self.pClient.load_balanced_view()
         return self._lView
-    
+
     @property
     def nWorkers(self):
         'Returns the configured number of parallel workers'
@@ -192,14 +194,14 @@ class MultiFreq(BaseMPDist):
     Wrapper to carry out forward-modelling using the stored
     discretization over a series of frequencies.
     '''
-    
+
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
         'freqs':        (True,      None,           list),
     }
-    
+
     maskKeys = {'freqs'}
-    
+
     @property
     def spUpdates(self):
         'Updates for frequency subProblems'
@@ -212,7 +214,7 @@ class MultiFreq(BaseMPDist):
         return vals
 
 
-class ViscoMultiFreq(MultiFreq):
+class ViscoMultiFreq(MultiFreq, BaseModelDependent):
     '''
     Wrapper to carry out forward-modelling using the stored
     discretization over a series of frequencies. Preserves
@@ -222,7 +224,6 @@ class ViscoMultiFreq(MultiFreq):
 
     initMap = {
     #   Argument        Required    Rename as ...   Store as type
-        # 'nky':          (False,     '_nky',         np.int64),
         'c':            (True,      None,           np.float64),
         'Q':            (False,     None,           np.float64),
         'freqBase':     (False,     None,           np.float64),
@@ -237,7 +238,7 @@ class ViscoMultiFreq(MultiFreq):
         if type(criteria) in (bool, np.bool_):
             return criteria
         else:
-            return any(criteria)
+            return np.any(criteria)
 
     @property
     def freqBase(self):
@@ -249,16 +250,20 @@ class ViscoMultiFreq(MultiFreq):
 
     @property
     def Q(self):
-        return getattr(self, '_Q', np.inf)
+        if hasattr(self, '_Q'):
+            if not isinstance(self._Q, np.ndarray):
+                return self._Q * np.ones((self.nz, self.nx), dtype=np.float64)
+        else:
+            self._Q = np.inf
+
+        return self._Q
     @Q.setter
     def Q(self, value):
-
         criteria = value <= 0
         try:
             assert not criteria
         except TypeError:
             assert not self._any(criteria)
-
         self._Q = value
 
     @property
@@ -286,7 +291,7 @@ class ViscoMultiFreq(MultiFreq):
 
         else:
             for freq in self.freqs:
-                c = self.c + (0.5j * self.c / self.Q) # NB: + b/c of FT convention
+                c = self.c.ravel() + (0.5j * self.c.ravel() / self.Q.ravel()) # NB: + b/c of FT convention
                 spUpdate = {
                     'freq': freq,
                     'c':    c,
@@ -303,15 +308,207 @@ class SerialMultiFreq(MultiFreq):
     discretization over a series of frequencies. Enforces
     serial execution.
     '''
-    
+
     @property
     def parallel(self):
-        'Determines whether to operate in parallel' 
+        'Determines whether to operate in parallel'
 
         return False
-    
+
     @property
     def addFields(self):
         'Returns additional fields for the subProblem systemConfigs'
 
         return {}
+
+
+class MultiGridMultiFreq(MultiFreq, BaseModelDependent):
+    '''
+    Wrapper to carry out forward-modelling using the stored
+    discretization over a series of frequencies, with multiple
+    computation grids based on a target number of gridpoints
+    per wavelength.
+    '''
+
+    initMap = {
+    #   Argument            Required    Rename as ...   Store as type
+        'c':                (True,      '_c',           np.complex128),
+        'freqs':            (True,      None,           list),
+        'cMin':             (True,      None,           np.float64),
+        'targetGPW':        (True,      None,           np.float64),
+    }
+
+    @property
+    def c(self):
+        'Complex wave velocity'
+        if isinstance(self._c, np.ndarray):
+            return self._c
+        else:
+            return self._c * np.ones((self.nz, self.nx), dtype=np.complex128)
+
+    @property
+    def mgHelper(self):
+        'MultiGridHelper instance'
+
+        if not hasattr(self, '_mgHelper'):
+            sc = {key: self.systemConfig[key] for key in self.systemConfig}
+            sc['freqs'] = self.freqs
+            self._mgHelper = MultiGridHelper(sc)
+        return self._mgHelper
+
+    @property
+    def spUpdates(self):
+        'Updates for frequency subProblems'
+
+        vals = []
+        for i in xrange(len(self.freqs)):
+
+            ds = self.mgHelper.downScalers[i]
+            c = ds * self.c.ravel()
+
+            spUpdate = {
+                'freq':     self.freqs[i],
+                'c':        c,
+            }
+            spUpdate.update(ds.scaleUpdate)
+            spUpdate.update(self.addFields)
+            vals.append(spUpdate)
+        return vals
+
+
+class ViscoMultiGridMultiFreq(ViscoMultiFreq,MultiGridMultiFreq):
+    '''
+    Wrapper to carry out forward-modelling using the stored
+    discretization over a series of frequencies. Preserves
+    causality by modelling velocity dispersion in the
+    presence of a non-infinite Q model.
+    '''
+
+    initMap = {
+    #   Argument        Required    Rename as ...   Store as type
+        # 'nky':          (False,     '_nky',         np.int64),
+        'c':            (True,      '_c',           np.float64),
+    }
+
+    maskKeys = {'freqs', 'Q', 'freqBase'}
+
+    @property
+    def c(self):
+        'Complex wave velocity'
+        if isinstance(self._c, np.ndarray):
+            return self._c
+        else:
+            return self._c * np.ones((self.nz, self.nx), dtype=np.float64)
+
+    @property
+    def spUpdates(self):
+        'Updates for frequency subProblems'
+
+        vals = []
+        if self.disperseFreqs:
+            for i in xrange(len(self.freqs)):
+                freq = self.freqs[i]
+                fact = 1. + (np.log(freq / self.freqBase) / (np.pi * self.Q))
+                assert not self._any(fact < 0.1)
+
+                ds = self.mgHelper.downScalers[i]
+
+                cR = fact * self.c
+                c = cR + (0.5j * cR / self.Q) # NB: + b/c of FT convention
+                c = ds * c.ravel()
+
+                spUpdate = {
+                    'freq': freq,
+                    'c':    c,
+                }
+
+                if isinstance(self.Q, np.ndarray):
+                    Q = ds * self.Q.ravel()
+                    spUpdate['Q'] = Q
+
+                spUpdate.update(ds.scaleUpdate)
+                spUpdate.update(self.addFields)
+                vals.append(spUpdate)
+
+        else:
+            for i in xrange(len(self.freqs)):
+                ds = self.mgHelper.downScalers[i]
+
+                c = self.c + (0.5j * self.c / self.Q) # NB: + b/c of FT convention
+                c = ds * c.ravel()
+
+                spUpdate = {
+                    'freq': self.freqs[i],
+                    'c':    c,
+                }
+
+                if isinstance(self.Q, np.ndarray):
+                    Q = ds * self.Q.ravel()
+                    spUpdate['Q'] = Q
+
+                spUpdate.update(ds.scaleUpdate)
+                spUpdate.update(self.addFields)
+                vals.append(spUpdate)
+
+        return vals
+
+
+class MultiGridHelper(BaseModelDependent,BaseSCCache):
+
+    initMap = {
+    #   Argument            Required    Rename as ...   Store as type
+        'cMin':             (True,      None,           np.complex128),
+        'freqs':            (True,      None,           list),
+        'targetGPW':        (True,      None,           np.float64),
+        'GridInterpolator': (False,     '_gi',          None),
+        'maxScale':         (False,     '_maxScale',    np.float64),
+        'minScale':         (False,     '_minScale',    np.float64),
+    }
+
+    @property
+    def maxScale(self):
+        return getattr(self, '_maxScale', 10.)
+
+    @property
+    def minScale(self):
+        return getattr(self, '_minScale', 1.)
+
+    @property
+    def GridInterpolator(self):
+        return getattr(self, '_gi', SplineGridInterpolator)
+
+    @property
+    def GIFilter(self):
+        if not hasattr(self, '_GIFilter'):
+            self._GIFilter = SCFilter(self.GridInterpolator)
+        return self._GIFilter
+
+    @property
+    def scales(self):
+        'Downscaling factors'
+        return [np.median(((self.cMin / freq / self.dx / self.targetGPW).real, self.maxScale, self.minScale)) for freq in self.freqs]
+
+    @property
+    def downScalers(self):
+        'Matrices to downscale'
+
+        if not hasattr(self, '_downScalers'):
+
+            scaleUpdates = [{key: self.systemConfig[key] for key in self.systemConfig} for scale in self.scales]
+            for scale, sc in zip(self.scales, scaleUpdates):
+                update = {
+                    'scale':    scale,
+                }
+                sc.update(update)
+
+            self._downScalers = [self.GridInterpolator(self.GIFilter(sc)) for sc in scaleUpdates]
+        return self._downScalers
+
+    @property
+    def upScalers(self):
+        'Matrices to upscale'
+
+        if not hasattr(self, '_upScalers'):
+            self._upScalers = [ds.T for ds in self.downScalers]
+        return self._upScalers
+
