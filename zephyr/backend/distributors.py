@@ -255,9 +255,8 @@ class ViscoMultiFreq(MultiFreq, BaseModelDependent):
 
     @property
     def Q(self):
-        if hasattr(self, '_Q'):
-            if not isinstance(self._Q, np.ndarray):
-                return self._Q * np.ones((self.nz, self.nx), dtype=np.float64)
+        if hasattr(self, '_Q') and not isinstance(self._Q, np.ndarray):
+            return self._Q * np.ones((self.nz, self.nx), dtype=np.float64)
         else:
             self._Q = np.inf
 
