@@ -5,7 +5,7 @@ from zephyr.backend import SimpleSource, StackedSimpleSource, SparseKaiserSource
 class TestSources(unittest.TestCase):
     
     @staticmethod
-    def elementNorm(arr):
+    def _elementNorm(arr):
         return np.sqrt((arr.conj()*arr).sum()) / arr.size
 
     def setUp(self):
@@ -45,7 +45,7 @@ class TestSources(unittest.TestCase):
         qsks    = sks(loc)
         qks     = ks(loc)
 
-        self.assertTrue(self.elementNorm(qsks.toarray() - qks) == 0.)
+        self.assertTrue(self._elementNorm(qsks.toarray() - qks) == 0.)
 
     def test_KaiserSourceSimpleCase(self):
 
@@ -64,5 +64,5 @@ class TestSources(unittest.TestCase):
         qss = ss(loc)
         qks = ks(loc)
 
-        self.assertTrue(self.elementNorm(qks - qss) < 1e-10)
+        self.assertTrue(self._elementNorm(qks - qss) < 1e-10)
 
