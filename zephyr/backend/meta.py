@@ -134,14 +134,14 @@ class AttributeMapper(object):
     def required(cls):
         'Property to return required fields in initMap'
 
-        return set([key for key in cls.initMap if cls.initMap[key][0]])
+        return {key for key in cls.initMap if cls.initMap[key][0]}
 
     @ClassProperty
     @classmethod
     def optional(cls):
         'Property to return optional fields in initMap'
 
-        return set([key for key in cls.initMap if not cls.initMap[key][0]])
+        return {key for key in cls.initMap if not cls.initMap[key][0]}
 
 
 class SCFilter(object):
