@@ -186,7 +186,8 @@ class TimeMachine(BaseTimeSensitive):
 
         return fdata[:, 1:fdata.shape[1]/2 + 1]
 
-    def dft(self, a):
+    @staticmethod
+    def dft(a):
         '''
         Automatically carry out the forward discrete Fourier transform.
         '''
@@ -196,7 +197,8 @@ class TimeMachine(BaseTimeSensitive):
         return dftreal(a, a.shape[0], a.shape[1]).T
 
 
-    def idft(self, A):
+    @staticmethod
+    def idft(A):
         '''
         Automatically carry out the inverse discrete Fourier transform.
         '''
@@ -207,21 +209,24 @@ class TimeMachine(BaseTimeSensitive):
 
         return idftreal(A, ns, A.shape[1]).T
 
-    def fft(self, a):
+    @staticmethod
+    def fft(a):
         '''
         Automatically carry out the forward fast Fourier transform.
         '''
         
         raise NotImplementedError
 
-    def ifft(self, A):
+    @staticmethod
+    def ifft(A):
         '''
         Automatically carry out the inverse fast Fourier transform.
         '''
         
         raise NotImplementedError
 
-    def timeSlice(self, slices):
+    @staticmethod
+    def timeSlice(slices):
         '''
         Carry out forward modelling and return time slices.
         '''

@@ -315,13 +315,15 @@ class SerialMultiFreq(MultiFreq):
     '''
 
     @property
-    def parallel(self):
+    @staticmethod
+    def parallel():
         'Determines whether to operate in parallel'
 
         return False
 
     @property
-    def addFields(self):
+    @staticmethod
+    def addFields():
         'Returns additional fields for the subProblem systemConfigs'
 
         return {}

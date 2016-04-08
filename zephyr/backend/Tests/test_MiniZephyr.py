@@ -11,7 +11,8 @@ class TestMiniZephyr(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_cleanExecution(self):
+    @staticmethod
+    def test_cleanExecution():
 
         systemConfig = {
             'c':        2500.,                          # m/s
@@ -31,7 +32,8 @@ class TestMiniZephyr(unittest.TestCase):
         q = src(sloc)
         u = Ainv*q
 
-    def test_cleanExecution25D(self):
+    @staticmethod
+    def test_cleanExecution25D():
 
         systemConfig = {
             'c':        2500.,                          # m/s
@@ -53,7 +55,8 @@ class TestMiniZephyr(unittest.TestCase):
         q = src(sloc)
         u = Ainv*q
 
-    def test_cleanExecution25DParallel(self):
+    @staticmethod
+    def test_cleanExecution25DParallel():
 
         systemConfig = {
             'c':        2500.,                          # m/s

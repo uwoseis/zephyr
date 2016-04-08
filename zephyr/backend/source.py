@@ -143,7 +143,8 @@ class SparseKaiserSource(SimpleSource):
         10: 14.18,
     }
 
-    def modifyGrid(self, Zi, Xi, aZi, aXi):
+    @staticmethod
+    def modifyGrid(Zi, Xi, aZi, aXi):
 
         return Zi, Xi
 

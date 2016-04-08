@@ -11,7 +11,8 @@ class TestSources(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_cleanExecution(self):
+    @staticmethod
+    def test_cleanExecution():
 
         systemConfig = {
             'nx':       100,

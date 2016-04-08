@@ -104,7 +104,8 @@ class FullwvDatastore(BaseDatastore):
                 handled[fn] = self.handle(ftype, fn)
         self.handled = handled
 
-    def sfWrapper(self, filename):
+    @staticmethod
+    def sfWrapper(filename):
 
         sf = SEGYFile(filename)
         return sf
