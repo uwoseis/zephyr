@@ -114,7 +114,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 
         return g
 
-    def _lazyFields(self, m=None):
+    def lazyFields(self, m=None):
 
         if not self.ispaired:
             raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
@@ -131,7 +131,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 
     def fields(self, m=None):
 
-        uF = self._lazyFields(m)
+        uF = self.lazyFields(m)
         uF = (pp(uFi) for uFi, pp in zip(uF, self.survey.postProcessors))
 
         fields = HelmFields(self.mesh, self.survey)
