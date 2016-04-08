@@ -52,7 +52,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             self.clearCache()
 
         elif isinstance(m, np.ndarray) or isinstance(m, np.inexact) or isinstance(m, complex) or isinstance(m, float):
-            if not np.linalg.norm(m - self.systemConfig.get(loneKey, 0.)) < EPS:
+            if not np.linalg.norm(m.ravel() - self.systemConfig.get(loneKey, 0.).ravel()) < EPS:
                 self.systemConfig[loneKey] = m
                 self.clearCache()
 
