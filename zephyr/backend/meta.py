@@ -44,7 +44,7 @@ class AMMetaClass(type):
     def __call__(cls, *args, **kwargs):
         'Instantiate a subsclass of AttributeMapper'
 
-        if len(args) < 1:
+        if not args:
             raise TypeError('__init__() takes at least 2 arguments (1 given)')
         systemConfig = args[0]
 
