@@ -63,11 +63,11 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
 
     @property
     def sLocs(self):
-        return self.geom.get('src', None)
+        return self.geom.get('src')
 
     @property
     def rLocs(self):
-        return self.geom.get('rec', None)
+        return self.geom.get('rec')
 
     @property
     def ssTerms(self):
