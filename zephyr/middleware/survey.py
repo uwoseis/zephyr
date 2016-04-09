@@ -63,11 +63,11 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
 
     @property
     def sLocs(self):
-        return self.geom.get('src', None)
+        return self.geom.get('src')
 
     @property
     def rLocs(self):
-        return self.geom.get('rec', None)
+        return self.geom.get('rec')
 
     @property
     def ssTerms(self):
@@ -185,7 +185,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
     def dpred(self, m=None, u=None):
 
         if u is None:
-            u = self.prob._lazyFields(m)
+            u = self.prob.lazyFields(m)
             return self._lazyProjectFields(u).ravel()
         else:
             return self.projectFields(u).ravel()

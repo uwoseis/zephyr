@@ -34,7 +34,8 @@ class NodalIdentityMap(SimPEG.Maps.IdentityMap):
 class SquaredSlownessMap(NodalIdentityMap):
 
     @property
-    def eps(self):
+    @staticmethod
+    def eps():
         return EPS
 
     def _transform(self, m):

@@ -255,6 +255,12 @@ class ViscoMultiFreq(MultiFreq, BaseModelDependent):
 
     @property
     def Q(self):
+
+        # NB: QC says to merge these two statements. Do not do that. The code
+        #     "hasattr(self, '_Q') and not isinstance(self._Q, np.ndarray)"
+        #     does not behave the same way in terms of when the 'else' statement
+        #     is fired.
+
         if hasattr(self, '_Q'):
             if not isinstance(self._Q, np.ndarray):
                 return self._Q * np.ones((self.nz, self.nx), dtype=np.float64)
@@ -315,13 +321,15 @@ class SerialMultiFreq(MultiFreq):
     '''
 
     @property
-    def parallel(self):
+    @staticmethod
+    def parallel():
         'Determines whether to operate in parallel'
 
         return False
 
     @property
-    def addFields(self):
+    @staticmethod
+    def addFields():
         'Returns additional fields for the subProblem systemConfigs'
 
         return {}

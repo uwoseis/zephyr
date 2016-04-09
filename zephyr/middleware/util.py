@@ -18,9 +18,8 @@ def readini (infile):
     Reads (2.5-D) omega ini file of a given filename.
     '''
 
-    f = open(infile, 'r')
-    lines = f.readlines()
-    f.close()
+    with open(infile, 'r') as fp:
+        lines = fp.readlines()
 
     settingsdict = {}
 

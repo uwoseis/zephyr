@@ -8,7 +8,8 @@ class TestAnalyticalHelmholtz(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_cleanExecution(self):
+    @staticmethod
+    def test_cleanExecution():
 
         nx = 100
         nz = 200

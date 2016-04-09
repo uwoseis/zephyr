@@ -456,7 +456,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         A = sp.bmat([[M1_A, M2_A],[M3_A,M4_A]])
         return A
 
-    def _setupBoundary(self, diagonals):
+    @staticmethod
+    def _setupBoundary(diagonals):
         '''
         Function to set up boundary regions for the Seismic FDFD problem
         using the 9-point finite-difference stencil from OMEGA/FULLWV.
