@@ -255,8 +255,15 @@ class ViscoMultiFreq(MultiFreq, BaseModelDependent):
 
     @property
     def Q(self):
-        if hasattr(self, '_Q') and not isinstance(self._Q, np.ndarray):
-            return self._Q * np.ones((self.nz, self.nx), dtype=np.float64)
+
+        # NB: QC says to merge these two statements. Do not do that. The code
+        #     "hasattr(self, '_Q') and not isinstance(self._Q, np.ndarray)"
+        #     does not behave the same way in terms of when the 'else' statement
+        #     is fired.
+
+        if hasattr(self, '_Q'):
+            if not isinstance(self._Q, np.ndarray):
+                return self._Q * np.ones((self.nz, self.nx), dtype=np.float64)
         else:
             self._Q = np.inf
 

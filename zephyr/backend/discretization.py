@@ -52,8 +52,15 @@ class BaseDiscretization(BaseModelDependent):
     @property
     def rho(self):
         'Bulk density'
-        if hasattr(self, '_rho') and not isinstance(self._rho, np.ndarray):
-            return self._rho * np.ones((self.nz, self.nx), dtype=np.float64)
+
+        # NB: QC says to merge these two statements. Do not do that. The code
+        #     "hasattr(self, '_rho') and not isinstance(self._rho, np.ndarray)"
+        #     does not behave the same way in terms of when the 'else' statement
+        #     is fired.
+
+        if hasattr(self, '_rho'):
+            if not isinstance(self._rho, np.ndarray):
+                return self._rho * np.ones((self.nz, self.nx), dtype=np.float64)
         else:
             self._rho = 310. * self.c.real**0.25
 
