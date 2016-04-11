@@ -141,10 +141,25 @@ class BaseMPDist(BaseDist):
 
         return u
 
-    def __del__(self):
+    @property
+    def factors(self):
+        # What this does:
+        #   Return true if there is a pool defined
+        #   If there isn't, check to see if _subProblems exists; if it does, return False
+        #   If _subProblems *does* exist, check each subProblem to see if it has matrix factors.
+        #   If any subProblem has factors, return True.
+        return hasattr(self, '_pool') or not ((not hasattr(self, '_subProblems')) or (not any((sp.factors for sp in self.subProblems))))
+    @factors.deleter
+    def factors(self):
         if hasattr(self, '_pool'):
             self._pool.close()
             del self._pool
+        if hasattr(self, '_subProblems'):
+            for sp in self.subProblems:
+                del sp.factors
+
+    def __del__(self):
+        del self.factors
 
 
 class BaseIPYDist(BaseDist):

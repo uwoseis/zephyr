@@ -141,6 +141,13 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 
         return fields
 
+    @property
+    def factors(self):
+        return self.system.factors
+    @factors.deleter
+    def factors(self):
+        del self.system.factors
+
 
 class Helm2DProblem(HelmBaseProblem):
 

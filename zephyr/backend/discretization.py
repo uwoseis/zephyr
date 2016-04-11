@@ -78,6 +78,17 @@ class BaseDiscretization(BaseModelDependent):
             self._Ainv = DirectSolver(getattr(self, '_Solver', None))
             self._Ainv.A = self.A.tocsc()
         return self._Ainv
+    @Ainv.deleter
+    def Ainv(self):
+        if hasattr(self, '_Ainv'):
+            del self._Ainv
+
+    @property
+    def factors(self):
+        return hasattr(self, '_Ainv')
+    @factors.deleter
+    def factors(self):
+        del self.Ainv
 
     def __mul__(self, rhs):
         'Action of multiplying the inverted system by a right-hand side'
@@ -132,6 +143,15 @@ class DiscretizationWrapper(BaseSCCache):
 
             self._subProblems = map(self.Disc, self._spConfigs)
         return self._subProblems
+
+    @property
+    def factors(self):
+        return not ((not hasattr(self, '_subProblems')) or (not any((sp.factors for sp in self.subProblems))))
+    @factors.deleter
+    def factors(self):
+        if hasattr(self, '_subProblems'):
+            for sp in self.subProblems:
+                del sp.factors
 
     @property
     def spUpdates(self):
