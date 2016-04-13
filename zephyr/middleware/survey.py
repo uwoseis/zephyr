@@ -195,6 +195,10 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
     def postProcessors(self):
         return [lambda x: x for _ in self.freqs]
 
+    @property
+    def preProcessors(self):
+        return [lambda x: x for _ in self.freqs]
+
 
 class HelmMultiGridSurvey(HelmBaseSurvey):
 
@@ -209,6 +213,10 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
     @property
     def postProcessors(self):
         return self.mgHelper.upScalers
+
+    @property
+    def preProcessors(self):
+        return self.mgHelper.downScalers
 
     @property
     def RHSGenerator(self):
@@ -313,6 +321,7 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
              ]
 
         return qb
+
 
 class Helm2DSurvey(HelmBaseSurvey):
 

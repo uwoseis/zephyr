@@ -74,6 +74,39 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         return self.survey.postProcessors[ifreq](-(omega**2 / c**3).ravel())
 
     @SimPEG.Utils.timeIt
+    def Jvec(self, m=None, v=None, u=None):
+
+        if not self.ispaired:
+            raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
+
+        if v is None:
+            raise Exception('Actually, Jvec requires a perturbation vector')
+
+        self.updateModel(m)
+
+        qv = (self.survey.preProcessors[i](v.reshape((self.nz*self.nx, 1)) / self.gradientScaler(i)) for i in xrange(self.survey.nfreq))
+        uVirt = list(self.system * qv)
+
+        qf = self.survey.getSources()
+
+        dpert = np.empty((self.nrec, self.nsrc, self.nfreq), dtype=np.complex128)
+
+        for ifreq, uFreq in enumerate(uVp):
+            srcTerms = qf[ifreq] * uFreq
+            rVecs = self.survey.rVecs(ifreq)
+
+            if self.survey.mode == 'fixed':
+                qr = rVecs.next()
+                recTerms = qr * uFreq
+                dpert[:,:,ifreq] = recTerms.reshape((self.survey.nrec,1)) * srcTerms.reshape((1,self.survey.nsrc))
+            else:
+                for isrc, qr in enumerate(rVecs):
+                    recTerms = qr * uFreq
+                    dpert[:,isrc,ifreq] = srcTerms[isrc] * recTerms
+
+        return dpert
+
+    @SimPEG.Utils.timeIt
     def Jtvec(self, m=None, v=None, u=None):
 
         if not self.ispaired:
