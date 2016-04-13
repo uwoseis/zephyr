@@ -1,5 +1,5 @@
 
-from .meta import BaseAnisotropic
+from .base import BaseAnisotropic
 from .discretization import BaseDiscretization
 
 import numpy as np
