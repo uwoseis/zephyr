@@ -145,8 +145,8 @@ class BaseMPDist(BaseDist):
     @property
     def factors(self):
         # What this does:
-        #   Return true if there is a pool defined
-        #   If there isn't, check to see if _subProblems exists; if it does, return False
+        #   Return True if there is a pool defined
+        #   If there isn't, check to see if _subProblems exists; if it doesn't, return False
         #   If _subProblems *does* exist, check each subProblem to see if it has matrix factors.
         #   If any subProblem has factors, return True.
         return hasattr(self, '_pool') or not ((not hasattr(self, '_subProblems')) or (not any((sp.factors for sp in self.subProblems))))
