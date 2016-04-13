@@ -1,7 +1,8 @@
 
+from galoshes import BaseSCCache
 import numpy as np
 import scipy.sparse as sp
-from ..backend import BaseSCCache, SparseKaiserSource, MultiGridHelper
+from ..backend import SparseKaiserSource, MultiGridHelper
 import SimPEG
 
 class HelmSrc(SimPEG.Survey.BaseSrc):

@@ -4,9 +4,10 @@ Discretization base classes for Zephyr
 '''
 
 import copy
+from galoshes import BaseSCCache
 import numpy as np
 import scipy.sparse as sp
-from .meta import BaseSCCache, BaseModelDependent
+from .base import BaseModelDependent
 from .solver import DirectSolver
 
 

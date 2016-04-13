@@ -2,7 +2,7 @@
 Source-generating routines for Zephyr
 '''
 
-from .meta import BaseModelDependent, BaseAnisotropic
+from .base import BaseModelDependent, BaseAnisotropic
 import warnings
 import numpy as np
 import scipy.sparse as sp

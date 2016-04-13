@@ -1,8 +1,9 @@
 
+from galoshes import BaseSCCache
 import warnings
 from scipy.special import i0 as bessi0
 import numpy as np
-from .meta import BaseModelDependent, BaseSCCache
+from .base import BaseModelDependent
 
 from scipy.interpolate import RectBivariateSpline
 

@@ -1,7 +1,8 @@
 
+from galoshes import BaseSCCache
 import numpy as np
 import scipy.sparse as sp
-from ..backend import BaseModelDependent, BaseSCCache, MultiFreq, ViscoMultiFreq, ViscoMultiGridMultiFreq
+from ..backend import BaseModelDependent,MultiFreq, ViscoMultiFreq, ViscoMultiGridMultiFreq
 import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
 from .fields import HelmFields

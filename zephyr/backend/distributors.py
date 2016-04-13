@@ -2,10 +2,11 @@
 Distribution wrappers for composite problems
 '''
 
+from galoshes import SCFilter, BaseSCCache
 import numpy as np
 from .discretization import DiscretizationWrapper
 from .interpolation import SplineGridInterpolator
-from .meta import SCFilter, BaseModelDependent, BaseSCCache
+from .base import BaseModelDependent
 
 try:
     import multiprocessing

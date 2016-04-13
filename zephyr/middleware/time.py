@@ -1,6 +1,6 @@
 
 import numpy as np
-from ..backend import AttributeMapper
+from galoshes import AttributeMapper
 
 def dwavelet(srcfreq, deltat, nexc):
     '''
@@ -85,7 +85,7 @@ class BaseTimeSensitive(AttributeMapper):
     def tau(self):
         'Laplace-domain damping time constant'
         return getattr(self, '_tau', np.inf)
-    
+
     @property
     def dampCoeff(self):
         'Computed damping coefficient to be added to real omega'
@@ -116,7 +116,7 @@ class TimeMachine(BaseTimeSensitive):
     @property
     def fMax(self):
         return self.freqs[-1]
-    
+
     @property
     def df(self):
         if len(self.freqs) > 1:
@@ -214,7 +214,7 @@ class TimeMachine(BaseTimeSensitive):
         '''
         Automatically carry out the forward fast Fourier transform.
         '''
-        
+
         raise NotImplementedError
 
     @staticmethod
@@ -222,7 +222,7 @@ class TimeMachine(BaseTimeSensitive):
         '''
         Automatically carry out the inverse fast Fourier transform.
         '''
-        
+
         raise NotImplementedError
 
     @staticmethod
