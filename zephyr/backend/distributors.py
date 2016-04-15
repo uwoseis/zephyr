@@ -1,15 +1,11 @@
 '''
 Distribution wrappers for composite problems
 '''
-from __future__ import division
-from __future__ import unicode_literals
-from __future__ import print_function
-from __future__ import absolute_import
+from __future__ import division, unicode_literals, print_function, absolute_import
 from builtins import super
 from future import standard_library
 standard_library.install_aliases()
-from builtins import zip
-from builtins import range
+from builtins import zip, range
 
 from galoshes import SCFilter, BaseSCCache
 import numpy as np
