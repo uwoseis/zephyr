@@ -1,6 +1,9 @@
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 
-import cPickle
+import pickle
 
 from zephyr import backend
 from zephyr import middleware
@@ -185,7 +188,7 @@ class PickleOutputJob(Job):
     def saveData(self, data):
 
         with open(self.projnm, 'wb') as fp:
-            pickler = cPickle.Pickler(fp)
+            pickler = pickle.Pickler(fp)
             pickler.dump(data)
 
 

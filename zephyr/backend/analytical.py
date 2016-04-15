@@ -2,6 +2,8 @@
 A set of classes that implement analytical responses to
 simple systems (mainly used in testing the discrete cases).
 '''
+from __future__ import division
+from builtins import object
 
 import warnings
 import numpy as np
@@ -36,7 +38,7 @@ class AnalyticalHelmholtz(object):
             zorig:zorig+dz*nz:dz,
             xorig:xorig+dz*nx:dx
         ]
-        
+
         if systemConfig.get('3D', False):
             self.Green = self.Green3D
         else:
@@ -47,7 +49,7 @@ class AnalyticalHelmholtz(object):
 
         # Correct: -0.5j * hankel2(0, self.k*r)
         return self.scaleterm * self.rho * (-0.5j * hankel1(0, self.k*r))
-    
+
     def Green3D(self, r):
         'Model the 3D Green\'s function'
 
@@ -56,10 +58,10 @@ class AnalyticalHelmholtz(object):
 
     def __call__(self, q):
         'Model the appropriate Green\'s function, given a source location'
-        
+
         x = q[0,0]
         z = q[0,-1]
-        
+
         dx = self._x - x
         dz = self._z - z
         dist = np.sqrt(dx**2 + dz**2)
@@ -67,10 +69,10 @@ class AnalyticalHelmholtz(object):
             warnings.simplefilter('ignore')
             strangle = np.arctan(dz / dx) + self.theta
         stretch = np.sqrt(self.stretch * np.cos(strangle)**2 + np.sin(strangle)**2)
-        
+
         return np.nan_to_num(self.Green(dist * stretch)).ravel()
-    
+
     def __mul__(self, q):
         'Pretend to be a matrix'
-        
+
         return self(q)

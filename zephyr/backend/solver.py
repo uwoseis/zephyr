@@ -1,6 +1,8 @@
 '''
 Sparse system solvers for Zephyr
 '''
+from builtins import range
+from builtins import object
 
 import types
 import numpy as np
@@ -76,9 +78,9 @@ class DirectSolver(object):
             raise Exception('Can\'t interpret how to use solver class %s'%(self.Ainv.__class__.__name__,))
         
         if isinstance(rhs, scipy.sparse.spmatrix):
-            qIter = lambda qs: (qs.getcol(j).toarray().ravel() for j in xrange(qs.shape[1]))
+            qIter = lambda qs: (qs.getcol(j).toarray().ravel() for j in range(qs.shape[1]))
         else:
-            qIter = lambda qs: (qs[:,j] for j in xrange(qs.shape[1]))
+            qIter = lambda qs: (qs[:,j] for j in range(qs.shape[1]))
         
         result = np.empty(rhs.shape, dtype=np.complex128)
         for i, q in enumerate(qIter(rhs)):

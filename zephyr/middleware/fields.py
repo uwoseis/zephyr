@@ -1,4 +1,5 @@
 from __future__ import print_function
+from builtins import range
 
 import numpy as np
 import scipy.sparse as sp
@@ -98,7 +99,7 @@ class HelmFields(SimPEG.Fields.Fields):
                 out = func(pointerFields, srcII, freqII)
             else: #loop over the frequencies
                 nF = pointerShape[2]
-                out = range(nF)
+                out = list(range(nF))
                 for i, FIND_i in enumerate(freqII):
                     fieldI = pointerFields[:,:,i]
                     if fieldI.shape[0] == fieldI.size:

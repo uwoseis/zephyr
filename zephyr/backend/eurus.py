@@ -1,3 +1,4 @@
+from __future__ import division
 
 from .base import BaseAnisotropic
 from .discretization import BaseDiscretization
@@ -521,7 +522,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         result = super(Eurus, self).__mul__(rhs)
 
         if clipResult:
-            result = result[:self.shape[1]/2,:]
+            result = result[:self.shape[1]//2, :]
 
         return result
 

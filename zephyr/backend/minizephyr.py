@@ -2,6 +2,7 @@
 Implementation of 2D and 2.5D frequency-domain (visco)acoustic wave modelling
 '''
 from __future__ import absolute_import
+from __future__ import division
 
 from .discretization import BaseDiscretization, DiscretizationWrapper
 
@@ -261,7 +262,7 @@ class MiniZephyr(BaseDiscretization):
         The diagonals are modified in-place.
         '''
 
-        keys = diagonals.keys()
+        keys = list(diagonals.keys())
         pickDiag = lambda x: -1. if freeSurf[x] else 1.
 
         # Left

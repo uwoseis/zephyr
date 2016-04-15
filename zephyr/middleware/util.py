@@ -1,3 +1,5 @@
+from __future__ import division
+from builtins import range
 
 import re
 import numpy as np
@@ -72,13 +74,13 @@ def readini (infile):
 
     freqs = []
     freqstart = 11
-    freqend = freqstart + settingsdict['nom']/5 + 1*(not not settingsdict['nom']%5)
+    freqend = freqstart + settingsdict['nom']//5 + 1*(not not settingsdict['nom']%5)
     [[freqs.append(float(item)) for item in line.strip().split() ] for line in lines[freqstart:freqend]]
     settingsdict['freqs'] = np.array(freqs)
 
     kys = []
     kystart = freqend+1
-    kyend = kystart + settingsdict['nky']/5 + 1*(not not settingsdict['nky']%5)
+    kyend = kystart + settingsdict['nky']//5 + 1*(not not settingsdict['nky']%5)
     [[kys.append(float(item)) for item in line.strip().split() ] for line in lines[kystart:kyend]]
     settingsdict['kys'] = np.array(kys)
 
@@ -88,7 +90,7 @@ def readini (infile):
     slices = []
     slicestart = kyend+3
     sliceend = slicestart + settingsdict['nslices']
-    for i in xrange(slicestart,sliceend):
+    for i in range(slicestart,sliceend):
         slices.append(lines[i].strip().split())
         slices[-1][0] = int(slices[-1][0])
         slices[-1][1] = int(slices[-1][1])
@@ -104,7 +106,7 @@ def readini (infile):
     srcs = []
     srcstart = sliceend+3
     srcend = srcstart + settingsdict['ns']
-    for i in xrange(srcstart,srcend):
+    for i in range(srcstart,srcend):
         srcs.append([float(item) for item in lines[i].strip().split()[1:]])
     srcs = np.array(srcs)
     settingsdict['srcs'] = srcs
@@ -118,7 +120,7 @@ def readini (infile):
     recs = []
     recstart = srcend+3
     recend = recstart + settingsdict['nr']
-    for i in xrange(recstart,recend):
+    for i in range(recstart,recend):
         recs.append([float(item) for item in lines[i].strip().split()[1:]])
     recs = np.array(recs)
     settingsdict['recs'] = recs
@@ -132,7 +134,7 @@ def readini (infile):
     geos = []
     geostart = recend+3
     geoend = geostart + settingsdict['ng']
-    for i in xrange(geostart,geoend):
+    for i in range(geostart,geoend):
         geos.append([float(item) for item in lines[i].strip().split()[1:]])
     geos = np.array(geos)
     settingsdict['geos'] = geos
@@ -157,7 +159,7 @@ def compileDict(projnm, exprdict):
     corresponding dictionary of pre-compiled objects that can be used to
     efficiently parse filenames.
     '''
-  
+
     # Form a dictionary to contain the regular expression objects
     redict = {}
     for key in exprdict:
@@ -167,7 +169,7 @@ def compileDict(projnm, exprdict):
         # Except for cases in which it doesn't get used
         except TypeError:
             reentry = re.compile(exprdict[key])
-    
+
         redict[key] = reentry
-  
+
     return redict
