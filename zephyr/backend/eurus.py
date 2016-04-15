@@ -40,8 +40,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         c = self.c.reshape(dims)
         rho = self.rho.reshape(dims)
 
-        exec 'nf = %s'%self.mord[0] in locals()
-        exec 'ns = %s'%self.mord[1] in locals()
+        exec('nf = %s'%self.mord[0], locals())
+        exec('ns = %s'%self.mord[1], locals())
 
         # fast --> slow is x --> y --> z as Fortran
 

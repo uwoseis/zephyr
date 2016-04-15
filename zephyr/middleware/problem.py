@@ -6,6 +6,7 @@ from ..backend import BaseModelDependent,MultiFreq, ViscoMultiFreq, ViscoMultiGr
 import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
 from .fields import HelmFields
+from functools import reduce
 
 EPS = 1e-15
 
@@ -96,7 +97,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             rVecs = self.survey.rVecs(ifreq)
 
             if self.survey.mode == 'fixed':
-                qr = rVecs.next()
+                qr = next(rVecs)
                 recTerms = qr * uFreq
                 dpert[:,:,ifreq] = recTerms.reshape((self.survey.nrec,1)) * srcTerms.reshape((1,self.survey.nsrc))
             else:
