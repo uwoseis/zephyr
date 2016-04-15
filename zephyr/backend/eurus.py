@@ -51,7 +51,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
         # Set up physical properties in matrices with padding
         omega   = 2*np.pi * self.freq
-        padopts = {'pad_width': 1, 'mode': 'edge'}
+        padopts = {'pad_width': 1, 'mode': b'edge'}
         cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
         rhoPad  = np.pad(rho, **padopts)
 
