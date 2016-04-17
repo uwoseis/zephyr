@@ -85,7 +85,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 
         self.updateModel(m)
 
-        qv = (self.survey.preProcessors[i](v.reshape((self.nz*self.nx, 1)) / self.gradientScaler(i)) for i in xrange(self.survey.nfreq))
+        qv = [self.survey.preProcessors[i](v.reshape((self.nz*self.nx, 1)) / self.gradientScaler(i)) for i in xrange(self.survey.nfreq)]
         uVirt = list(self.system * qv)
 
         qf = self.survey.getSources()
