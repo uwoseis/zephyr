@@ -12,7 +12,7 @@ import scipy.sparse.linalg
 from functools import reduce
 
 try:
-    from multiprocessing import Pool, Process
+    from multiprocessing import Pool
 except ImportError:
     PARALLEL = False
 else:
