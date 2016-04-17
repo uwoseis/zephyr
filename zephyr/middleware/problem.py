@@ -115,7 +115,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
                     recTerms = qr.T * uFreq
                     dpert[:,isrc,ifreq] = srcTerms[isrc] * recTerms
 
-        return dpert
+        return dpert.ravel()
 
     @SimPEG.Utils.timeIt
     def Jtvec(self, m=None, v=None, u=None):
