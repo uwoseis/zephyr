@@ -80,7 +80,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
 
     @property
     def tsTerms(self):
-        return getattr(self, '_sterms', 1.)
+        return getattr(self, '_sterms', np.ones(self.nfreq, dtype=np.complex128))
 
     @property
     def nsrc(self):
@@ -120,7 +120,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
                 self._rVecs[isrc] = (self.RHSGenerator(self.systemConfig)(self.rLocs + self.sLocs[isrc]) * sp.diags(self.srTerms, 0)).T
             return self._rVecs[isrc]
 
-    def rVecs(self):
+    def rVecs(self, ifreq):
         return (self.rVec(i) for i in xrange(self.nsrc))
 
     @property
@@ -150,7 +150,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
         data = np.empty((self.nrec, self.nsrc, self.nfreq), dtype=np.complex128)
 
         for ifreq, uFreq in enumerate(u):
-            for isrc, rVec in enumerate(self.rVecs()):
+            for isrc, rVec in enumerate(self.rVecs(ifreq)):
                 data[:,isrc,ifreq] = rVec * uFreq[:,isrc]
 
         return data

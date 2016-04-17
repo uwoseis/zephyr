@@ -67,12 +67,18 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             self._system = self.SystemWrapper(self.systemConfig)
         return self._system
 
-    def gradientScaler(self, ifreq):
-
+    def scaledTerms(self, ifreq):
         omega = 2*np.pi * self.survey.freqs[ifreq]
         c = self.system.subProblems[ifreq].c
+        return omega, c
 
+    def gradientScaler(self, ifreq):
+        omega, c = self.scaledTerms(ifreq)
         return self.survey.postProcessors[ifreq](-(omega**2 / c**3).ravel())
+
+    def sensScaler(self, ifreq):
+        omega, c = self.scaledTerms(ifreq)
+        return self.survey.postProcessors[ifreq](-(c**3 / omega**2).ravel())
 
     @SimPEG.Utils.timeIt
     def Jvec(self, m=None, v=None, u=None):
@@ -85,15 +91,19 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 
         self.updateModel(m)
 
-        qv = [self.survey.preProcessors[i](v.reshape((self.nz*self.nx, 1)) / self.gradientScaler(i)) for i in xrange(self.survey.nfreq)]
+        pqShape = (self.nz*self.nx, 1)
+        perturb = v.reshape(pqShape)
+
+        qv = [self.survey.preProcessors[i](perturb * self.sensScaler(i).reshape(pqShape)) for i in xrange(self.survey.nfreq)]
+
         uVirt = list(self.system * qv)
 
         qf = self.survey.getSources()
 
-        dpert = np.empty((self.nrec, self.nsrc, self.nfreq), dtype=np.complex128)
+        dpert = np.empty((self.survey.nrec, self.survey.nsrc, self.survey.nfreq), dtype=np.complex128)
 
-        for ifreq, uFreq in enumerate(uVp):
-            srcTerms = qf[ifreq] * uFreq
+        for ifreq, uFreq in enumerate(uVirt):
+            srcTerms = qf[ifreq].T * uFreq
             rVecs = self.survey.rVecs(ifreq)
 
             if self.survey.mode == 'fixed':
@@ -102,7 +112,7 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
                 dpert[:,:,ifreq] = recTerms.reshape((self.survey.nrec,1)) * srcTerms.reshape((1,self.survey.nsrc))
             else:
                 for isrc, qr in enumerate(rVecs):
-                    recTerms = qr * uFreq
+                    recTerms = qr.T * uFreq
                     dpert[:,isrc,ifreq] = srcTerms[isrc] * recTerms
 
         return dpert
