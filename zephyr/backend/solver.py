@@ -80,9 +80,17 @@ class DirectSolver(object):
             raise Exception('Can\'t interpret how to use solver class %s'%(self.Ainv.__class__.__name__,))
 
         if isinstance(rhs, scipy.sparse.spmatrix):
-            qIter = lambda qs: (qs.getcol(j).toarray().ravel() for j in xrange(qs.shape[1]))
+            def qIter(qs):
+                for j in xrange(qs.shape[1]):
+                    qi = qs.getcol(j).toarray().ravel()
+                    yield qi
+                return
         else:
-            qIter = lambda qs: (qs[:,j] for j in xrange(qs.shape[1]))
+            def qIter(qs):
+                for j in xrange(qs.shape[1]):
+                    qi = qs[:,j]
+                    yield qi
+                return
 
         result = np.empty(rhs.shape, dtype=np.complex128)
         for i, q in enumerate(qIter(rhs)):

@@ -124,9 +124,21 @@ class BaseMPDist(BaseDist):
         '''
 
         if isinstance(rhs, list):
-            getRHS = lambda i: rhs[i]
+            def getRHS(i):
+                'Get right-hand sides for multiple system sources'
+                nrhs = rhs[i]
+                if nrhs.ndim < 2:
+                    return nrhs.reshape((nrhs.size, 1))
+                else:
+                    return nrhs
         else:
-            getRHS = lambda i: rhs
+            if rhs.ndim < 2:
+                nrhs = rhs.reshape((rhs.size, 1))
+            else:
+                nrhs = rhs
+            def getRHS(i):
+                'Get right-hand sides for single system sources'
+                return nrhs
 
         if self.parallel:
             plist = []
