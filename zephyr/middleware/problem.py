@@ -193,6 +193,9 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
     def factors(self):
         del self.system.factors
 
+    def __del__(self):
+        del self.factors
+
 
 class Helm2DProblem(HelmBaseProblem):
 

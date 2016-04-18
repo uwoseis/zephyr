@@ -91,6 +91,9 @@ class BaseDiscretization(BaseModelDependent):
     def factors(self):
         del self.Ainv
 
+    def __del__(self):
+        del self.factors
+
     def __mul__(self, rhs):
         'Action of multiplying the inverted system by a right-hand side'
         return (self.Ainv * (self.premul * rhs)).conjugate()
