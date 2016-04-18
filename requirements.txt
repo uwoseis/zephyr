@@ -1,4 +1,5 @@
 click
 galoshes
+future
 -e git://github.com/simpeg/simpeg.git#egg=simpeg
 -e git://github.com/bsmithyman/pygeo.git#egg=pygeo
