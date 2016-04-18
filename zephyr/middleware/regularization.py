@@ -12,4 +12,4 @@ class HelmBaseRegularization(SimPEG.Regularization.BaseRegularization):
     @property
     def W(self):
         """Full regularization weighting matrix W."""
-        return sp.identity(self.mesh.nN, dtype=np.complex128)#self.mesh.aveN2CC.T
+        return sp.identity(self.mesh.nN, dtype=np.complex128)
