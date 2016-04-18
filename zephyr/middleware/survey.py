@@ -158,8 +158,10 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
     def getSources(self):
         qs = self.sVecs()
         if isinstance(self.tsTerms, list) or isinstance(self.tsTerms, np.ndarray):
-            qs = [qs * sp.diags((sterm.conjugate(),),(0,)) for sterm in self.tsTerms]
-
+            if self.tsTerms.ndim < 2:
+                qs = [qs * sterm.conjugate() for sterm in self.tsTerms]
+            else:
+                qs = [qs * sp.diags((sterm.conjugate(),),(0,)) for sterm in self.tsTerms]
         return qs
 
     def getResidualSources(self, resid):
