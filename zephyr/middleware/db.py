@@ -121,7 +121,7 @@ class FullwvDatastore(BaseDatastore):
 
     def __getitem__(self, item):
 
-        if type(item) is str:
+        if type(item) in {str, unicode}:
             key = item
             sl = slice(None)
         elif type(item) is tuple:
@@ -130,6 +130,8 @@ class FullwvDatastore(BaseDatastore):
             sl = item[1]
             assert type(key) is str
             assert (type(sl) is slice) or (type(sl) is int)
+        else:
+            raise TypeError()
 
         if key.find(self.projnm) != 0:
             key = self.projnm + key
