@@ -155,10 +155,18 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
 
         return data
 
+    @staticmethod
+    def _shapeRHS(rhs):
+        if rhs.ndim < 2:
+            rhs.shape = (rhs.size, 1)
+        return rhs
+
     def getSources(self):
         qs = self.sVecs()
         if isinstance(self.tsTerms, list) or isinstance(self.tsTerms, np.ndarray):
-            qs = [qs * sterm.conjugate() for sterm in self.tsTerms]
+            qs = [self._shapeRHS(qs * sp.diags(sterm.conjugate(),0)) for sterm in self.tsTerms]
+        else:
+            qs = self._shapeRHS(qs)
 
         return qs
 
@@ -293,13 +301,14 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
 
         return data
 
+
     def getSources(self):
 
         if isinstance(self.tsTerms, list) or isinstance(self.tsTerms, np.ndarray):
-            qs = [self.sVecs(ifreq) * sp.diags(sterm.conjugate(),0) if np.iterable(sterm) else sterm.conjugate() * self.sVecs(ifreq) for ifreq, sterm in enumerate(self.tsTerms)]
+            qs = [self._shapeRHS(self.sVecs(ifreq) * sp.diags(sterm.conjugate(),0)) if np.iterable(sterm) else self._shapeRHS(sterm.conjugate() * self.sVecs(ifreq)) for ifreq, sterm in enumerate(self.tsTerms)]
         else:
             sterm = self.tsTerms
-            qs = [sterm.conjugate() * self.sVecs(ifreq) for ifreq in xrange(self.nfreq)]
+            qs = [self._shapeRHS(sterm.conjugate() * self.sVecs(ifreq)) for ifreq in xrange(self.nfreq)]
 
         return qs
 
