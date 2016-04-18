@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 import os
 import glob
@@ -279,7 +280,7 @@ class FlatDatastore(BaseDatastore):
             contents = fp.read()
 
         #execfile(infile)
-        exec contents in locals()
+        exec(contents, locals())
 
         self.systemConfig = systemConfig
 

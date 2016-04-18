@@ -6,6 +6,7 @@ from ..backend import BaseModelDependent,MultiFreq, ViscoMultiFreq, ViscoMultiGr
 import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
 from .fields import HelmFields
+from functools import reduce
 
 EPS = 1e-15
 
@@ -66,12 +67,55 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             self._system = self.SystemWrapper(self.systemConfig)
         return self._system
 
-    def gradientScaler(self, ifreq):
-
+    def scaledTerms(self, ifreq):
         omega = 2*np.pi * self.survey.freqs[ifreq]
         c = self.system.subProblems[ifreq].c
+        return omega, c
 
+    def gradientScaler(self, ifreq):
+        omega, c = self.scaledTerms(ifreq)
         return self.survey.postProcessors[ifreq](-(omega**2 / c**3).ravel())
+
+    def sensScaler(self, ifreq):
+        omega, c = self.scaledTerms(ifreq)
+        return self.survey.postProcessors[ifreq](-(c**3 / omega**2).ravel())
+
+    @SimPEG.Utils.timeIt
+    def Jvec(self, m=None, v=None, u=None):
+
+        if not self.ispaired:
+            raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
+
+        if v is None:
+            raise Exception('Actually, Jvec requires a perturbation vector')
+
+        self.updateModel(m)
+
+        pqShape = (self.nz*self.nx, 1)
+        perturb = v.reshape(pqShape)
+
+        qv = [self.survey.preProcessors[i](perturb * self.sensScaler(i).reshape(pqShape)) for i in xrange(self.survey.nfreq)]
+
+        uVirt = list(self.system * qv)
+
+        qf = self.survey.getSources()
+
+        dpert = np.empty((self.survey.nrec, self.survey.nsrc, self.survey.nfreq), dtype=np.complex128)
+
+        for ifreq, uFreq in enumerate(uVirt):
+            srcTerms = qf[ifreq].T * uFreq
+            rVecs = self.survey.rVecs(ifreq)
+
+            if self.survey.mode == 'fixed':
+                qr = next(rVecs)
+                recTerms = qr * uFreq
+                dpert[:,:,ifreq] = recTerms.reshape((self.survey.nrec,1)) * srcTerms.reshape((1,self.survey.nsrc))
+            else:
+                for isrc, qr in enumerate(rVecs):
+                    recTerms = qr.T * uFreq
+                    dpert[:,isrc,ifreq] = srcTerms[isrc] * recTerms
+
+        return dpert.ravel()
 
     @SimPEG.Utils.timeIt
     def Jtvec(self, m=None, v=None, u=None):
@@ -148,6 +192,9 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
     @factors.deleter
     def factors(self):
         del self.system.factors
+
+    def __del__(self):
+        del self.factors
 
 
 class Helm2DProblem(HelmBaseProblem):

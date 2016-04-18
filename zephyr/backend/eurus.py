@@ -39,9 +39,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
         c = self.c.reshape(dims)
         rho = self.rho.reshape(dims)
-
-        exec 'nf = %s'%self.mord[0] in locals()
-        exec 'ns = %s'%self.mord[1] in locals()
+        nf, ns = self.mord
 
         # fast --> slow is x --> y --> z as Fortran
 
@@ -488,7 +486,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
     def mord(self):
         'Determines matrix ordering'
 
-        return getattr(self, '_mord', ('-nx', '+1'))
+        return getattr(self, '_mord', (-self.nx, +1))
 
     @property
     def cPML(self):

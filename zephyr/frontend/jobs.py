@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 import cPickle
 
@@ -31,7 +32,7 @@ class Job(object):
         print('Setting up composite job "%s":'%(self.__class__.__name__,))
         for item in self.__class__.__mro__[:-1][::-1]:
             print('\t%s'%(item.__name__,))
-        print
+        print()
 
         systemConfig = self.getSystemConfig(projnm)
         update = {}

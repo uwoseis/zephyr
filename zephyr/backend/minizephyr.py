@@ -1,6 +1,7 @@
 '''
 Implementation of 2D and 2.5D frequency-domain (visco)acoustic wave modelling
 '''
+from __future__ import absolute_import
 
 from .discretization import BaseDiscretization, DiscretizationWrapper
 
@@ -8,9 +9,10 @@ import copy
 import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
+from functools import reduce
 
 try:
-    from multiprocessing import Pool, Process
+    from multiprocessing import Pool
 except ImportError:
     PARALLEL = False
 else:
@@ -50,9 +52,7 @@ class MiniZephyr(BaseDiscretization):
 
         c = self.c.reshape(dims)
         rho = self.rho.reshape(dims)
-
-        exec 'nf = %s'%self.mord[0] in locals()
-        exec 'ns = %s'%self.mord[1] in locals()
+        nf, ns = self.mord
 
         # fast --> slow is x --> y --> z as Fortran
 
@@ -302,7 +302,7 @@ class MiniZephyr(BaseDiscretization):
     def mord(self):
         'Determines matrix ordering'
 
-        return getattr(self, '_mord', ('+nx', '+1'))
+        return getattr(self, '_mord', (self.nx, +1))
 
     @property
     def nPML(self):
@@ -358,7 +358,7 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
         'The discretization to be applied to each wavenumber subproblem'
 
         if getattr(self, '_Disc', None) is None:
-            from minizephyr import MiniZephyr
+            from .minizephyr import MiniZephyr
             self._Disc = MiniZephyr
         return self._Disc
 
