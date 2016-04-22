@@ -246,7 +246,7 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
         hs = self.buildSC(ifreq)
         sc = self.scScales[hs]
 
-        return self.RHSGenerator(sc)(self.sLocs) * sp.diags((self.ssTerms), (0,))
+        return self.RHSGenerator(sc)(self.sLocs) * sp.diags((self.ssTerms,), (0,))
 
     def rVec(self, isrc, ifreq):
 
