@@ -94,7 +94,14 @@ class BaseMPDist(BaseDist):
         'Returns the multiprocessing CPU count'
 
         if self.parallel:
-            return multiprocessing.cpu_count()
+            if not hasattr(self, '_maxThreads'):
+                try:
+                    import mkl
+                except ImportError:
+                    self._maxThreads = multiprocessing.cpu_count()
+                else:
+                    self._maxThreads = mkl.service.get_max_threads()
+            return self._maxThreads
         else:
             return 1
 
