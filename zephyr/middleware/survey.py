@@ -84,7 +84,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
 
     @property
     def tsTerms(self):
-        return getattr(self, '_sterms', 1.)
+        return getattr(self, '_sterms', np.ones(self.nfreq, dtype=np.complex128))
 
     @property
     def nsrc(self):
@@ -108,23 +108,23 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
 
     def sVecs(self):
         if not hasattr(self, '_sVecs'):
-            self._sVecs = self.RHSGenerator(self.systemConfig)(self.sLocs) * sp.diags(self.ssTerms, 0)
+            self._sVecs = self.RHSGenerator(self.systemConfig)(self.sLocs) * sp.diags((self.ssTerms,), (0,))
         return self._sVecs
 
     def rVec(self, isrc):
         if self.mode == 'fixed':
             if not hasattr(self, '_rVecs'):
-                self._rVecs = (self.RHSGenerator(self.systemConfig)(self.rLocs) * sp.diags(self.srTerms, 0)).T
+                self._rVecs = (self.RHSGenerator(self.systemConfig)(self.rLocs) * sp.diags((self.srTerms,), (0,))).T
             return self._rVecs
 
         elif self.mode == 'relative':
             if not hasattr(self, '_rVecs'):
                 self._rVecs = {}
             if isrc not in self._rVecs:
-                self._rVecs[isrc] = (self.RHSGenerator(self.systemConfig)(self.rLocs + self.sLocs[isrc]) * sp.diags(self.srTerms, 0)).T
+                self._rVecs[isrc] = (self.RHSGenerator(self.systemConfig)(self.rLocs + self.sLocs[isrc]) * sp.diags((self.srTerms,), (0,))).T
             return self._rVecs[isrc]
 
-    def rVecs(self):
+    def rVecs(self, ifreq):
         return (self.rVec(i) for i in range(self.nsrc))
 
     @property
@@ -154,7 +154,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
         data = np.empty((self.nrec, self.nsrc, self.nfreq), dtype=np.complex128)
 
         for ifreq, uFreq in enumerate(u):
-            for isrc, rVec in enumerate(self.rVecs()):
+            for isrc, rVec in enumerate(self.rVecs(ifreq)):
                 data[:,isrc,ifreq] = rVec * uFreq[:,isrc]
 
         return data
@@ -162,8 +162,10 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
     def getSources(self):
         qs = self.sVecs()
         if isinstance(self.tsTerms, list) or isinstance(self.tsTerms, np.ndarray):
-            qs = [qs * sterm.conjugate() for sterm in self.tsTerms]
-
+            if self.tsTerms.ndim < 2:
+                qs = [qs * sterm.conjugate() for sterm in self.tsTerms]
+            else:
+                qs = [qs * sp.diags((sterm.conjugate(),),(0,)) for sterm in self.tsTerms]
         return qs
 
     def getResidualSources(self, resid):
@@ -248,7 +250,7 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
         hs = self.buildSC(ifreq)
         sc = self.scScales[hs]
 
-        return self.RHSGenerator(sc)(self.sLocs) * sp.diags(self.ssTerms, 0)
+        return self.RHSGenerator(sc)(self.sLocs) * sp.diags((self.ssTerms,), (0,))
 
     def rVec(self, isrc, ifreq):
 
@@ -260,7 +262,7 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
         if self.mode == 'fixed':
             if hs not in self._rVecs:
                 sc = self.scScales[hs]
-                self._rVecs[hs] = (self.RHSGenerator(sc)(self.rLocs) * sp.diags(self.srTerms, 0)).T
+                self._rVecs[hs] = (self.RHSGenerator(sc)(self.rLocs) * sp.diags((self.srTerms,), (0,))).T
             return self._rVecs[hs]
 
         elif self.mode == 'relative':
@@ -268,7 +270,7 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
                 self._rVecs[hs] = {}
             if isrc not in self._rVecs:
                 sc = self.scScales[hs]
-                self._rVecs[hs][isrc] = (self.RHSGenerator(sc)(self.rLocs + self.sLocs[isrc]) * sp.diags(self.srTerms, 0)).T
+                self._rVecs[hs][isrc] = (self.RHSGenerator(sc)(self.rLocs + self.sLocs[isrc]) * sp.diags((self.srTerms,), (0,))).T
             return self._rVecs[isrc]
 
     def rVecs(self, ifreq):
@@ -297,10 +299,11 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
 
         return data
 
+
     def getSources(self):
 
         if isinstance(self.tsTerms, list) or isinstance(self.tsTerms, np.ndarray):
-            qs = [self.sVecs(ifreq) * sp.diags(sterm.conjugate(),0) if np.iterable(sterm) else sterm.conjugate() * self.sVecs(ifreq) for ifreq, sterm in enumerate(self.tsTerms)]
+            qs = [self.sVecs(ifreq) * sp.diags((sterm.conjugate(),), (0,)) if np.iterable(sterm) else sterm.conjugate() * self.sVecs(ifreq) for ifreq, sterm in enumerate(self.tsTerms)]
         else:
             sterm = self.tsTerms
             qs = [sterm.conjugate() * self.sVecs(ifreq) for ifreq in range(self.nfreq)]

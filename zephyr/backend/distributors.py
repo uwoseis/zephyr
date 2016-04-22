@@ -99,7 +99,14 @@ class BaseMPDist(BaseDist):
         'Returns the multiprocessing CPU count'
 
         if self.parallel:
-            return multiprocessing.cpu_count()
+            if not hasattr(self, '_maxThreads'):
+                try:
+                    import mkl
+                except ImportError:
+                    self._maxThreads = multiprocessing.cpu_count()
+                else:
+                    self._maxThreads = mkl.service.get_max_threads()
+            return self._maxThreads
         else:
             return 1
 
@@ -129,9 +136,21 @@ class BaseMPDist(BaseDist):
         '''
 
         if isinstance(rhs, list):
-            getRHS = lambda i: rhs[i]
+            def getRHS(i):
+                'Get right-hand sides for multiple system sources'
+                nrhs = rhs[i]
+                if nrhs.ndim < 2:
+                    return nrhs.reshape((nrhs.size, 1))
+                else:
+                    return nrhs
         else:
-            getRHS = lambda i: rhs
+            if rhs.ndim < 2:
+                nrhs = rhs.reshape((rhs.size, 1))
+            else:
+                nrhs = rhs
+            def getRHS(i):
+                'Get right-hand sides for single system sources'
+                return nrhs
 
         if self.parallel:
             plist = []

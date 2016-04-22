@@ -45,11 +45,11 @@ class SquaredSlownessMap(NodalIdentityMap):
 
         m = NodalIdentityMap._transform(self, m)
 
-        return 1. / (m**2 + self.eps)
+        return 1. / (m**2 + EPS)
 
     def inverse(self, D):
 
-        D = 1. / (np.sqrt(D) + self.eps)
+        D = 1. / (np.sqrt(D) + EPS)
 
         return NodalIdentityMap._transform(self, D)
 
@@ -57,4 +57,5 @@ class SquaredSlownessMap(NodalIdentityMap):
 
         m = NodalIdentityMap._transform(self, m)
 
-        return 1. / (m**2 + self.eps)
+        return 1. / (m**2 + EPS)
+
