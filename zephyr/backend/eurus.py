@@ -1,4 +1,6 @@
-from __future__ import division, unicode_literals, print_function, absolute_import
+from __future__ import division, print_function, absolute_import
+# This breaks np.pad
+# from __future__ import unicode_literals
 from builtins import super
 from future import standard_library
 standard_library.install_aliases()
@@ -49,9 +51,12 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
         # Set up physical properties in matrices with padding
         omega   = 2*np.pi * self.freq
-        padopts = {'pad_width': 1, 'mode': b'edge'}
-        cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
-        rhoPad  = np.pad(rho, **padopts)
+
+        def pad(arr):
+            return np.pad(arr, 1, 'edge')
+
+        cPad    = pad(c.real) + 1j * pad(c.imag)
+        rhoPad  = pad(rho)
 
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.dx
@@ -85,8 +90,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         gamma_z[:nPML]  = cPML * (np.cos((np.pi/2)* (z_vals/pmldz)))
         gamma_z[-nPML:] = cPML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
 
-        gamma_x = np.pad(gamma_x.real, **padopts) + 1j * np.pad(gamma_x.imag, **padopts)
-        gamma_z = np.pad(gamma_z.real, **padopts) + 1j * np.pad(gamma_z.imag, **padopts)
+        gamma_x = pad(gamma_x.real) + 1j * pad(gamma_x.imag)
+        gamma_z = pad(gamma_z.real) + 1j * pad(gamma_z.imag)
 
         Xi_x     = 1 - ((1j *gamma_x.reshape((1,nx+2)))/omegaDamped)
         Xi_z     = 1 - ((1j *gamma_z.reshape((nz+2,1)))/omegaDamped)

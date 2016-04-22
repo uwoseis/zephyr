@@ -14,7 +14,7 @@ import scipy.sparse.linalg
 try:
     from pymatsolver import MumpsSolver
     DEFAULT_SOLVER = MumpsSolver
-except ImportError:
+except (ImportError, SyntaxError):
     DEFAULT_SOLVER = scipy.sparse.linalg.splu
 
 class DirectSolver(object):

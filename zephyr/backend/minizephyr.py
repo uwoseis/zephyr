@@ -1,7 +1,9 @@
 '''
 Implementation of 2D and 2.5D frequency-domain (visco)acoustic wave modelling
 '''
-from __future__ import absolute_import, division, unicode_literals, print_function
+from __future__ import absolute_import, division, print_function
+# This breaks np.pad
+# from __future__ import unicode_literals
 from future import standard_library
 standard_library.install_aliases()
 
@@ -61,9 +63,12 @@ class MiniZephyr(BaseDiscretization):
         # Set up physical properties in matrices with padding
         omega   = 2*np.pi * self.freq
         omegaDamped = omega - self.dampCoeff
-        padopts = {'pad_width': 1, 'mode': b'edge'}
-        cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
-        rhoPad  = np.pad(rho, **padopts)
+
+        def pad(arr):
+            return np.pad(arr, 1, 'edge')
+
+        cPad    = pad(c.real) + 1j * pad(c.imag)
+        rhoPad  = pad(rho)
 
         aky = 2*np.pi * self.ky
 
