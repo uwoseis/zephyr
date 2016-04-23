@@ -182,7 +182,7 @@ class SplineGridInterpolator(BaseGridInterpolator):
         if rhs.ndim == 2:
             output = np.zeros((self.shape[0], rhs.shape[1]), dtype=rhs.dtype.type)
             for i in range(rhs.shape[1]):
-                output[:,i] = self * rhs[:,i]
+                output[:, i] = self * rhs[:, i]
             return output
 
         elif rhs.ndim > 2:
