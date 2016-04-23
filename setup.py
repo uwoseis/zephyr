@@ -26,12 +26,14 @@ with open('README.md') as fp:
     LONG_DESCRIPTION = ''.join(fp.readlines())
 
 setup(
-    name = 'zephyr',
-    # version = '0.1.1',
+    name = 'zephyr-seis',
+    version = '0.1.0',
     packages = find_packages(),
     install_requires = ['numpy>=1.7',
                         'scipy>=0.13',
                         'click',
+                        'galoshes',
+                        'problemo',
                        ],
     author = 'Brendan Smithyman',
     author_email = 'brendan@bitsmithy.net',
