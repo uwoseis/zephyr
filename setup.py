@@ -34,6 +34,7 @@ setup(
                         'click',
                         'galoshes',
                         'problemo',
+                        'SimPEG',
                        ],
     author = 'Brendan Smithyman',
     author_email = 'brendan@bitsmithy.net',

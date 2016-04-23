@@ -3,5 +3,5 @@ future
 galoshes
 problemo
 future
--e git://github.com/simpeg/simpeg.git#egg=simpeg
+SimPEG
 -e git://github.com/bsmithyman/pygeo.git#egg=pygeo
