@@ -1,4 +1,4 @@
-.PHONY: all install clean test tests docs pnggraphs epsgraphs svggraphs dotgraphs graphs
+.PHONY: all install clean test tests docs pnggraphs epsgraphs svggraphs dotgraphs graphs publish testpublish
 
 all:
 	python setup.py build
@@ -38,4 +38,14 @@ epsgraphs:
 dotgraphs:
 	mkdir -p graphs && cd graphs && pyreverse -my -A -o dot -p zephyr ../zephyr/**/**.py
 
+pdfgraphs:
+	mkdir -p graphs && cd graphs && pyreverse -my -A -o pdf -p zephyr ../zephyr/**/**.py
+
 graphs: dotgraphs pnggraphs
+
+publish:
+	python setup.py sdist upload -r pypi
+
+testpublish:
+	python setup.py sdist upload -r pypitest
+

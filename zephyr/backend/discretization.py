@@ -2,12 +2,17 @@
 '''
 Discretization base classes for Zephyr
 '''
+from __future__ import division, unicode_literals, print_function, absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import map
 
 import copy
+from galoshes import BaseSCCache
+from problemo import DirectSolver
 import numpy as np
 import scipy.sparse as sp
-from .meta import BaseSCCache, BaseModelDependent
-from .solver import DirectSolver
+from .base import BaseModelDependent
 
 
 class BaseDiscretization(BaseModelDependent):
@@ -52,6 +57,12 @@ class BaseDiscretization(BaseModelDependent):
     @property
     def rho(self):
         'Bulk density'
+
+        # NB: QC says to merge these two statements. Do not do that. The code
+        #     "hasattr(self, '_rho') and not isinstance(self._rho, np.ndarray)"
+        #     does not behave the same way in terms of when the 'else' statement
+        #     is fired.
+
         if hasattr(self, '_rho'):
             if not isinstance(self._rho, np.ndarray):
                 return self._rho * np.ones((self.nz, self.nx), dtype=np.float64)
@@ -72,6 +83,20 @@ class BaseDiscretization(BaseModelDependent):
             self._Ainv = DirectSolver(getattr(self, '_Solver', None))
             self._Ainv.A = self.A.tocsc()
         return self._Ainv
+    @Ainv.deleter
+    def Ainv(self):
+        if hasattr(self, '_Ainv'):
+            del self._Ainv
+
+    @property
+    def factors(self):
+        return hasattr(self, '_Ainv')
+    @factors.deleter
+    def factors(self):
+        del self.Ainv
+
+    def __del__(self):
+        del self.factors
 
     def __mul__(self, rhs):
         'Action of multiplying the inverted system by a right-hand side'
@@ -124,8 +149,17 @@ class DiscretizationWrapper(BaseSCCache):
 
         if getattr(self, '_subProblems', None) is None:
 
-            self._subProblems = map(self.Disc, self._spConfigs)
+            self._subProblems = list(map(self.Disc, self._spConfigs))
         return self._subProblems
+
+    @property
+    def factors(self):
+        return not ((not hasattr(self, '_subProblems')) or (not any((sp.factors for sp in self.subProblems))))
+    @factors.deleter
+    def factors(self):
+        if hasattr(self, '_subProblems'):
+            for sp in self.subProblems:
+                del sp.factors
 
     @property
     def spUpdates(self):

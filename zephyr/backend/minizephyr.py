@@ -1,6 +1,11 @@
 '''
 Implementation of 2D and 2.5D frequency-domain (visco)acoustic wave modelling
 '''
+from __future__ import absolute_import, division, print_function
+# This breaks np.pad
+# from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
 
 from .discretization import BaseDiscretization, DiscretizationWrapper
 
@@ -8,9 +13,10 @@ import copy
 import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
+from functools import reduce
 
 try:
-    from multiprocessing import Pool, Process
+    from multiprocessing import Pool
 except ImportError:
     PARALLEL = False
 else:
@@ -50,18 +56,19 @@ class MiniZephyr(BaseDiscretization):
 
         c = self.c.reshape(dims)
         rho = self.rho.reshape(dims)
-
-        exec 'nf = %s'%self.mord[0] in locals()
-        exec 'ns = %s'%self.mord[1] in locals()
+        nf, ns = self.mord
 
         # fast --> slow is x --> y --> z as Fortran
 
         # Set up physical properties in matrices with padding
         omega   = 2*np.pi * self.freq
         omegaDamped = omega - self.dampCoeff
-        padopts = {'pad_width': 1, 'mode': 'edge'}
-        cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
-        rhoPad  = np.pad(rho, **padopts)
+
+        def pad(arr):
+            return np.pad(arr, 1, 'edge')
+
+        cPad    = pad(c.real) + 1j * pad(c.imag)
+        rhoPad  = pad(rho)
 
         aky = 2*np.pi * self.ky
 
@@ -246,7 +253,8 @@ class MiniZephyr(BaseDiscretization):
 
         return A
 
-    def _setupBoundary(self, diagonals, freeSurf):
+    @staticmethod
+    def _setupBoundary(diagonals, freeSurf):
         '''
         Function to set up boundary regions for the Seismic FDFD problem
         using the 9-point finite-difference stencil from OMEGA/FULLWV.
@@ -258,7 +266,7 @@ class MiniZephyr(BaseDiscretization):
         The diagonals are modified in-place.
         '''
 
-        keys = diagonals.keys()
+        keys = list(diagonals.keys())
         pickDiag = lambda x: -1. if freeSurf[x] else 1.
 
         # Left
@@ -301,7 +309,7 @@ class MiniZephyr(BaseDiscretization):
     def mord(self):
         'Determines matrix ordering'
 
-        return getattr(self, '_mord', ('+nx', '+1'))
+        return getattr(self, '_mord', (self.nx, +1))
 
     @property
     def nPML(self):
@@ -357,7 +365,7 @@ class MiniZephyr25D(BaseDiscretization,DiscretizationWrapper):
         'The discretization to be applied to each wavenumber subproblem'
 
         if getattr(self, '_Disc', None) is None:
-            from minizephyr import MiniZephyr
+            from .minizephyr import MiniZephyr
             self._Disc = MiniZephyr
         return self._Disc
 

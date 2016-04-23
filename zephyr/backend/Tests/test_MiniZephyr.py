@@ -5,13 +5,14 @@ from zephyr.backend import MiniZephyr, MiniZephyr25D, SimpleSource, AnalyticalHe
 class TestMiniZephyr(unittest.TestCase):
     
     @staticmethod
-    def elementNorm(arr):
+    def _elementNorm(arr):
         return np.sqrt((arr.conj()*arr).sum()) / arr.size
 
     def setUp(self):
         pass
 
-    def test_cleanExecution(self):
+    @staticmethod
+    def test_cleanExecution():
 
         systemConfig = {
             'c':        2500.,                          # m/s
@@ -31,7 +32,8 @@ class TestMiniZephyr(unittest.TestCase):
         q = src(sloc)
         u = Ainv*q
 
-    def test_cleanExecution25D(self):
+    @staticmethod
+    def test_cleanExecution25D():
 
         systemConfig = {
             'c':        2500.,                          # m/s
@@ -53,7 +55,8 @@ class TestMiniZephyr(unittest.TestCase):
         q = src(sloc)
         u = Ainv*q
 
-    def test_cleanExecution25DParallel(self):
+    @staticmethod
+    def test_cleanExecution25DParallel():
 
         systemConfig = {
             'c':        2500.,                          # m/s
@@ -106,7 +109,7 @@ class TestMiniZephyr(unittest.TestCase):
         segAHr = uAHr[40:180,40:80]
         segMZr = uMZr[40:180,40:80]
         
-        error = self.elementNorm((segAHr - segMZr) / abs(segAHr))
+        error = self._elementNorm((segAHr - segMZr) / abs(segAHr))
         
         self.assertTrue(error < 1e-2)
         
@@ -143,7 +146,7 @@ class TestMiniZephyr(unittest.TestCase):
         segAHr = uAHr[40:180,40:80]
         segMZr = uMZr[40:180,40:80]
         
-        error = self.elementNorm((segAHr - segMZr) / abs(segAHr))
+        error = self._elementNorm((segAHr - segMZr) / abs(segAHr))
         print(error)
         
         self.assertTrue(error < 1e-2)

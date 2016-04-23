@@ -5,13 +5,14 @@ from zephyr.backend import Eurus, StackedSimpleSource, AnalyticalHelmholtz
 class TestEurus(unittest.TestCase):
 
     @staticmethod
-    def elementNorm(arr):
+    def _elementNorm(arr):
         return np.sqrt((arr.conj()*arr).sum()) / arr.size
 
     def setUp(self):
         pass
 
-    def test_cleanExecution(self):
+    @staticmethod
+    def test_cleanExecution():
 
         nx = 100
         nz = 200
@@ -88,7 +89,7 @@ class TestEurus(unittest.TestCase):
         segAHr = uAHr[40:180,40:80]
         segMZr = uMZr[40:180,40:80]
 
-        error = self.elementNorm((segAHr - segMZr) / abs(segAHr))
+        error = self._elementNorm((segAHr - segMZr) / abs(segAHr))
 
         self.assertTrue(error < 3e-2)
 
@@ -145,7 +146,7 @@ class TestEurus(unittest.TestCase):
         segAHr = uAHr[40:180,40:80]
         segMZr = uMZr[40:180,40:80]
 
-        error = self.elementNorm((segAHr - segMZr) / abs(segAHr))
+        error = self._elementNorm((segAHr - segMZr) / abs(segAHr))
 
         self.assertTrue(error < 3e-2)
 

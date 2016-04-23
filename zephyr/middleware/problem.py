@@ -1,10 +1,16 @@
+from __future__ import division, unicode_literals, print_function, absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import next, zip, range
 
+from galoshes import BaseSCCache
 import numpy as np
 import scipy.sparse as sp
-from ..backend import BaseModelDependent, BaseSCCache, MultiFreq, ViscoMultiFreq
+from ..backend import BaseModelDependent,MultiFreq, ViscoMultiFreq, ViscoMultiGridMultiFreq
 import SimPEG
 from .survey import HelmBaseSurvey, Helm2DSurvey, Helm25DSurvey
 from .fields import HelmFields
+from functools import reduce
 
 EPS = 1e-15
 
@@ -51,8 +57,8 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             self.systemConfig.update(m)
             self.clearCache()
 
-        elif isinstance(m, np.ndarray) or isinstance(m, np.inexact) or isinstance(m, complex) or isinstance(m, float):
-            if not np.linalg.norm(m - self.systemConfig.get(loneKey, 0.)) < EPS:
+        elif isinstance(m, (np.ndarray, np.inexact, complex, float)):
+            if not np.linalg.norm(m.ravel() - self.systemConfig.get(loneKey, 0.).ravel()) < EPS:
                 self.systemConfig[loneKey] = m
                 self.clearCache()
 
@@ -64,6 +70,56 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         if getattr(self, '_system', None) is None:
             self._system = self.SystemWrapper(self.systemConfig)
         return self._system
+
+    def scaledTerms(self, ifreq):
+        omega = 2*np.pi * self.survey.freqs[ifreq]
+        c = self.system.subProblems[ifreq].c
+        return omega, c
+
+    def gradientScaler(self, ifreq):
+        omega, c = self.scaledTerms(ifreq)
+        return self.survey.postProcessors[ifreq](-(omega**2 / c**3).ravel())
+
+    def sensScaler(self, ifreq):
+        omega, c = self.scaledTerms(ifreq)
+        return self.survey.postProcessors[ifreq](-(c**3 / omega**2).ravel())
+
+    @SimPEG.Utils.timeIt
+    def Jvec(self, m=None, v=None, u=None):
+
+        if not self.ispaired:
+            raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
+
+        if v is None:
+            raise Exception('Actually, Jvec requires a perturbation vector')
+
+        self.updateModel(m)
+
+        pqShape = (self.nz*self.nx, 1)
+        perturb = v.reshape(pqShape)
+
+        qv = [self.survey.preProcessors[i](perturb * self.sensScaler(i).reshape(pqShape)) for i in xrange(self.survey.nfreq)]
+
+        uVirt = list(self.system * qv)
+
+        qf = self.survey.getSources()
+
+        dpert = np.empty((self.survey.nrec, self.survey.nsrc, self.survey.nfreq), dtype=np.complex128)
+
+        for ifreq, uFreq in enumerate(uVirt):
+            srcTerms = qf[ifreq].T * uFreq
+            rVecs = self.survey.rVecs(ifreq)
+
+            if self.survey.mode == 'fixed':
+                qr = next(rVecs)
+                recTerms = qr * uFreq
+                dpert[:,:,ifreq] = recTerms.reshape((self.survey.nrec,1)) * srcTerms.reshape((1,self.survey.nsrc))
+            else:
+                for isrc, qr in enumerate(rVecs):
+                    recTerms = qr.T * uFreq
+                    dpert[:,isrc,ifreq] = srcTerms[isrc] * recTerms
+
+        return dpert.ravel()
 
     @SimPEG.Utils.timeIt
     def Jtvec(self, m=None, v=None, u=None):
@@ -81,47 +137,41 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         # r.shape [<nrec, nelem> . nsrc]
 
         resid = v.reshape((self.survey.nrec, self.survey.nsrc, self.survey.nfreq))
+        qb = self.survey.getResidualSources(resid)
 
-        if u is None:
-            u = self._lazyFields(m)
+        mux = (u is None)
+        if mux:
+            qf = self.survey.getSources()
 
-        # Make a list of receiver vectors for each frequency, each of size <nelem, nsrc>
-        qb = [
-              sp.hstack(
-               [self.survey.rVec(isrc).T * # <-- <nelem, nrec>
-                sp.csc_matrix(resid[:,isrc, ifreq].reshape((self.survey.nrec,1))) # <-- <nrec, 1>
-                for isrc in xrange(self.survey.nsrc)
-               ] # <-- List comprehension creates sparse vectors of size <nelem, 1> for each source and all receivers
-#                (self.survey.rVec(isrc).T * # <-- <nelem, nrec>
-#                 sp.csc_matrix(resid[:,isrc, ifreq].reshape((self.survey.nrec,1))) # <-- <nrec, 1>
-#                 for isrc in xrange(self.survey.nsrc)
-#                ) # <-- Generator expression creates sparse vectors of size <nelem, 1> for each source and all receivers
-              ) # <-- Sparse matrix of size <nelem, nsrc> constructed by hstack from generator
-              for ifreq in xrange(self.survey.nfreq) # <-- Outer list of size <nfreq>
-             ]
+            if np.isiterable(qb):
+                qm = (sp.hstack(qFi, qBi) for qFi, qBi in zip(qf, qb))
+                uMux = self.system * qm
+            else:
+                uMux = self.system * sp.hstack(qf, qb)
 
-        uB = self.system * qb
-        if isinstance(u, HelmFields):
-            g = reduce(np.add, ((u[:,'u',ifreq] * uBi).sum(axis=1) for ifreq, uBi in enumerate(uB)))
+            g = reduce(np.add, (self.gradientScaler(ifreq) * pp((uMuxi[:,:self.survey.nsrc] * uMuxi[:,self.survey.nsrc:]).sum(axis=1)) for ifreq, uMuxi, pp in zip(list(range(self.survey.nfreq)), uMux, self.survey.postProcessors)))
+
         else:
-            g = reduce(np.add, ((uFi * uBi).sum(axis=1) for uFi, uBi in zip(u, uB)))
+            uB = (pp(uBi) for uBi, pp in zip(self.system * qb, self.survey.postProcessors))
+
+            if isinstance(u, HelmFields):
+                uIter = (u[:,'u',ifreq] for ifreq in range(self.survey.nfreq))
+            else:
+                uIter = u
+
+            g = reduce(np.add, (self.gradientScaler(ifreq) * (uFi * uBi).sum(axis=1) for ifreq, uFi, uBi in zip(list(range(self.survey.nfreq)), uIter, uB))).real
 
         return g
 
-    def _lazyFields(self, m=None):
+    def lazyFields(self, m=None):
 
         if not self.ispaired:
             raise Exception('%s instance is not paired to a survey'%(self.__class__.__name__,))
 
         self.updateModel(m)
 
-        qs = self.survey.sVecs
-
-        if isinstance(self.survey.tsTerms, list) or isinstance(self.survey.tsTerms, np.ndarray):
-            qs = [qs * sp.diags(sterm.conjugate(),0) if np.iterable(sterm) else sterm.conjugate() * qs for sterm in self.survey.tsTerms]
-        else:
-            qs = qs * self.survey.tsTerms.conjugate()
-        uF = self.system * qs
+        qf = self.survey.getSources()
+        uF = self.system * qf
 
         if not np.iterable(uF):
             uF = [uF]
@@ -130,13 +180,25 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
 
     def fields(self, m=None):
 
-        uF = self._lazyFields(m)
+        uF = self.lazyFields(m)
+        uF = (pp(uFi) for uFi, pp in zip(uF, self.survey.postProcessors))
+
         fields = HelmFields(self.mesh, self.survey)
 
         for ifreq, uFsub in enumerate(uF):
             fields[:,'u',ifreq] = uFsub
 
         return fields
+
+    @property
+    def factors(self):
+        return self.system.factors
+    @factors.deleter
+    def factors(self):
+        del self.system.factors
+
+    def __del__(self):
+        del self.factors
 
 
 class Helm2DProblem(HelmBaseProblem):
@@ -153,6 +215,11 @@ class Helm2DProblem(HelmBaseProblem):
 class Helm2DViscoProblem(Helm2DProblem):
 
     SystemWrapper = ViscoMultiFreq
+
+
+class Helm2DViscoMultiGridProblem(Helm2DProblem):
+
+    SystemWrapper = ViscoMultiGridMultiFreq
 
 
 class Helm25DProblem(HelmBaseProblem):

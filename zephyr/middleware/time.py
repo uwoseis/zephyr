@@ -1,6 +1,11 @@
+from __future__ import division, unicode_literals, print_function, absolute_import
+from builtins import int
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
 
 import numpy as np
-from ..backend import AttributeMapper
+from galoshes import AttributeMapper
 
 def dwavelet(srcfreq, deltat, nexc):
     '''
@@ -34,7 +39,7 @@ def dftreal(a, N, M):
     Based on dftreal.m by R.G. Pratt
     '''
 
-    A = np.zeros((np.fix(N/2), M))
+    A = np.zeros((np.fix(N//2), M))
     n = np.arange(N).reshape((N,1))
     nk = n.T * n
     w = np.exp(2j*np.pi / N)
@@ -59,8 +64,8 @@ def idftreal(A, N, M):
     n = np.arange(N).reshape((N,1))
 
     # Set maximum non-Nyquist frequency index (works for even or odd N)
-    imax = np.int(np.fix((N+1)/2)-1)
-    k1 = np.arange(np.fix(N/2)+1)               # Freq indices from zero to Nyquist
+    imax = np.int(np.fix((N+1)//2)-1)
+    k1 = np.arange(np.fix(N//2)+1)               # Freq indices from zero to Nyquist
     k2 = np.arange(1, imax+1)                   # Freq indices except zero and Nyquist
     nk1 = n * k1.T
     nk2 = n * k2.T
@@ -68,7 +73,7 @@ def idftreal(A, N, M):
     W = w**nk1
     W2 = w**nk2
     W[:,1:imax+1] += W2                         # Add two matrices properly shifted
-    a = np.dot(W, A[:np.fix(N/2)+1,:M]).real    # (leads to doubling for non-Nyquist)
+    a = np.dot(W, A[:np.fix(N//2)+1,:M]).real    # (leads to doubling for non-Nyquist)
 
     return a
 
@@ -85,7 +90,7 @@ class BaseTimeSensitive(AttributeMapper):
     def tau(self):
         'Laplace-domain damping time constant'
         return getattr(self, '_tau', np.inf)
-    
+
     @property
     def dampCoeff(self):
         'Computed damping coefficient to be added to real omega'
@@ -116,7 +121,7 @@ class TimeMachine(BaseTimeSensitive):
     @property
     def fMax(self):
         return self.freqs[-1]
-    
+
     @property
     def df(self):
         if len(self.freqs) > 1:
@@ -140,7 +145,7 @@ class TimeMachine(BaseTimeSensitive):
 
         if len(value) > 1:
             step = value[1] - value[0]
-            for i in xrange(1, len(value)):
+            for i in range(1, len(value)):
                 ostep = step
                 step = value[i] - value[i-1]
                 if abs(step - ostep) > 1e-5:
@@ -184,9 +189,10 @@ class TimeMachine(BaseTimeSensitive):
             tdata = tdata.reshape((1, len(tdata)))
         fdata = self.dft(tdata)
 
-        return fdata[:, 1:fdata.shape[1]/2 + 1]
+        return fdata[:, 1:fdata.shape[1]//2 + 1]
 
-    def dft(self, a):
+    @staticmethod
+    def dft(a):
         '''
         Automatically carry out the forward discrete Fourier transform.
         '''
@@ -196,7 +202,8 @@ class TimeMachine(BaseTimeSensitive):
         return dftreal(a, a.shape[0], a.shape[1]).T
 
 
-    def idft(self, A):
+    @staticmethod
+    def idft(A):
         '''
         Automatically carry out the inverse discrete Fourier transform.
         '''
@@ -207,21 +214,24 @@ class TimeMachine(BaseTimeSensitive):
 
         return idftreal(A, ns, A.shape[1]).T
 
-    def fft(self, a):
+    @staticmethod
+    def fft(a):
         '''
         Automatically carry out the forward fast Fourier transform.
         '''
-        
+
         raise NotImplementedError
 
-    def ifft(self, A):
+    @staticmethod
+    def ifft(A):
         '''
         Automatically carry out the inverse fast Fourier transform.
         '''
-        
+
         raise NotImplementedError
 
-    def timeSlice(self, slices):
+    @staticmethod
+    def timeSlice(slices):
         '''
         Carry out forward modelling and return time slices.
         '''

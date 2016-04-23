@@ -1,5 +1,10 @@
+from __future__ import print_function, unicode_literals, division, absolute_import
+from builtins import open
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 
-import cPickle
+import pickle
 
 from zephyr import backend
 from zephyr import middleware
@@ -31,7 +36,7 @@ class Job(object):
         print('Setting up composite job "%s":'%(self.__class__.__name__,))
         for item in self.__class__.__mro__[:-1][::-1]:
             print('\t%s'%(item.__name__,))
-        print
+        print()
 
         systemConfig = self.getSystemConfig(projnm)
         update = {}
@@ -184,7 +189,7 @@ class PickleOutputJob(Job):
     def saveData(self, data):
 
         with open(self.projnm, 'wb') as fp:
-            pickler = cPickle.Pickler(fp)
+            pickler = pickle.Pickler(fp)
             pickler.dump(data)
 
 

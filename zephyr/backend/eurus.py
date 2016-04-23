@@ -1,5 +1,11 @@
+from __future__ import division, print_function, absolute_import
+# This breaks np.pad
+# from __future__ import unicode_literals
+from builtins import super
+from future import standard_library
+standard_library.install_aliases()
 
-from .meta import BaseAnisotropic
+from .base import BaseAnisotropic
 from .discretization import BaseDiscretization
 
 import numpy as np
@@ -39,17 +45,18 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
 
         c = self.c.reshape(dims)
         rho = self.rho.reshape(dims)
-
-        exec 'nf = %s'%self.mord[0] in locals()
-        exec 'ns = %s'%self.mord[1] in locals()
+        nf, ns = self.mord
 
         # fast --> slow is x --> y --> z as Fortran
 
         # Set up physical properties in matrices with padding
         omega   = 2*np.pi * self.freq
-        padopts = {'pad_width': 1, 'mode': 'edge'}
-        cPad    = np.pad(c.real, **padopts) + 1j * np.pad(c.imag, **padopts)
-        rhoPad  = np.pad(rho, **padopts)
+
+        def pad(arr):
+            return np.pad(arr, 1, 'edge')
+
+        cPad    = pad(c.real) + 1j * pad(c.imag)
+        rhoPad  = pad(rho)
 
         # Horizontal, vertical and diagonal geometry terms
         dx  = self.dx
@@ -83,8 +90,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         gamma_z[:nPML]  = cPML * (np.cos((np.pi/2)* (z_vals/pmldz)))
         gamma_z[-nPML:] = cPML * (np.cos((np.pi/2)* (z_vals[::-1]/pmldz)))
 
-        gamma_x = np.pad(gamma_x.real, **padopts) + 1j * np.pad(gamma_x.imag, **padopts)
-        gamma_z = np.pad(gamma_z.real, **padopts) + 1j * np.pad(gamma_z.imag, **padopts)
+        gamma_x = pad(gamma_x.real) + 1j * pad(gamma_x.imag)
+        gamma_z = pad(gamma_z.real) + 1j * pad(gamma_z.imag)
 
         Xi_x     = 1 - ((1j *gamma_x.reshape((1,nx+2)))/omegaDamped)
         Xi_z     = 1 - ((1j *gamma_z.reshape((nz+2,1)))/omegaDamped)
@@ -456,7 +463,8 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         A = sp.bmat([[M1_A, M2_A],[M3_A,M4_A]])
         return A
 
-    def _setupBoundary(self, diagonals):
+    @staticmethod
+    def _setupBoundary(diagonals):
         '''
         Function to set up boundary regions for the Seismic FDFD problem
         using the 9-point finite-difference stencil from OMEGA/FULLWV.
@@ -487,7 +495,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
     def mord(self):
         'Determines matrix ordering'
 
-        return getattr(self, '_mord', ('-nx', '+1'))
+        return getattr(self, '_mord', (-self.nx, +1))
 
     @property
     def cPML(self):
@@ -520,7 +528,7 @@ class Eurus(BaseDiscretization, BaseAnisotropic):
         result = super(Eurus, self).__mul__(rhs)
 
         if clipResult:
-            result = result[:self.shape[1]/2,:]
+            result = result[:self.shape[1]//2, :]
 
         return result
 
