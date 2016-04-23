@@ -9,10 +9,10 @@ from builtins import map
 
 import copy
 from galoshes import BaseSCCache
+from problemo import DirectSolver
 import numpy as np
 import scipy.sparse as sp
 from .base import BaseModelDependent
-from .solver import DirectSolver
 
 
 class BaseDiscretization(BaseModelDependent):
