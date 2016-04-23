@@ -1,4 +1,7 @@
-from __future__ import print_function
+from __future__ import print_function, unicode_literals, division, absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
 
 import numpy as np
 import scipy.sparse as sp
@@ -59,7 +62,7 @@ class HelmFields(SimPEG.Fields.Fields):
         if len(shape) == 1:
             shape = shape + (1,)
         return shape
-    
+
     def _setField(self, field, val, name, ind):
         srcInd, freqInd = ind
         shape = self._correctShape(name, ind)
@@ -72,7 +75,7 @@ class HelmFields(SimPEG.Fields.Fields):
             raise ValueError('Incorrect size for data.')
         correctShape = field[:,srcInd,freqInd].shape
         field[:,srcInd,freqInd] = val.reshape(correctShape, order='F')
-    
+
     def _getField(self, name, ind):
         srcInd, freqInd = ind
 
@@ -98,7 +101,7 @@ class HelmFields(SimPEG.Fields.Fields):
                 out = func(pointerFields, srcII, freqII)
             else: #loop over the frequencies
                 nF = pointerShape[2]
-                out = range(nF)
+                out = list(range(nF))
                 for i, FIND_i in enumerate(freqII):
                     fieldI = pointerFields[:,:,i]
                     if fieldI.shape[0] == fieldI.size:
@@ -112,10 +115,10 @@ class HelmFields(SimPEG.Fields.Fields):
 
         shape = self._correctShape(name, ind, deflate=True)
         return out.reshape(shape, order='F')
-    
+
     def __repr__(self):
-        
-        shape = self._storageShape('N')        
+
+        shape = self._storageShape('N')
         attrs = {
             'name':     self.__class__.__name__,
             'id':       id(self),
@@ -124,5 +127,5 @@ class HelmFields(SimPEG.Fields.Fields):
             'nSrc':     shape[1],
             'nFreq':    shape[2],
         }
-        
+
         return '<%(name)s container at 0x%(id)x: %(nFields)d fields, with N shape (%(nN)d, %(nSrc)d, %(nFreq)d)>'%attrs

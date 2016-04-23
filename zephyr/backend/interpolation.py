@@ -1,3 +1,7 @@
+from __future__ import division, unicode_literals, print_function, absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
 
 from galoshes import BaseSCCache
 import warnings
@@ -177,7 +181,7 @@ class SplineGridInterpolator(BaseGridInterpolator):
 
         if rhs.ndim == 2:
             output = np.zeros((self.shape[0], rhs.shape[1]), dtype=rhs.dtype.type)
-            for i in xrange(rhs.shape[1]):
+            for i in range(rhs.shape[1]):
                 output[:,i] = self * rhs[:,i]
             return output
 

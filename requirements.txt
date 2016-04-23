@@ -1,4 +1,5 @@
 click
+future
 galoshes
 future
 -e git://github.com/simpeg/simpeg.git#egg=simpeg

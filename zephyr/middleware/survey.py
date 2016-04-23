@@ -1,3 +1,7 @@
+from __future__ import unicode_literals, print_function, division, absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
 
 from galoshes import BaseSCCache
 import numpy as np
@@ -121,7 +125,7 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
             return self._rVecs[isrc]
 
     def rVecs(self, ifreq):
-        return (self.rVec(i) for i in xrange(self.nsrc))
+        return (self.rVec(i) for i in range(self.nsrc))
 
     @property
     def nD(self):
@@ -171,14 +175,14 @@ class HelmBaseSurvey(SimPEG.Survey.BaseSurvey, BaseSCCache):
               sp.hstack(
                [self.rVec(isrc).T * # <-- <nelem, nrec>
                 sp.csc_matrix(resid[:,isrc, ifreq].reshape((self.nrec,1))) # <-- <nrec, 1>
-                for isrc in xrange(self.nsrc)
+                for isrc in range(self.nsrc)
                ] # <-- List comprehension creates sparse vectors of size <nelem, 1> for each source and all receivers
 #                (self.rVec(isrc).T * # <-- <nelem, nrec>
 #                 sp.csc_matrix(resid[:,isrc, ifreq].reshape((self.survey.nrec,1))) # <-- <nrec, 1>
 #                 for isrc in xrange(self.nsrc)
 #                ) # <-- Generator expression creates sparse vectors of size <nelem, 1> for each source and all receivers
               ) # <-- Sparse matrix of size <nelem, nsrc> constructed by hstack from generator
-              for ifreq in xrange(self.nfreq) # <-- Outer list of size <nfreq>
+              for ifreq in range(self.nfreq) # <-- Outer list of size <nfreq>
              ]
 
         return qb
@@ -270,7 +274,7 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
             return self._rVecs[isrc]
 
     def rVecs(self, ifreq):
-        return (self.rVec(i, ifreq) for i in xrange(self.nsrc))
+        return (self.rVec(i, ifreq) for i in range(self.nsrc))
 
     @SimPEG.Utils.count
     def projectFields(self, u):
@@ -278,7 +282,7 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
         data = np.empty((self.nrec, self.nsrc, self.nfreq), dtype=np.complex128)
 
         for isrc, src in enumerate(self.srcList):
-            for ifreq in xrange(self.nfreq):
+            for ifreq in range(self.nfreq):
                 data[:,isrc,ifreq] = self.rVec(isrc, ifreq) * (self.mgHelper.downScalers[ifreq] * u[src,'u',ifreq]).ravel()
             #for ifreq, freq in enumerate(self.freqs):
             #    data[:,isrc,ifreq] = rVec * u[:,isrc,ifreq]
@@ -302,7 +306,7 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
             qs = [self.sVecs(ifreq) * sp.diags((sterm.conjugate(),), (0,)) if np.iterable(sterm) else sterm.conjugate() * self.sVecs(ifreq) for ifreq, sterm in enumerate(self.tsTerms)]
         else:
             sterm = self.tsTerms
-            qs = [sterm.conjugate() * self.sVecs(ifreq) for ifreq in xrange(self.nfreq)]
+            qs = [sterm.conjugate() * self.sVecs(ifreq) for ifreq in range(self.nfreq)]
 
         return qs
 
@@ -313,14 +317,14 @@ class HelmMultiGridSurvey(HelmBaseSurvey):
               sp.hstack(
                [self.rVec(isrc, ifreq).T * # <-- <nelem, nrec>
                 sp.csc_matrix(resid[:,isrc, ifreq].reshape((self.nrec,1))) # <-- <nrec, 1>
-                for isrc in xrange(self.nsrc)
+                for isrc in range(self.nsrc)
                ] # <-- List comprehension creates sparse vectors of size <nelem, 1> for each source and all receivers
 #                (self.rVec(isrc).T * # <-- <nelem, nrec>
 #                 sp.csc_matrix(resid[:,isrc, ifreq].reshape((self.survey.nrec,1))) # <-- <nrec, 1>
 #                 for isrc in xrange(self.nsrc)
 #                ) # <-- Generator expression creates sparse vectors of size <nelem, 1> for each source and all receivers
               ) # <-- Sparse matrix of size <nelem, nsrc> constructed by hstack from generator
-              for ifreq in xrange(self.nfreq) # <-- Outer list of size <nfreq>
+              for ifreq in range(self.nfreq) # <-- Outer list of size <nfreq>
              ]
 
         return qb

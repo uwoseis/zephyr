@@ -1,6 +1,10 @@
 '''
 Sparse system solvers for Zephyr
 '''
+from __future__ import unicode_literals, print_function, division, absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range, object
 
 import types
 import numpy as np
@@ -10,7 +14,7 @@ import scipy.sparse.linalg
 try:
     from pymatsolver import MumpsSolver
     DEFAULT_SOLVER = MumpsSolver
-except ImportError:
+except (ImportError, SyntaxError):
     DEFAULT_SOLVER = scipy.sparse.linalg.splu
 
 class DirectSolver(object):
@@ -81,13 +85,13 @@ class DirectSolver(object):
 
         if isinstance(rhs, scipy.sparse.spmatrix):
             def qIter(qs):
-                for j in xrange(qs.shape[1]):
+                for j in range(qs.shape[1]):
                     qi = qs.getcol(j).toarray().ravel()
                     yield qi
                 return
         else:
             def qIter(qs):
-                for j in xrange(qs.shape[1]):
+                for j in range(qs.shape[1]):
                     qi = qs[:,j]
                     yield qi
                 return

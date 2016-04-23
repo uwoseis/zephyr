@@ -1,4 +1,8 @@
-from __future__ import print_function
+from __future__ import print_function, division, unicode_literals, absolute_import
+from builtins import open
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 
 import os
 import glob
@@ -7,7 +11,7 @@ import glob
 import numpy as np
 import scipy.io as io
 from pygeo.segyread import SEGYFile
-import cPickle
+import pickle
 
 from .util import compileDict, readini
 from .time import BaseTimeSensitive, TimeMachine
@@ -117,7 +121,7 @@ class FullwvDatastore(BaseDatastore):
 
     def __getitem__(self, item):
 
-        if type(item) is str:
+        if type(item) in {str, unicode}:
             key = item
             sl = slice(None)
         elif type(item) is tuple:
@@ -126,6 +130,8 @@ class FullwvDatastore(BaseDatastore):
             sl = item[1]
             assert type(key) is str
             assert (type(sl) is slice) or (type(sl) is int)
+        else:
+            raise TypeError()
 
         if key.find(self.projnm) != 0:
             key = self.projnm + key
@@ -142,7 +148,7 @@ class FullwvDatastore(BaseDatastore):
         return key in self.handled
 
     def keys(self):
-        return self.handled.keys()
+        return list(self.handled.keys())
 
     def __repr__(self):
         report = {
@@ -228,7 +234,7 @@ class FullwvDatastore(BaseDatastore):
                 src = src[:0,:]
             assert src.shape[1] == tm.ns, 'Source ns does not match computed ns'
             sterms = tm.dft(src)
-            sc['sterms'] = sterms[:,1:tm.ns/2+1].T
+            sc['sterms'] = sterms[:,1:tm.ns//2+1].T
 
         sc['projnm'] = self.projnm
 
@@ -298,7 +304,7 @@ class PickleDatastore(BaseDatastore):
 
         infile = '%s.pickle'%(projnm,)
         with open(infile, 'rb') as fp:
-            unp = cPickle.Unpickler(fp)
+            unp = pickle.Unpickler(fp)
             systemConfig = unp.load()
 
         self.systemConfig = systemConfig

@@ -1,7 +1,11 @@
 '''
 Source-generating routines for Zephyr
 '''
-from __future__ import print_function
+from __future__ import print_function, division, unicode_literals, absolute_import
+from builtins import super
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
 
 from .base import BaseModelDependent, BaseAnisotropic
 import warnings
@@ -248,8 +252,8 @@ class SparseKaiserSource(SimpleSource):
             rows = np.zeros((nnz,))
             dptr = 0
 
-            for i in xrange(N):
-                Zi, Xi = (qI[i] / self.nx, np.mod(qI[i], self.nx))
+            for i in range(N):
+                Zi, Xi = (qI[i] // self.nx, np.mod(qI[i], self.nx))
                 offset = (sLocs[i][0] - self.xorig - Xi * self.dx, sLocs[i][1] - self.zorig - Zi * self.dz)
                 sourceRegion = self.kws(offset, Zi, Xi)
                 qshift = shift.copy()

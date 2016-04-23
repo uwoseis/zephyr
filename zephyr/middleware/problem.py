@@ -1,3 +1,7 @@
+from __future__ import division, unicode_literals, print_function, absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import next, zip, range
 
 from galoshes import BaseSCCache
 import numpy as np
@@ -145,17 +149,17 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
             else:
                 uMux = self.system * sp.hstack(qf, qb)
 
-            g = reduce(np.add, (self.gradientScaler(ifreq) * pp((uMuxi[:,:self.survey.nsrc] * uMuxi[:,self.survey.nsrc:]).sum(axis=1)) for ifreq, uMuxi, pp in zip(xrange(self.survey.nfreq), uMux, self.survey.postProcessors)))
+            g = reduce(np.add, (self.gradientScaler(ifreq) * pp((uMuxi[:,:self.survey.nsrc] * uMuxi[:,self.survey.nsrc:]).sum(axis=1)) for ifreq, uMuxi, pp in zip(list(range(self.survey.nfreq)), uMux, self.survey.postProcessors)))
 
         else:
             uB = (pp(uBi) for uBi, pp in zip(self.system * qb, self.survey.postProcessors))
 
             if isinstance(u, HelmFields):
-                uIter = (u[:,'u',ifreq] for ifreq in xrange(self.survey.nfreq))
+                uIter = (u[:,'u',ifreq] for ifreq in range(self.survey.nfreq))
             else:
                 uIter = u
 
-            g = reduce(np.add, (self.gradientScaler(ifreq) * (uFi * uBi).sum(axis=1) for ifreq, uFi, uBi in zip(xrange(self.survey.nfreq), uIter, uB))).real
+            g = reduce(np.add, (self.gradientScaler(ifreq) * (uFi * uBi).sum(axis=1) for ifreq, uFi, uBi in zip(list(range(self.survey.nfreq)), uIter, uB))).real
 
         return g
 

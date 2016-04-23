@@ -1,6 +1,11 @@
 '''
 Distribution wrappers for composite problems
 '''
+from __future__ import division, unicode_literals, print_function, absolute_import
+from builtins import super
+from future import standard_library
+standard_library.install_aliases()
+from builtins import zip, range
 
 from galoshes import SCFilter, BaseSCCache
 import numpy as np
@@ -111,7 +116,7 @@ class BaseMPDist(BaseDist):
 
         fields = super(BaseMPDist, self).addFields
 
-        remCap = self.cpuCount / self.nWorkers
+        remCap = self.cpuCount // self.nWorkers
         if (self.nWorkers < self.cpuCount) and remCap > 1:
 
             fields.update({'parallel': True, 'nWorkers': remCap})
@@ -409,7 +414,7 @@ class MultiGridMultiFreq(MultiFreq, BaseModelDependent):
         'Updates for frequency subProblems'
 
         vals = []
-        for i in xrange(len(self.freqs)):
+        for i in range(len(self.freqs)):
 
             ds = self.mgHelper.downScalers[i]
             c = ds * self.c.ravel()
@@ -454,7 +459,7 @@ class ViscoMultiGridMultiFreq(ViscoMultiFreq,MultiGridMultiFreq):
 
         vals = []
         if self.disperseFreqs:
-            for i in xrange(len(self.freqs)):
+            for i in range(len(self.freqs)):
                 freq = self.freqs[i]
                 fact = 1. + (np.log(freq / self.freqBase) / (np.pi * self.Q))
                 assert not self._any(fact < 0.1)
@@ -479,7 +484,7 @@ class ViscoMultiGridMultiFreq(ViscoMultiFreq,MultiGridMultiFreq):
                 vals.append(spUpdate)
 
         else:
-            for i in xrange(len(self.freqs)):
+            for i in range(len(self.freqs)):
                 ds = self.mgHelper.downScalers[i]
 
                 c = self.c.ravel() + (0.5j * self.c.ravel() / self.Q.ravel()) # NB: + b/c of FT convention

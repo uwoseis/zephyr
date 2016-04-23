@@ -1,6 +1,9 @@
 '''
 Low-level programming constructs for Zephyr
 '''
+from __future__ import division, unicode_literals, print_function, absolute_import
+from future import standard_library
+standard_library.install_aliases()
 
 from galoshes import AttributeMapper
 import numpy as np
@@ -101,9 +104,9 @@ class BaseModelDependent(AttributeMapper):
         '''
 
         if hasattr(self, 'ny'):
-            return np.array([lind / (self.nx * self.ny), np.mod(lind, self.nx), np.mod(lind, self.ny * self.nx)]).T
+            return np.array([lind // (self.nx * self.ny), np.mod(lind, self.nx), np.mod(lind, self.ny * self.nx)]).T
         else:
-            return np.array([lind / self.nx, np.mod(lind, self.nx)]).T
+            return np.array([lind // self.nx, np.mod(lind, self.nx)]).T
 
 
 class BaseAnisotropic(BaseModelDependent):

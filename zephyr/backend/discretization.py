@@ -2,6 +2,10 @@
 '''
 Discretization base classes for Zephyr
 '''
+from __future__ import division, unicode_literals, print_function, absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import map
 
 import copy
 from galoshes import BaseSCCache
@@ -145,7 +149,7 @@ class DiscretizationWrapper(BaseSCCache):
 
         if getattr(self, '_subProblems', None) is None:
 
-            self._subProblems = map(self.Disc, self._spConfigs)
+            self._subProblems = list(map(self.Disc, self._spConfigs))
         return self._subProblems
 
     @property
