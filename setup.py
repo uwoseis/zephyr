@@ -26,14 +26,15 @@ with open('README.md') as fp:
 
 setup(
     name = 'zephyr-seis',
-    version = '0.1.3',
+    version = '0.1.4',
     packages = find_packages(),
     install_requires = ['numpy>=1.7',
                         'scipy>=0.13',
                         'click',
-                        'galoshes',
-                        'problemo',
+                        'galoshes>=0.2.2',
+                        'problemo>=0.1.3',
                         'SimPEG',
+                        'future',
                        ],
     author = 'Brendan Smithyman',
     author_email = 'brendan@bitsmithy.net',
