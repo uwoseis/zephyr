@@ -4,7 +4,6 @@
 import os
 from distutils.core import setup
 from setuptools import find_packages
-import numpy as np
 
 CLASSIFIERS = [
 'Development Status :: 3 - Alpha',
@@ -47,6 +46,5 @@ setup(
     classifiers = CLASSIFIERS,
     platforms = ['Windows', 'Linux', 'Solaris', 'Mac OS-X', 'Unix'],
     use_2to3 = False,
-    include_dirs=[np.get_include()],
     entry_points = {'console_scripts': ['zephyr = zephyr.frontend.cli:zephyr']},
 )
