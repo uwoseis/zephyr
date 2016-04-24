@@ -1,7 +1,2 @@
-click
-future
-galoshes
-problemo
-future
-SimPEG
 -e git://github.com/bsmithyman/pygeo.git#egg=pygeo
+-e .
