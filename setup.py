@@ -33,6 +33,7 @@ setup(
                         'click',
                         'galoshes>=0.2.2',
                         'problemo>=0.1.3',
+                        'pygeo>=0.1.0',
                         'SimPEG',
                         'future',
                        ],
