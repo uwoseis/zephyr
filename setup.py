@@ -26,7 +26,7 @@ with open('README.md') as fp:
 
 setup(
     name = 'zephyr-seis',
-    version = '0.1.5',
+    version = '0.1.6',
     packages = find_packages(),
     install_requires = ['numpy>=1.7',
                         'scipy>=0.13',
