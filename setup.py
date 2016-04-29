@@ -32,7 +32,7 @@ setup(
                         'scipy>=0.13',
                         'click',
                         'galoshes>=0.2.2',
-                        'problemo>=0.1.3',
+                        'problemo>=0.2.0',
                         'pygeo>=0.1.0',
                         'SimPEG',
                         'future',

@@ -9,7 +9,7 @@ from builtins import map
 
 import copy
 from galoshes import BaseSCCache
-from problemo import DirectSolver
+from problemo import BestSolver as DirectSolver
 import numpy as np
 import scipy.sparse as sp
 from .base import BaseModelDependent
