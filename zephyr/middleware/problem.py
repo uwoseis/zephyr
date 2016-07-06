@@ -143,11 +143,11 @@ class HelmBaseProblem(SimPEG.Problem.BaseProblem, BaseModelDependent, BaseSCCach
         if mux:
             qf = self.survey.getSources()
 
-            if np.isiterable(qb):
-                qm = (sp.hstack(qFi, qBi) for qFi, qBi in zip(qf, qb))
+            if np.iterable(qb):
+                qm = (sp.hstack((qFi, qBi)) for qFi, qBi in zip(qf, qb))
                 uMux = self.system * qm
             else:
-                uMux = self.system * sp.hstack(qf, qb)
+                uMux = self.system * sp.hstack((qf, qb))
 
             g = reduce(np.add, (self.gradientScaler(ifreq) * pp((uMuxi[:,:self.survey.nsrc] * uMuxi[:,self.survey.nsrc:]).sum(axis=1)) for ifreq, uMuxi, pp in zip(list(range(self.survey.nfreq)), uMux, self.survey.postProcessors)))
 

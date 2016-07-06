@@ -7,6 +7,7 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import zip, range
 
+import types
 from galoshes import SCFilter, BaseSCCache
 import numpy as np
 from .discretization import DiscretizationWrapper
@@ -143,6 +144,11 @@ class BaseMPDist(BaseDist):
                     return nrhs.reshape((nrhs.size, 1))
                 else:
                     return nrhs
+        elif isinstance(rhs, types.GeneratorType):
+            # TODO: This is not very general
+            def getRHS(i):
+                'Get next right-hand side for multiple system sources'
+                return next(rhs)
         else:
             if rhs.ndim < 2:
                 nrhs = rhs.reshape((rhs.size, 1))
