@@ -319,7 +319,7 @@ class ViscoMultiFreq(MultiFreq, BaseModelDependent):
         criteria = value <= 0
         try:
             assert not criteria
-        except TypeError:
+        except (TypeError, ValueError):
             assert not self._any(criteria)
         self._Q = value
 
