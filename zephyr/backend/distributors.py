@@ -10,6 +10,7 @@ from builtins import zip, range
 import types
 from galoshes import SCFilter, BaseSCCache
 import numpy as np
+from distributed import Executor, LocalCluster
 from .discretization import DiscretizationWrapper
 from .interpolation import SplineGridInterpolator
 from .base import BaseModelDependent
@@ -193,6 +194,88 @@ class BaseMPDist(BaseDist):
         del self.factors
 
 
+class BaseDistributedDist(BaseDist):
+    """Distributor for Distributed clustering"""
+
+    initMap = {
+    #   Argument        Required    Rename as ...   Store as type
+        'executor':     (False,     '_executor',    None),
+    }
+
+    maskKeys = {'executor'}
+
+    @property
+    def executor(self):
+        'Returns a configured Dask executor'
+
+        if not hasattr(self, '_executor'):
+            config = {}
+            if hasattr(self, '_nWorkers'):
+                config['n_workers'] = self._nWorkers
+            lc = LocalCluster(**config)
+            self._executor = Executor(lc)
+        return self._executor
+
+    @property
+    def nWorkers(self):
+        'Returns the number of parallel workers'
+
+        return len(self.executor.ncores())
+
+    def __mul__(self, rhs):
+        '''
+        Carries out the multiplication of the composite system
+        by the right-hand-side vector(s).
+
+        Args:
+            rhs (array-like or list thereof): Source vectors
+
+        Returns:
+            u (iterator over np.ndarrays): Wavefields
+        '''
+
+        if isinstance(rhs, list):
+            def getRHS(i):
+                'Get right-hand sides for multiple system sources'
+                nrhs = rhs[i]
+                if nrhs.ndim < 2:
+                    return nrhs.reshape((nrhs.size, 1))
+                else:
+                    return nrhs
+        elif isinstance(rhs, types.GeneratorType):
+            # TODO: This is not very general
+            def getRHS(i):
+                'Get next right-hand side for multiple system sources'
+                return next(rhs)
+        else:
+            if rhs.ndim < 2:
+                nrhs = rhs.reshape((rhs.size, 1))
+            else:
+                nrhs = rhs
+            def getRHS(i):
+                'Get right-hand sides for single system sources'
+                return nrhs
+
+        plist = [self.executor.submit(sub, getRHS(i)) for i, sub in enumerate(self.subProblems)]
+        u = (self.scaleTerm*p.result() for p in plist)
+        return u
+
+    @property
+    def factors(self):
+        # What this does:
+        #   Check to see if _subProblems exists; if it doesn't, return False
+        #   If _subProblems *does* exist, check each subProblem to see if it has matrix factors.
+        #   If any subProblem has factors, return True.
+        return not ((not hasattr(self, '_subProblems')) or (not any((sp.factors for sp in self.subProblems))))
+    @factors.deleter
+    def factors(self):
+        if hasattr(self, '_subProblems'):
+            for sp in self.subProblems:
+                del sp.factors
+
+    def __del__(self):
+        del self.factors
+
 class BaseIPYDist(BaseDist):
 
     initMap = {
@@ -240,7 +323,7 @@ class BaseIPYDist(BaseDist):
         return len(self.pClient.ids)
 
 
-class MultiFreq(BaseMPDist):
+class MultiFreq(BaseDistributedDist):
     '''
     Wrapper to carry out forward-modelling using the stored
     discretization over a series of frequencies.
